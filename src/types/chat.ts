@@ -11,11 +11,15 @@ export type Theme = "light" | "dark";
 
 export type Language = "ja" | "zh" | "ko";
 
+export type View = "chat" | "settings";
+
 export interface ChatState {
   messages: Message[];
   isTyping: boolean;
   theme: Theme;
   language: Language;
+  sidebarCollapsed: boolean;
+  currentView: View;
 }
 
 export interface ChatActions {
@@ -24,6 +28,8 @@ export interface ChatActions {
   toggleTheme: () => void;
   setLanguage: (language: Language) => void;
   clearMessages: () => void;
+  toggleSidebar: () => void;
+  setView: (view: View) => void;
 }
 
 export type ChatStore = ChatState & ChatActions;

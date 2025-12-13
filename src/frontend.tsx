@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { ChatContainer } from "./features/chat/chat-container";
+import { AppLayout } from "./components/layout";
 import { useChatStore } from "./store/chat-store";
 
 function App() {
@@ -11,7 +11,7 @@ function App() {
     document.documentElement.classList.add(theme);
   }, [theme]);
 
-  return <ChatContainer />;
+  return <AppLayout />;
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
