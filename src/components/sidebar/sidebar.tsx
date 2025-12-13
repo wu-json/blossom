@@ -114,7 +114,12 @@ export function Sidebar() {
           animation: "fadeIn 0.2s ease-out",
         }}
       >
-        <nav className="flex-1 p-3 space-y-1">
+        {/* Spacer matching header height */}
+        <div
+          className="h-[53px] flex-shrink-0 border-b"
+          style={{ borderColor: "var(--border)" }}
+        />
+        <nav className="flex-1 px-3 pt-3 space-y-1">
           {navItems.map((item, index) => (
             <NavItem
               key={item.view}
