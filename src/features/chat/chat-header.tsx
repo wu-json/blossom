@@ -27,7 +27,7 @@ export function ChatHeader() {
         className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
         aria-label="Toggle sidebar"
       >
-        <MenuIcon isOpen={!sidebarCollapsed} />
+        <MenuIcon isOpen={sidebarCollapsed} />
         <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
           blossom
         </h1>
