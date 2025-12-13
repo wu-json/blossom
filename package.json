@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run css && bun --hot src/index.ts",
+    "dev": "bun run css:watch & bun --hot src/index.ts",
     "css": "bunx @tailwindcss/cli -i ./src/index.css -o ./src/output.css",
     "css:watch": "bunx @tailwindcss/cli -i ./src/index.css -o ./src/output.css --watch",
     "build": "bun run css && bun build --compile src/index.ts --outfile blossom",
