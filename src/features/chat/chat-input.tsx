@@ -31,10 +31,7 @@ export function ChatInput() {
   const hasInput = input.trim().length > 0;
 
   return (
-    <div
-      className="p-4 pb-6"
-      style={{ backgroundColor: "var(--surface)" }}
-    >
+    <div className="p-4 pb-6">
       <form
         onSubmit={handleSubmit}
         className="max-w-2xl mx-auto"
