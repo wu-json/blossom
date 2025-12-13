@@ -1,9 +1,9 @@
 import * as React from "react";
-import { Menu } from "lucide-react";
+import { MenuIcon } from "../../components/icons/menu-icon";
 import { useChatStore } from "../../store/chat-store";
 
 export function SettingsPage() {
-  const toggleSidebar = useChatStore((state) => state.toggleSidebar);
+  const { toggleSidebar, sidebarCollapsed } = useChatStore();
 
   return (
     <div
@@ -19,11 +19,10 @@ export function SettingsPage() {
       >
         <button
           onClick={toggleSidebar}
-          className="p-2 rounded-lg transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/5"
-          style={{ color: "var(--text-muted)" }}
+          className="p-2 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5 hover:scale-105 active:scale-95"
           aria-label="Toggle sidebar"
         >
-          <Menu size={20} />
+          <MenuIcon isOpen={!sidebarCollapsed} />
         </button>
         <h1
           className="text-base font-semibold"

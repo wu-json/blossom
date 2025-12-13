@@ -9,23 +9,62 @@ interface NavItemProps {
   label: string;
   isActive: boolean;
   onClick: () => void;
+  delay: number;
 }
 
-function NavItem({ icon, label, isActive, onClick }: NavItemProps) {
+function NavItem({ icon, label, isActive, onClick, delay }: NavItemProps) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-colors duration-150",
-        "hover:bg-black/5 dark:hover:bg-white/5"
+        "group relative flex items-center gap-3 w-full px-3 py-2.5 rounded-xl",
+        "transition-all duration-200 ease-out",
+        "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
       )}
       style={{
-        backgroundColor: isActive ? "var(--primary)" : "transparent",
-        color: isActive ? "white" : "var(--text-muted)",
+        animation: `slideIn 0.3s ease-out ${delay}ms both`,
       }}
     >
-      <span className="flex-shrink-0">{icon}</span>
-      <span className="text-sm font-medium truncate">{label}</span>
+      {/* Active indicator line */}
+      <div
+        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-full transition-all duration-200"
+        style={{
+          height: isActive ? "60%" : "0%",
+          backgroundColor: "var(--primary)",
+          opacity: isActive ? 1 : 0,
+        }}
+      />
+
+      {/* Soft background glow for active state */}
+      <div
+        className="absolute inset-0 rounded-xl transition-opacity duration-200"
+        style={{
+          background: isActive
+            ? "linear-gradient(90deg, rgba(236, 72, 153, 0.08) 0%, rgba(236, 72, 153, 0.02) 100%)"
+            : "transparent",
+          opacity: isActive ? 1 : 0,
+        }}
+      />
+
+      <span
+        className="relative flex-shrink-0 transition-all duration-200"
+        style={{
+          color: isActive ? "var(--primary)" : "var(--text-muted)",
+          transform: isActive ? "scale(1.05)" : "scale(1)",
+        }}
+      >
+        {icon}
+      </span>
+
+      <span
+        className="relative text-sm transition-all duration-200"
+        style={{
+          color: isActive ? "var(--text)" : "var(--text-muted)",
+          fontWeight: isActive ? 500 : 400,
+        }}
+      >
+        {label}
+      </span>
     </button>
   );
 }
@@ -34,8 +73,8 @@ export function Sidebar() {
   const { sidebarCollapsed, currentView, setView } = useChatStore();
 
   const navItems: { icon: React.ReactNode; label: string; view: View }[] = [
-    { icon: <MessageSquare size={20} />, label: "Chat", view: "chat" },
-    { icon: <Settings size={20} />, label: "Settings", view: "settings" },
+    { icon: <MessageSquare size={18} />, label: "Chat", view: "chat" },
+    { icon: <Settings size={18} />, label: "Settings", view: "settings" },
   ];
 
   if (sidebarCollapsed) {
@@ -43,25 +82,51 @@ export function Sidebar() {
   }
 
   return (
-    <aside
-      className="flex flex-col h-full border-r"
-      style={{
-        width: "200px",
-        backgroundColor: "var(--surface)",
-        borderColor: "var(--border)",
-      }}
-    >
-      <nav className="flex-1 p-2 space-y-1">
-        {navItems.map((item) => (
-          <NavItem
-            key={item.view}
-            icon={item.icon}
-            label={item.label}
-            isActive={currentView === item.view}
-            onClick={() => setView(item.view)}
-          />
-        ))}
-      </nav>
-    </aside>
+    <>
+      <style>
+        {`
+          @keyframes slideIn {
+            from {
+              opacity: 0;
+              transform: translateX(-8px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
+      <aside
+        className="flex flex-col h-full border-r"
+        style={{
+          width: "200px",
+          backgroundColor: "var(--surface)",
+          borderColor: "var(--border)",
+          animation: "fadeIn 0.2s ease-out",
+        }}
+      >
+        <nav className="flex-1 p-3 space-y-1">
+          {navItems.map((item, index) => (
+            <NavItem
+              key={item.view}
+              icon={item.icon}
+              label={item.label}
+              isActive={currentView === item.view}
+              onClick={() => setView(item.view)}
+              delay={index * 50}
+            />
+          ))}
+        </nav>
+      </aside>
+    </>
   );
 }
