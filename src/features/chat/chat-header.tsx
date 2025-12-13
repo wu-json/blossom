@@ -1,5 +1,6 @@
-import { Moon, Sun, Sparkles } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { Toggle } from "../../components/ui/toggle";
+import { BlossomIcon } from "../../components/icons/blossom-icon";
 import { useChatStore } from "../../store/chat-store";
 
 export function ChatHeader() {
@@ -15,7 +16,7 @@ export function ChatHeader() {
       }}
     >
       <div className="flex items-center gap-2">
-        <Sparkles className="w-5 h-5" style={{ color: "var(--primary)" }} />
+        <BlossomIcon className="w-5 h-5" style={{ color: "var(--primary)" }} />
         <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
           Blossom
         </h1>
