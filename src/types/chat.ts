@@ -9,16 +9,20 @@ export interface Message {
 
 export type Theme = "light" | "dark";
 
+export type Language = "ja" | "zh" | "ko";
+
 export interface ChatState {
   messages: Message[];
   isTyping: boolean;
   theme: Theme;
+  language: Language;
 }
 
 export interface ChatActions {
   addMessage: (content: string, role: MessageRole) => void;
   setTyping: (isTyping: boolean) => void;
   toggleTheme: () => void;
+  setLanguage: (language: Language) => void;
   clearMessages: () => void;
 }
 

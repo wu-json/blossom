@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ChatStore, Message, MessageRole, Theme } from "../types/chat";
+import type { ChatStore, Language, Message, MessageRole, Theme } from "../types/chat";
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -10,6 +10,7 @@ export const useChatStore = create<ChatStore>()(
       messages: [],
       isTyping: false,
       theme: "light" as Theme,
+      language: "ja" as Language,
 
       addMessage: (content: string, role: MessageRole) => {
         const newMessage: Message = {
@@ -33,13 +34,17 @@ export const useChatStore = create<ChatStore>()(
         }));
       },
 
+      setLanguage: (language: Language) => {
+        set({ language });
+      },
+
       clearMessages: () => {
         set({ messages: [] });
       },
     }),
     {
       name: "blossom-chat-storage",
-      partialize: (state) => ({ theme: state.theme }),
+      partialize: (state) => ({ theme: state.theme, language: state.language }),
     }
   )
 );
