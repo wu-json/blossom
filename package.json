@@ -4,10 +4,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run css:build && bun --hot src/index.ts",
-    "dev:css": "bunx @tailwindcss/cli -i ./src/styles/input.css -o ./src/styles/output.css --watch",
-    "css:build": "bunx @tailwindcss/cli -i ./src/styles/input.css -o ./src/styles/output.css",
-    "build": "bun run css:build && bun build --compile src/index.ts --outfile blossom",
+    "dev": "bun run css && bun --hot src/index.ts",
+    "css": "bunx @tailwindcss/cli -i ./src/index.css -o ./src/output.css",
+    "css:watch": "bunx @tailwindcss/cli -i ./src/index.css -o ./src/output.css --watch",
+    "build": "bun run css && bun build --compile src/index.ts --outfile blossom",
     "format": "oxfmt",
     "format:check": "oxfmt --check"
   },
