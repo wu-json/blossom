@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FAFAFA;
+  --background: #FFFFFF;
   --surface: #FFFFFF;
   --primary: #EC4899;
   --primary-hover: #DB2777;
@@ -10,15 +10,15 @@
   --text-muted: #71717A;
   --text-subtle: #A1A1AA;
   --border: #E4E4E7;
-  --user-bubble: #F4F4F5;
-  --user-bubble-text: #18181B;
-  --assistant-bubble: #FFFFFF;
-  --assistant-bubble-text: #18181B;
+  --user-bubble: #27272A;
+  --user-bubble-text: #FAFAFA;
+  --assistant-bubble: #3F3F46;
+  --assistant-bubble-text: #FAFAFA;
   --input-bg: #FFFFFF;
 }
 
 .dark {
-  --background: #09090B;
+  --background: #18181B;
   --surface: #18181B;
   --primary: #F472B6;
   --primary-hover: #EC4899;
@@ -31,7 +31,7 @@
   --user-bubble-text: #FAFAFA;
   --assistant-bubble: #27272A;
   --assistant-bubble-text: #FAFAFA;
-  --input-bg: #18181B;
+  --input-bg: #27272A;
 }
 
 * {
