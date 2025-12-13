@@ -13,14 +13,14 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
     "oxfmt": "^0.17.0"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.561.0",
