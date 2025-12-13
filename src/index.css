@@ -27,9 +27,9 @@
   --text-muted: #A1A1AA;
   --text-subtle: #71717A;
   --border: #27272A;
-  --user-bubble: #3F3F46;
+  --user-bubble: #09090B;
   --user-bubble-text: #FAFAFA;
-  --assistant-bubble: #27272A;
+  --assistant-bubble: #0F0F11;
   --assistant-bubble-text: #FAFAFA;
   --input-bg: #27272A;
 }
