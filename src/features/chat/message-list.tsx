@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { MessageBubble } from "./message-bubble";
 import { useChatStore } from "../../store/chat-store";
-import { MessageCircle } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 export function MessageList() {
   const messages = useChatStore((state) => state.messages);
@@ -15,19 +15,30 @@ export function MessageList() {
   if (messages.length === 0) {
     return (
       <div
-        className="flex-1 flex flex-col items-center justify-center gap-4"
+        className="flex-1 flex flex-col items-center justify-center gap-3"
         style={{ color: "var(--text-muted)" }}
       >
-        <MessageCircle className="w-16 h-16 opacity-30" />
-        <p className="text-lg">Start a conversation</p>
-        <p className="text-sm">Type a message below to begin</p>
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: "var(--primary-light)" }}
+        >
+          <Sparkles className="w-6 h-6" style={{ color: "var(--primary)" }} />
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+            Start a conversation
+          </p>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+            Type a message to begin
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <ScrollArea className="flex-1 p-4">
-      <div className="flex flex-col gap-4 max-w-3xl mx-auto">
+      <div className="flex flex-col gap-3 max-w-2xl mx-auto">
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
