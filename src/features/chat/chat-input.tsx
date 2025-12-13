@@ -1,9 +1,11 @@
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useState, useRef, type FormEvent, type KeyboardEvent } from "react";
 import { ArrowUp } from "lucide-react";
 import { useChatStore } from "../../store/chat-store";
 
 export function ChatInput() {
   const [input, setInput] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const addMessage = useChatStore((state) => state.addMessage);
 
   const handleSubmit = (e: FormEvent) => {
@@ -13,6 +15,10 @@ export function ChatInput() {
 
     addMessage(trimmed, "user");
     setInput("");
+
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -26,35 +32,36 @@ export function ChatInput() {
 
   return (
     <div
-      className="p-4"
-      style={{
-        backgroundColor: "var(--surface)",
-      }}
+      className="p-4 pb-6"
+      style={{ backgroundColor: "var(--surface)" }}
     >
       <form
         onSubmit={handleSubmit}
-        className="flex gap-2 max-w-2xl mx-auto items-end"
+        className="max-w-2xl mx-auto"
       >
-        <div className="flex-1 relative">
+        <div
+          className="relative flex items-end rounded-2xl transition-shadow duration-200"
+          style={{
+            backgroundColor: "var(--input-bg)",
+            boxShadow: isFocused
+              ? "0 0 0 2px var(--primary), 0 4px 16px rgba(0, 0, 0, 0.1)"
+              : "0 2px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border)",
+          }}
+        >
           <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             placeholder="Message..."
             rows={1}
-            className="w-full resize-none rounded-xl px-4 py-3 text-[14px] transition-all duration-150 focus-visible:outline-none min-h-[48px] max-h-[160px]"
+            className="flex-1 resize-none bg-transparent pl-4 pr-14 py-3.5 text-[14px] focus-visible:outline-none min-h-[52px] max-h-[160px] placeholder:text-[var(--text-muted)]"
             style={{
-              border: "1px solid var(--border)",
-              backgroundColor: "var(--input-bg)",
               color: "var(--text)",
               height: "auto",
               overflow: "hidden",
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = "var(--primary)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = "var(--border)";
             }}
             onInput={(e) => {
               const target = e.target as HTMLTextAreaElement;
@@ -62,18 +69,19 @@ export function ChatInput() {
               target.style.height = `${Math.min(target.scrollHeight, 160)}px`;
             }}
           />
+          <button
+            type="submit"
+            disabled={!hasInput}
+            className="absolute right-2 bottom-2 h-9 w-9 shrink-0 rounded-full flex items-center justify-center transition-all duration-150 hover:scale-105 active:scale-95 disabled:hover:scale-100"
+            style={{
+              backgroundColor: hasInput ? "var(--primary)" : "var(--border)",
+              color: hasInput ? "white" : "var(--text-muted)",
+              opacity: hasInput ? 1 : 0.6,
+            }}
+          >
+            <ArrowUp className="w-[18px] h-[18px]" strokeWidth={2.5} />
+          </button>
         </div>
-        <button
-          type="submit"
-          disabled={!hasInput}
-          className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center transition-colors duration-150 disabled:opacity-30"
-          style={{
-            backgroundColor: hasInput ? "var(--primary)" : "var(--border)",
-            color: hasInput ? "white" : "var(--text-muted)",
-          }}
-        >
-          <ArrowUp className="w-5 h-5" strokeWidth={2.5} />
-        </button>
       </form>
     </div>
   );
