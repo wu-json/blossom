@@ -1,12 +1,20 @@
 import { useState, useRef, type FormEvent, type KeyboardEvent } from "react";
 import { ArrowUp } from "lucide-react";
 import { useChatStore } from "../../store/chat-store";
+import type { Language } from "../../types/chat";
+
+const placeholders: Record<Language, string> = {
+  ja: "何でも聞いてね...",
+  zh: "想聊点什么？",
+  ko: "무엇이든 물어보세요...",
+};
 
 export function ChatInput() {
   const [input, setInput] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const addMessage = useChatStore((state) => state.addMessage);
+  const language = useChatStore((state) => state.language);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -52,7 +60,7 @@ export function ChatInput() {
             onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder="Message..."
+            placeholder={placeholders[language]}
             rows={1}
             className="flex-1 resize-none bg-transparent pl-4 pr-14 py-3.5 text-[14px] focus-visible:outline-none min-h-[52px] max-h-[160px] placeholder:text-[var(--text-muted)]"
             style={{
