@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { createRoot } from "react-dom/client";
+import "./index.css";
 import { AppLayout } from "./components/layout";
 import { useChatStore } from "./store/chat-store";
 
