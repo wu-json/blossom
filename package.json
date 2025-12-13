@@ -3,8 +3,13 @@
   "module": "src/index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "oxfmt": "^0.17.0"
   },
   "peerDependencies": {
     "typescript": "^5"
