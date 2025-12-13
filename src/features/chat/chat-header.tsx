@@ -18,7 +18,7 @@ export function ChatHeader() {
       <div className="flex items-center gap-2">
         <BlossomIcon className="w-5 h-5" style={{ color: "var(--primary)" }} />
         <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
-          Blossom
+          blossom
         </h1>
       </div>
       <Toggle pressed={isDark} onClick={toggleTheme} aria-label="Toggle theme">
