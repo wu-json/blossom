@@ -1,8 +1,17 @@
+import { useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import "./index.css";
+import { ChatContainer } from "./features/chat/chat-container";
+import { useChatStore } from "./store/chat-store";
 
 function App() {
-  return <h1 className="text-3xl font-bold text-blue-600">Hello World</h1>;
+  const theme = useChatStore((state) => state.theme);
+
+  useEffect(() => {
+    document.documentElement.classList.remove("light", "dark");
+    document.documentElement.classList.add(theme);
+  }, [theme]);
+
+  return <ChatContainer />;
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
