@@ -13,7 +13,7 @@ export function MenuIcon({ isOpen, className }: MenuIconProps) {
       viewBox="0 0 20 20"
       fill="none"
       className={className}
-      style={{ color: "var(--text-muted)" }}
+      style={{ color: "var(--primary)" }}
     >
       {/* Five petals that bloom outward when open */}
       {[0, 72, 144, 216, 288].map((rotation, i) => (

@@ -1,6 +1,5 @@
 import { Moon, Sun } from "lucide-react";
 import { Toggle } from "../../components/ui/toggle";
-import { BlossomIcon } from "../../components/icons/blossom-icon";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { useChatStore } from "../../store/chat-store";
 import type { Language } from "../../types/chat";
@@ -23,19 +22,16 @@ export function ChatHeader() {
         backgroundColor: "var(--surface)",
       }}
     >
-      <div className="flex items-center gap-2">
-        <button
-          onClick={toggleSidebar}
-          className="p-2 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5 hover:scale-105 active:scale-95"
-          aria-label="Toggle sidebar"
-        >
-          <MenuIcon isOpen={!sidebarCollapsed} />
-        </button>
-        <BlossomIcon className="w-5 h-5" style={{ color: "var(--primary)" }} />
+      <button
+        onClick={toggleSidebar}
+        className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
+        aria-label="Toggle sidebar"
+      >
+        <MenuIcon isOpen={!sidebarCollapsed} />
         <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
           blossom
         </h1>
-      </div>
+      </button>
       <div className="flex items-center gap-2">
         <select
           value={language}

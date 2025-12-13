@@ -11,7 +11,7 @@ export function SettingsPage() {
       style={{ backgroundColor: "var(--background)" }}
     >
       <header
-        className="sticky top-0 z-10 px-4 py-3 border-b flex items-center gap-3"
+        className="sticky top-0 z-10 px-4 py-3 border-b flex items-center"
         style={{
           backgroundColor: "var(--surface)",
           borderColor: "var(--border)",
@@ -19,17 +19,14 @@ export function SettingsPage() {
       >
         <button
           onClick={toggleSidebar}
-          className="p-2 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5 hover:scale-105 active:scale-95"
+          className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
           aria-label="Toggle sidebar"
         >
           <MenuIcon isOpen={!sidebarCollapsed} />
+          <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
+            blossom
+          </h1>
         </button>
-        <h1
-          className="text-base font-semibold"
-          style={{ color: "var(--text)" }}
-        >
-          Settings
-        </h1>
       </header>
 
       <main className="flex-1 overflow-auto p-6">
