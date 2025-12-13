@@ -41,7 +41,7 @@ export function ChatInput() {
           style={{
             backgroundColor: "var(--input-bg)",
             boxShadow: isFocused
-              ? "0 0 0 2px var(--primary), 0 4px 16px rgba(0, 0, 0, 0.1)"
+              ? "0 0 0 1px var(--border), 0 4px 16px rgba(0, 0, 0, 0.12)"
               : "0 2px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border)",
           }}
         >
