@@ -15,12 +15,13 @@ export function ChatInput() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const isTyping = useChatStore((state) => state.isTyping);
+  const apiKeyConfigured = useChatStore((state) => state.apiKeyConfigured);
   const language = useChatStore((state) => state.language);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || isTyping) return;
+    if (!trimmed || isTyping || apiKeyConfigured === false) return;
 
     sendMessage(trimmed);
     setInput("");
@@ -38,7 +39,7 @@ export function ChatInput() {
   };
 
   const hasInput = input.trim().length > 0;
-  const canSend = hasInput && !isTyping;
+  const canSend = hasInput && !isTyping && apiKeyConfigured !== false;
 
   return (
     <div className="p-4 pb-6">
