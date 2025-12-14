@@ -33,7 +33,12 @@ export function MessageList() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Delay scroll to allow typing indicator and images to render,
+    // otherwise scroll completes before content is visible
+    const timeout = setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 250);
+    return () => clearTimeout(timeout);
   }, [messages]);
 
   if (messages.length === 0) {

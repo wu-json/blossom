@@ -307,6 +307,7 @@ export const useChatStore = create<ChatStore>()(
 
         set((state) => ({
           messages: [...state.messages, userMessage, assistantMessage],
+          isTyping: true,
         }));
 
         // Save user message to database
@@ -315,8 +316,6 @@ export const useChatStore = create<ChatStore>()(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ role: "user", content, images }),
         });
-
-        setTyping(true);
 
         // Check if this is the first message (for title generation later)
         const isFirstMessage = messages.length === 0;
