@@ -1,5 +1,5 @@
-- [ ] sidebar should be in the language that is set
-- [ ] choose blossom directory
+- [x] sidebar should be in the language that is set
+- [ ] choose blossom directory; keep self hosting in mind
 - [ ] api key
 - [ ] upload images
 - [ ] youtube translation; play the video in a webview or something
