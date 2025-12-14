@@ -27,7 +27,23 @@ const server = Bun.serve({
           })),
         });
 
-        return new Response(stream.toReadableStream(), {
+        const encoder = new TextEncoder();
+        const readable = new ReadableStream({
+          async start(controller) {
+            try {
+              for await (const event of stream) {
+                const data = `data: ${JSON.stringify(event)}\n\n`;
+                controller.enqueue(encoder.encode(data));
+              }
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+            } catch (error) {
+              controller.error(error);
+            }
+          },
+        });
+
+        return new Response(readable, {
           headers: {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
