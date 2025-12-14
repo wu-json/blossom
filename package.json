@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:binary": "vite build && bun build --compile server.ts --outfile blossom",
+    "build:binary": "vite build && bun build --compile server.ts --public-dir=dist --outfile blossom",
     "preview": "vite preview",
     "start": "bun server.ts",
     "format": "oxfmt",
