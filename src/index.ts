@@ -8,6 +8,21 @@ import {
   updateConversationTimestamp,
 } from "./db/conversations";
 import { createMessage, getMessagesByConversationId, updateMessageContent } from "./db/messages";
+import {
+  getTeacherSettings,
+  updateTeacherName,
+  updateTeacherProfileImage,
+} from "./db/teacher";
+import { mkdir, unlink } from "node:fs/promises";
+
+// Ensure uploads directory exists
+await mkdir("./uploads", { recursive: true });
+
+const languageNames: Record<string, string> = {
+  ja: "Japanese",
+  zh: "Chinese",
+  ko: "Korean",
+};
 
 const server = Bun.serve({
   routes: {
@@ -98,6 +113,85 @@ const server = Bun.serve({
         return Response.json(message);
       },
     },
+    "/api/teacher": {
+      GET: () => {
+        const settings = getTeacherSettings();
+        return Response.json({
+          name: settings.name,
+          profileImagePath: settings.profile_image_path,
+        });
+      },
+      PUT: async (req) => {
+        const { name } = await req.json();
+        if (!name || typeof name !== "string") {
+          return Response.json({ error: "Name is required" }, { status: 400 });
+        }
+        updateTeacherName(name.trim());
+        return Response.json({ success: true });
+      },
+    },
+    "/api/teacher/image": {
+      POST: async (req) => {
+        const formData = await req.formData();
+        const file = formData.get("image") as File | null;
+
+        if (!file) {
+          return Response.json({ error: "No image provided" }, { status: 400 });
+        }
+
+        const validTypes = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+        if (!validTypes.includes(file.type)) {
+          return Response.json({ error: "Invalid image type" }, { status: 400 });
+        }
+
+        // Delete old image if exists
+        const currentSettings = getTeacherSettings();
+        if (currentSettings.profile_image_path) {
+          try {
+            await unlink(currentSettings.profile_image_path);
+          } catch {
+            // Ignore if file doesn't exist
+          }
+        }
+
+        // Generate unique filename
+        const ext = file.name.split(".").pop() || "png";
+        const filename = `teacher-profile-${Date.now()}.${ext}`;
+        const filepath = `./uploads/${filename}`;
+
+        // Save file
+        await Bun.write(filepath, file);
+        updateTeacherProfileImage(filepath);
+
+        return Response.json({ path: `/uploads/${filename}` });
+      },
+      DELETE: async () => {
+        const settings = getTeacherSettings();
+        if (settings.profile_image_path) {
+          try {
+            await unlink(settings.profile_image_path);
+          } catch {
+            // Ignore if file doesn't exist
+          }
+        }
+        updateTeacherProfileImage(null);
+        return Response.json({ success: true });
+      },
+    },
+    "/uploads/:filename": {
+      GET: async (req) => {
+        const filename = req.params.filename;
+        // Prevent path traversal
+        if (filename.includes("..") || filename.includes("/")) {
+          return new Response("Not found", { status: 404 });
+        }
+        const file = Bun.file(`./uploads/${filename}`);
+        if (await file.exists()) {
+          return new Response(file);
+        }
+        return new Response("Not found", { status: 404 });
+      },
+    },
     "/api/chat": {
       POST: async (req) => {
         const apiKey = Bun.env.ANTHROPIC_API_KEY;
@@ -105,13 +199,17 @@ const server = Bun.serve({
           return Response.json({ error: "API key not configured" }, { status: 401 });
         }
 
-        const { messages } = await req.json();
+        const { messages, language } = await req.json();
+        const teacherSettings = getTeacherSettings();
+        const languageName = languageNames[language] || "Japanese";
+        const systemPrompt = `You are ${teacherSettings.name}, a warm and encouraging ${languageName} language learning assistant. Be patient, explain concepts clearly with examples, correct mistakes gently, and celebrate progress.`;
 
         const anthropic = new Anthropic({ apiKey });
 
         const stream = anthropic.messages.stream({
           model: "claude-sonnet-4-20250514",
           max_tokens: 4096,
+          system: systemPrompt,
           messages: messages.map((m: { role: string; content: string }) => ({
             role: m.role,
             content: m.content,

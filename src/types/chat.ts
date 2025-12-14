@@ -18,7 +18,12 @@ export type Theme = "light" | "dark";
 
 export type Language = "ja" | "zh" | "ko";
 
-export type View = "chat" | "settings";
+export type View = "chat" | "settings" | "teacher";
+
+export interface TeacherSettings {
+  name: string;
+  profileImagePath: string | null;
+}
 
 export interface ChatState {
   messages: Message[];
@@ -30,6 +35,7 @@ export interface ChatState {
   apiKeyConfigured: boolean | null;
   currentConversationId: string | null;
   conversations: Conversation[];
+  teacherSettings: TeacherSettings | null;
 }
 
 export interface ChatActions {
@@ -47,6 +53,10 @@ export interface ChatActions {
   createConversation: () => Promise<string>;
   selectConversation: (id: string) => Promise<void>;
   startNewChat: () => void;
+  loadTeacherSettings: () => Promise<void>;
+  updateTeacherName: (name: string) => Promise<void>;
+  uploadTeacherImage: (file: File) => Promise<void>;
+  removeTeacherImage: () => Promise<void>;
 }
 
 export type ChatStore = ChatState & ChatActions;

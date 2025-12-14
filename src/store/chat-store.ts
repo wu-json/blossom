@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ChatStore, Conversation, Language, Message, MessageRole, Theme, View } from "../types/chat";
+import type { ChatStore, Conversation, Language, Message, MessageRole, TeacherSettings, Theme, View } from "../types/chat";
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -16,6 +16,7 @@ export const useChatStore = create<ChatStore>()(
       apiKeyConfigured: null,
       currentConversationId: null,
       conversations: [],
+      teacherSettings: null,
 
       addMessage: (content: string, role: MessageRole) => {
         const newMessage: Message = {
@@ -146,8 +147,72 @@ export const useChatStore = create<ChatStore>()(
         });
       },
 
+      loadTeacherSettings: async () => {
+        try {
+          const response = await fetch("/api/teacher");
+          const data = await response.json();
+          set({
+            teacherSettings: {
+              name: data.name,
+              profileImagePath: data.profileImagePath,
+            },
+          });
+        } catch {
+          console.error("Failed to load teacher settings");
+        }
+      },
+
+      updateTeacherName: async (name: string) => {
+        try {
+          await fetch("/api/teacher", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name }),
+          });
+          set((state) => ({
+            teacherSettings: state.teacherSettings
+              ? { ...state.teacherSettings, name }
+              : { name, profileImagePath: null },
+          }));
+        } catch {
+          console.error("Failed to update teacher name");
+        }
+      },
+
+      uploadTeacherImage: async (file: File) => {
+        try {
+          const formData = new FormData();
+          formData.append("image", file);
+          const response = await fetch("/api/teacher/image", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
+          set((state) => ({
+            teacherSettings: state.teacherSettings
+              ? { ...state.teacherSettings, profileImagePath: data.path }
+              : { name: "Blossom", profileImagePath: data.path },
+          }));
+        } catch {
+          console.error("Failed to upload teacher image");
+        }
+      },
+
+      removeTeacherImage: async () => {
+        try {
+          await fetch("/api/teacher/image", { method: "DELETE" });
+          set((state) => ({
+            teacherSettings: state.teacherSettings
+              ? { ...state.teacherSettings, profileImagePath: null }
+              : null,
+          }));
+        } catch {
+          console.error("Failed to remove teacher image");
+        }
+      },
+
       sendMessage: async (content: string) => {
-        const { messages, updateMessage, setTyping, createConversation, loadConversations } = get();
+        const { messages, updateMessage, setTyping, createConversation, loadConversations, language } = get();
         let { currentConversationId } = get();
 
         // Create conversation if none exists
@@ -200,6 +265,7 @@ export const useChatStore = create<ChatStore>()(
                 role: m.role,
                 content: m.content,
               })),
+              language,
             }),
           });
 

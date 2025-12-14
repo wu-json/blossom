@@ -1,13 +1,13 @@
 import * as React from "react";
-import { MessageSquare, Settings, Plus } from "lucide-react";
+import { MessageSquare, Settings, Plus, GraduationCap } from "lucide-react";
 import { useChatStore } from "../../store/chat-store";
 import type { Conversation, Language, View } from "../../types/chat";
 import { cn } from "../../lib/utils";
 
-const translations: Record<Language, { chat: string; settings: string; newChat: string; conversations: string }> = {
-  ja: { chat: "チャット", settings: "設定", newChat: "新しいチャット", conversations: "履歴" },
-  zh: { chat: "聊天", settings: "设置", newChat: "新聊天", conversations: "历史" },
-  ko: { chat: "채팅", settings: "설정", newChat: "새 채팅", conversations: "기록" },
+const translations: Record<Language, { chat: string; settings: string; teacher: string; newChat: string; conversations: string }> = {
+  ja: { chat: "チャット", settings: "設定", teacher: "先生", newChat: "新しいチャット", conversations: "履歴" },
+  zh: { chat: "聊天", settings: "设置", teacher: "老师", newChat: "新聊天", conversations: "历史" },
+  ko: { chat: "채팅", settings: "설정", teacher: "선생님", newChat: "새 채팅", conversations: "기록" },
 };
 
 interface NavItemProps {
@@ -131,6 +131,7 @@ export function Sidebar() {
 
   const navItems: { icon: React.ReactNode; label: string; view: View }[] = [
     { icon: <MessageSquare size={18} />, label: t.chat, view: "chat" },
+    { icon: <GraduationCap size={18} />, label: t.teacher, view: "teacher" },
     { icon: <Settings size={18} />, label: t.settings, view: "settings" },
   ];
 

@@ -8,6 +8,7 @@ function App() {
   const theme = useChatStore((state) => state.theme);
   const loadConversations = useChatStore((state) => state.loadConversations);
   const checkApiKeyStatus = useChatStore((state) => state.checkApiKeyStatus);
+  const loadTeacherSettings = useChatStore((state) => state.loadTeacherSettings);
 
   useEffect(() => {
     document.documentElement.classList.remove("light", "dark");
@@ -17,7 +18,8 @@ function App() {
   useEffect(() => {
     loadConversations();
     checkApiKeyStatus();
-  }, [loadConversations, checkApiKeyStatus]);
+    loadTeacherSettings();
+  }, [loadConversations, checkApiKeyStatus, loadTeacherSettings]);
 
   return <AppLayout />;
 }

@@ -32,4 +32,14 @@ db.run(`
   ON messages(conversation_id)
 `);
 
+// Create teacher settings table (singleton pattern - only one row)
+db.run(`
+  CREATE TABLE IF NOT EXISTS teacher_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    name TEXT NOT NULL DEFAULT 'Blossom',
+    profile_image_path TEXT,
+    updated_at INTEGER NOT NULL
+  )
+`);
+
 export { db };
