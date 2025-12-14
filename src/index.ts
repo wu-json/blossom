@@ -87,12 +87,25 @@ const server = Bun.serve({
           return Response.json({ error: "No messages in conversation" }, { status: 400 });
         }
 
-        // Generate title using Haiku
+        // Generate title using Haiku with full conversation context
         const anthropic = new Anthropic({ apiKey });
-        const summary = messages.slice(0, 4).map(m => `${m.role}: ${m.content}`).join("\n");
+
+        // Transform and compact messages
+        const transformedMessages = messages.map(m => ({
+          role: m.role,
+          content: m.content || "",
+        }));
+        const { messages: compactedMessages } = compactMessages("", transformedMessages);
+
+        // Build summary from compacted messages
+        const summary = compactedMessages.map(m => {
+          const text = typeof m.content === "string" ? m.content :
+            m.content.filter((b): b is { type: "text"; text: string } => b.type === "text").map(b => b.text).join(" ");
+          return `${m.role}: ${text}`;
+        }).join("\n");
 
         const response = await anthropic.messages.create({
-          model: "claude-3-5-haiku-latest",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 50,
           messages: [
             {

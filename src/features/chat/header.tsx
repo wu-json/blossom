@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Moon, Sun, AlertTriangle, ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { Moon, Sun, AlertTriangle, ChevronDown, Pencil, Trash2, RefreshCw } from "lucide-react";
 import { Toggle } from "../../components/ui/toggle";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { useChatStore } from "../../store/chat-store";
@@ -27,6 +27,7 @@ export function Header() {
     currentView,
     renameConversation,
     deleteConversation,
+    loadConversations,
   } = useChatStore();
   const isDark = theme === "dark";
 
@@ -116,6 +117,16 @@ export function Header() {
 
   const cancelDelete = () => {
     setShowDeleteConfirm(false);
+  };
+
+  const handleRegenerateTitle = async () => {
+    if (currentConversationId) {
+      await fetch(`/api/conversations/${currentConversationId}/title`, {
+        method: "POST",
+      });
+      await loadConversations();
+    }
+    setIsDropdownOpen(false);
   };
 
   return (
@@ -219,6 +230,14 @@ export function Header() {
                 >
                   <Pencil className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
                   Rename
+                </button>
+                <button
+                  onClick={handleRegenerateTitle}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                  style={{ color: "var(--text)" }}
+                >
+                  <RefreshCw className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                  Regenerate title
                 </button>
                 <button
                   onClick={handleDeleteClick}
