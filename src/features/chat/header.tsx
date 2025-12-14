@@ -35,6 +35,7 @@ export function Header() {
   const [renameValue, setRenameValue] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const currentConversation = currentConversationId
     ? conversations.find((c) => c.id === currentConversationId)
@@ -65,6 +66,19 @@ export function Header() {
     }
   }, [isRenaming]);
 
+  // Handle escape key for delete confirmation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && showDeleteConfirm) {
+        setShowDeleteConfirm(false);
+      }
+    };
+    if (showDeleteConfirm) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showDeleteConfirm]);
+
   const handleRenameClick = () => {
     if (currentConversation) {
       setRenameValue(currentConversation.title);
@@ -88,11 +102,20 @@ export function Header() {
     }
   };
 
-  const handleDeleteClick = async () => {
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+    setIsDropdownOpen(false);
+  };
+
+  const confirmDelete = async () => {
     if (currentConversationId) {
       await deleteConversation(currentConversationId);
     }
-    setIsDropdownOpen(false);
+    setShowDeleteConfirm(false);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
   };
 
   return (
@@ -238,6 +261,61 @@ export function Header() {
           )}
         </Toggle>
       </div>
+
+      {/* Delete confirmation dialog */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+          }}
+          onClick={cancelDelete}
+        >
+          <div
+            className="p-6 rounded-xl shadow-xl"
+            style={{
+              backgroundColor: "var(--surface)",
+              border: "1px solid var(--border)",
+              width: "320px",
+              animation: "fadeIn 150ms ease-out",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              className="text-base font-semibold mb-2"
+              style={{ color: "var(--text)" }}
+            >
+              Delete conversation?
+            </h3>
+            <p
+              className="text-sm mb-6 truncate"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {currentConversation?.title}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90"
+                style={{
+                  backgroundColor: "#EF4444",
+                  color: "white",
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

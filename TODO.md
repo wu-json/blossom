@@ -1,6 +1,7 @@
 - [ ] sidebar should be in the language that is set
 - [ ] upload images
 - [ ] youtube translation; play the video in a webview or something
+- [ ] keyboard shortcuts
 - [ ] sqlite to store conversations
 - [ ] compaction
 - [ ] delete all data option in settings; and export data option
