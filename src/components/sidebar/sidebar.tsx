@@ -83,9 +83,11 @@ interface ConversationItemProps {
 }
 
 function ConversationItem({ conversation, isActive, onClick }: ConversationItemProps) {
-  const [showTooltip, setShowTooltip] = React.useState(false);
+  const [isHovered, setIsHovered] = React.useState(false);
   const [isTruncated, setIsTruncated] = React.useState(false);
+  const [expandedPos, setExpandedPos] = React.useState({ top: 0, left: 0 });
   const textRef = React.useRef<HTMLSpanElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
 
   React.useEffect(() => {
     const el = textRef.current;
@@ -94,56 +96,72 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
     }
   }, [conversation.title]);
 
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setExpandedPos({ top: rect.top, left: rect.left });
+    }
+  };
+
+  const showExpanded = isHovered && isTruncated;
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => isTruncated && setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-      className={cn(
-        "group relative flex items-center w-full px-3 py-2 rounded-lg text-left",
-        "transition-all duration-200 ease-out",
-        "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
-      )}
-    >
-      {/* Active indicator */}
-      <div
-        className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] rounded-full transition-all duration-200"
-        style={{
-          height: isActive ? "50%" : "0%",
-          backgroundColor: "var(--primary)",
-          opacity: isActive ? 1 : 0,
-        }}
-      />
-
-      <span
-        ref={textRef}
-        className="text-sm truncate"
-        style={{
-          color: isActive ? "var(--text)" : "var(--text-muted)",
-          fontWeight: isActive ? 500 : 400,
-        }}
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={onClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setIsHovered(false)}
+        className={cn(
+          "group relative flex items-center w-full px-3 py-2 rounded-lg text-left",
+          "transition-all duration-200 ease-out",
+          "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
+        )}
       >
-        {conversation.title}
-      </span>
-
-      {/* Tooltip */}
-      {showTooltip && (
+        {/* Active indicator */}
         <div
-          className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-2 rounded-lg shadow-lg z-50 text-sm whitespace-nowrap"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] rounded-full transition-all duration-200"
           style={{
-            backgroundColor: "var(--surface)",
-            border: "1px solid var(--border)",
+            height: isActive ? "50%" : "0%",
+            backgroundColor: "var(--primary)",
+            opacity: isActive ? 1 : 0,
+          }}
+        />
+
+        {/* Regular truncated title */}
+        <span
+          ref={textRef}
+          className="text-sm truncate"
+          style={{
+            color: isActive ? "var(--text)" : "var(--text-muted)",
+            fontWeight: isActive ? 500 : 400,
+          }}
+        >
+          {conversation.title}
+        </span>
+      </button>
+
+      {/* Expanded title on hover - fixed position to escape overflow */}
+      {showExpanded && (
+        <div
+          className="fixed text-sm whitespace-nowrap px-3 py-2 rounded-lg pointer-events-none"
+          style={{
+            top: expandedPos.top,
+            left: expandedPos.left,
             color: "var(--text)",
-            maxWidth: "300px",
-            whiteSpace: "normal",
-            wordBreak: "break-word",
+            fontWeight: isActive ? 500 : 400,
+            backgroundColor: "var(--surface)",
+            boxShadow: "0 2px 12px rgba(0, 0, 0, 0.12)",
+            border: "1px solid var(--border)",
+            zIndex: 9999,
           }}
         >
           {conversation.title}
         </div>
       )}
-    </button>
+    </>
   );
 }
 
