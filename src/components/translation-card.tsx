@@ -45,9 +45,9 @@ export function TranslationCard({ data }: TranslationCardProps) {
       {/* Word Breakdown */}
       <div>
         <div className="text-xs font-medium opacity-50 mb-2">Breakdown</div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           {data.breakdown.map((item, idx) => (
-            <WordRow key={idx} item={item} />
+            <WordRow key={idx} item={item} isEven={idx % 2 === 0} />
           ))}
         </div>
       </div>
@@ -72,24 +72,29 @@ export function TranslationCard({ data }: TranslationCardProps) {
 
 interface WordRowProps {
   item: WordBreakdown;
+  isEven: boolean;
 }
 
-function WordRow({ item }: WordRowProps) {
+function WordRow({ item, isEven }: WordRowProps) {
   const color = getPosColor(item.partOfSpeech);
 
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2 rounded-lg"
-      style={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}
+      className="flex items-center gap-3 px-3 py-2 rounded-md"
+      style={{
+        backgroundColor: isEven
+          ? "rgba(255, 255, 255, 0.03)"
+          : "rgba(255, 255, 255, 0.06)",
+      }}
     >
-      <div className="min-w-[60px]">
-        <div className="font-medium">{item.word}</div>
-        <div className="text-xs opacity-60">{item.reading}</div>
+      <div className="w-[90px] flex-shrink-0">
+        <div className="font-medium leading-tight">{item.word}</div>
+        <div className="text-[11px] opacity-50 leading-tight">{item.reading}</div>
       </div>
-      <div className="flex-1 text-sm opacity-90">{item.meaning}</div>
+      <div className="flex-1 text-sm opacity-85">{item.meaning}</div>
       <div
-        className="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
-        style={{ backgroundColor: `${color}25`, color }}
+        className="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap min-w-[60px] text-center"
+        style={{ backgroundColor: `${color}20`, color }}
       >
         {item.partOfSpeech}
       </div>
