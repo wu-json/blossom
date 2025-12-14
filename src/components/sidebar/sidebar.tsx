@@ -115,10 +115,7 @@ export function Sidebar() {
         }}
       >
         {/* Spacer matching header height */}
-        <div
-          className="h-[53px] flex-shrink-0 border-b"
-          style={{ borderColor: "var(--border)" }}
-        />
+        <div className="h-[53px] flex-shrink-0" />
         <nav className="flex-1 px-3 pt-3 space-y-1">
           {navItems.map((item, index) => (
             <NavItem
