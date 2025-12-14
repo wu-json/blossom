@@ -18,6 +18,8 @@ import {
   createPetal,
   getPetalById,
   getPetalsByWordAndLanguage,
+  getPetalsByConversationId,
+  petalExists,
   deletePetal,
   getFlowersByLanguage,
 } from "./db/petals";
@@ -472,6 +474,11 @@ const server = Bun.serve({
           return Response.json({ error: "Missing required fields" }, { status: 400 });
         }
 
+        // Check for duplicate (same word in same message)
+        if (petalExists(messageId, word)) {
+          return Response.json({ error: "Petal already exists", duplicate: true }, { status: 409 });
+        }
+
         const petal = createPetal(
           word,
           reading || "",
@@ -512,6 +519,13 @@ const server = Bun.serve({
         }
         deletePetal(id);
         return Response.json({ success: true });
+      },
+    },
+    "/api/petals/conversation/:conversationId": {
+      GET: (req) => {
+        const conversationId = req.params.conversationId;
+        const petals = getPetalsByConversationId(conversationId);
+        return Response.json(petals);
       },
     },
     "/api/chat": {

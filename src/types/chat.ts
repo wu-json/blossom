@@ -67,6 +67,7 @@ export interface ChatState {
   flowers: Flower[];
   selectedFlower: string | null;
   flowerPetals: Petal[];
+  savedPetalWords: Record<string, string[]>; // messageId -> array of saved word strings
 }
 
 export interface ChatActions {

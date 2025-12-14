@@ -23,6 +23,7 @@ export const useChatStore = create<ChatStore>()(
       flowers: [],
       selectedFlower: null,
       flowerPetals: [],
+      savedPetalWords: {},
 
       addMessage: (content: string, role: MessageRole) => {
         const newMessage: Message = {
@@ -131,8 +132,14 @@ export const useChatStore = create<ChatStore>()(
 
       selectConversation: async (id: string) => {
         try {
-          const response = await fetch(`/api/conversations/${id}`);
-          const data = await response.json();
+          // Fetch conversation and saved petals in parallel
+          const [conversationResponse, petalsResponse] = await Promise.all([
+            fetch(`/api/conversations/${id}`),
+            fetch(`/api/petals/conversation/${id}`),
+          ]);
+          const data = await conversationResponse.json();
+          const petalsData = await petalsResponse.json();
+
           const messages: Message[] = data.messages.map((m: { id: string; role: string; content: string; timestamp: number; images: string | null }) => ({
             id: m.id,
             role: m.role as MessageRole,
@@ -140,9 +147,21 @@ export const useChatStore = create<ChatStore>()(
             timestamp: new Date(m.timestamp),
             images: m.images ? JSON.parse(m.images) : undefined,
           }));
+
+          // Build savedPetalWords from petals data
+          const savedPetalWords: Record<string, string[]> = {};
+          for (const petal of petalsData) {
+            const messageId = petal.message_id;
+            if (!savedPetalWords[messageId]) {
+              savedPetalWords[messageId] = [];
+            }
+            savedPetalWords[messageId].push(petal.word);
+          }
+
           set({
             currentConversationId: id,
             messages,
+            savedPetalWords,
             currentView: "chat" as View,
           });
         } catch {
@@ -154,6 +173,7 @@ export const useChatStore = create<ChatStore>()(
         set({
           currentConversationId: null,
           messages: [],
+          savedPetalWords: {},
           currentView: "chat" as View,
         });
       },
@@ -367,7 +387,7 @@ export const useChatStore = create<ChatStore>()(
       savePetal: async (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]) => {
         const { language, loadFlowers } = get();
         try {
-          await fetch("/api/petals", {
+          const response = await fetch("/api/petals", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -382,6 +402,19 @@ export const useChatStore = create<ChatStore>()(
               userImages,
             }),
           });
+          const data = await response.json();
+          if (data.id) {
+            // Successfully saved - update local savedPetalWords
+            set((state) => {
+              const existing = state.savedPetalWords[messageId] || [];
+              return {
+                savedPetalWords: {
+                  ...state.savedPetalWords,
+                  [messageId]: [...existing, word.word],
+                },
+              };
+            });
+          }
           await loadFlowers();
         } catch {
           console.error("Failed to save petal");

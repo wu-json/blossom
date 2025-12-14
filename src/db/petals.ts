@@ -94,3 +94,16 @@ export function getFlowersByLanguage(language: string): FlowerData[] {
      ORDER BY MAX(created_at) DESC`
   ).all(language, language, language) as FlowerData[];
 }
+
+export function getPetalsByConversationId(conversationId: string): PetalRow[] {
+  return db.query<PetalRow, [string]>(
+    "SELECT * FROM petals WHERE conversation_id = ?"
+  ).all(conversationId) as PetalRow[];
+}
+
+export function petalExists(messageId: string, word: string): boolean {
+  const result = db.query<{ count: number }, [string, string]>(
+    "SELECT COUNT(*) as count FROM petals WHERE message_id = ? AND word = ?"
+  ).get(messageId, word);
+  return (result?.count ?? 0) > 0;
+}

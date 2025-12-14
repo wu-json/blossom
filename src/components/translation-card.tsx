@@ -10,6 +10,7 @@ import type {
 interface TranslationCardProps {
   data: TranslationData;
   onSaveWord?: (word: WordBreakdown) => void;
+  savedWords?: string[];
 }
 
 const posColors: Record<string, string> = {
@@ -30,7 +31,7 @@ function getPosColor(partOfSpeech: string): string {
   return "#6B7280";
 }
 
-export function TranslationCard({ data, onSaveWord }: TranslationCardProps) {
+export function TranslationCard({ data, onSaveWord, savedWords = [] }: TranslationCardProps) {
   return (
     <div className="space-y-3">
       {/* Original Text with Subtext */}
@@ -60,6 +61,7 @@ export function TranslationCard({ data, onSaveWord }: TranslationCardProps) {
               item={item}
               isEven={idx % 2 === 0}
               onSave={onSaveWord ? () => onSaveWord(item) : undefined}
+              initialSaved={savedWords.includes(item.word)}
             />
           ))}
         </div>
@@ -87,31 +89,34 @@ interface WordRowProps {
   item: WordBreakdown;
   isEven: boolean;
   onSave?: () => void;
+  initialSaved?: boolean;
 }
 
-function WordRow({ item, isEven, onSave }: WordRowProps) {
+function WordRow({ item, isEven, onSave, initialSaved = false }: WordRowProps) {
   const color = getPosColor(item.partOfSpeech);
-  const [isSaved, setIsSaved] = useState(false);
+  const [isSaved, setIsSaved] = useState(initialSaved);
   const [isHovered, setIsHovered] = useState(false);
 
+  // If already saved (persisted), don't allow saving again
+  const canSave = onSave && !initialSaved;
+
   const handleClick = () => {
-    if (onSave && !isSaved) {
+    if (canSave && !isSaved) {
       onSave();
       setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 2000);
     }
   };
 
   return (
     <div
-      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${onSave ? "cursor-pointer hover:scale-[1.01]" : ""}`}
+      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${canSave ? "cursor-pointer hover:scale-[1.01]" : ""}`}
       style={{
-        backgroundColor: isHovered && onSave
+        backgroundColor: isHovered && canSave
           ? "rgba(255, 255, 255, 0.15)"
           : isEven
             ? "rgba(255, 255, 255, 0.03)"
             : "rgba(255, 255, 255, 0.06)",
-        boxShadow: isHovered && onSave ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
+        boxShadow: isHovered && canSave ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
       }}
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
@@ -133,7 +138,7 @@ function WordRow({ item, isEven, onSave }: WordRowProps) {
           className="flex-shrink-0 transition-opacity duration-150"
           style={{
             color: isSaved ? "#22c55e" : "var(--primary)",
-            opacity: isSaved || isHovered ? 1 : 0,
+            opacity: initialSaved || isSaved || isHovered ? 1 : 0,
           }}
         >
           {isSaved ? <Check size={16} /> : <Plus size={16} />}
