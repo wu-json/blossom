@@ -30,16 +30,19 @@ const emptyStateContent: Record<Language, {
 export function MessageList() {
   const messages = useChatStore((state) => state.messages);
   const language = useChatStore((state) => state.language);
+  const isTyping = useChatStore((state) => state.isTyping);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Delay scroll to allow typing indicator and images to render,
-    // otherwise scroll completes before content is visible
+    // During streaming, use instant scroll with shorter delay to keep up with content growth
+    // After streaming, use smooth scroll for better UX
     const timeout = setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 250);
+      bottomRef.current?.scrollIntoView({
+        behavior: isTyping ? "instant" : "smooth",
+      });
+    }, isTyping ? 50 : 250);
     return () => clearTimeout(timeout);
-  }, [messages]);
+  }, [messages, isTyping]);
 
   if (messages.length === 0) {
     const { icon: FlowerIcon, title, subtitle } = emptyStateContent[language];
