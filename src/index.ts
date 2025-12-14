@@ -185,7 +185,7 @@ const server = Bun.serve({
         // Add the title generation instruction as the final user message
         titleMessages.push({
           role: "user",
-          content: `Based on this conversation, generate a short, concise title (max 5 words) in ${languageName}. Return ONLY the title, no quotes or punctuation.`,
+          content: `Based on this conversation, generate a short, concise title (max 5 words) in ${languageName}. Focus primarily on the most recent messages to capture the current topic. Return ONLY the title, no quotes or punctuation.`,
         });
 
         const response = await anthropic.messages.create({
