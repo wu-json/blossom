@@ -6,11 +6,14 @@ import { Markdown } from "../../components/markdown";
 import {
   TranslationCard,
   TranslationSkeleton,
+  StreamingTranslationCard,
 } from "../../components/translation-card";
 import {
   parseTranslationContent,
   hasTranslationMarkers,
+  parseStreamingTranslation,
 } from "../../lib/parse-translation";
+import type { PartialTranslationData } from "../../types/translation";
 import type { Message } from "../../types/chat";
 import type { ParsedContent } from "../../types/translation";
 
@@ -31,13 +34,34 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
 
     if (isStreaming) {
       const markers = hasTranslationMarkers(displayedContent);
-      // Show skeleton if we're starting to type the marker or have started but not finished
-      if (markers.isStarting || (markers.hasStart && !markers.hasEnd)) {
+
+      // Show skeleton if we're starting to type the marker
+      if (markers.isStarting) {
+        return { type: "streaming-translation", data: null };
+      }
+
+      // If we have the start marker, try to parse partial content
+      if (markers.hasStart && !markers.hasEnd) {
+        const partialData = parseStreamingTranslation(displayedContent);
+        if (partialData && hasAnyContent(partialData)) {
+          return { type: "streaming-partial", data: partialData };
+        }
+        // Fall back to skeleton if no parseable content yet
         return { type: "streaming-translation", data: null };
       }
     }
     return parseTranslationContent(displayedContent);
   }, [displayedContent, isStreaming, isUser]);
+
+  function hasAnyContent(data: PartialTranslationData): boolean {
+    return !!(
+      data.originalText ||
+      data.subtext ||
+      data.translation ||
+      (data.breakdown && data.breakdown.length > 0) ||
+      data.grammarNotes
+    );
+  }
 
   const showAvatar = !isUser && teacherSettings?.profileImagePath;
 
@@ -125,12 +149,14 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
                 <p className="whitespace-pre-wrap break-words">{displayedContent}</p>
               ) : parsed.type === "streaming-translation" ? (
                 <TranslationSkeleton />
+              ) : parsed.type === "streaming-partial" ? (
+                <StreamingTranslationCard data={parsed.data} />
               ) : parsed.type === "translation" ? (
                 <TranslationCard data={parsed.data} />
               ) : (
                 <Markdown content={displayedContent} />
               )}
-              {isStreaming && parsed.type !== "streaming-translation" && (
+              {isStreaming && parsed.type !== "streaming-translation" && parsed.type !== "streaming-partial" && (
                 <span
                   className="inline-block w-[2px] h-[1em] ml-0.5 align-middle animate-pulse"
                   style={{ backgroundColor: "var(--assistant-bubble-text)", opacity: 0.7 }}

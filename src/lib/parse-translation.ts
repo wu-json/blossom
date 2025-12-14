@@ -2,7 +2,9 @@ import type {
   TranslationData,
   ParsedContent,
   WordBreakdown,
+  PartialTranslationData,
 } from "../types/translation";
+import { parsePartialTranslation } from "./parse-partial-json";
 
 const TRANSLATION_START = "<<<TRANSLATION_START>>>";
 const TRANSLATION_END = "<<<TRANSLATION_END>>>";
@@ -81,4 +83,35 @@ export function hasTranslationMarkers(content: string): {
     isComplete: hasStart && hasEnd,
     isStarting,
   };
+}
+
+export function parseStreamingTranslation(
+  content: string
+): PartialTranslationData | null {
+  const startIdx = content.indexOf(TRANSLATION_START);
+
+  if (startIdx === -1) {
+    return null;
+  }
+
+  const endIdx = content.indexOf(TRANSLATION_END);
+
+  // Extract the JSON fragment (complete or partial)
+  const jsonFragment =
+    endIdx === -1
+      ? content.slice(startIdx + TRANSLATION_START.length).trim()
+      : content.slice(startIdx + TRANSLATION_START.length, endIdx).trim();
+
+  if (!jsonFragment || jsonFragment.length < 2) {
+    return null;
+  }
+
+  const result = parsePartialTranslation(jsonFragment);
+
+  // Mark as complete if end marker is present
+  if (endIdx !== -1) {
+    result._streaming = { isComplete: true };
+  }
+
+  return result;
 }
