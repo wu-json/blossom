@@ -148,7 +148,9 @@ const server = Bun.serve({
         const currentSettings = getTeacherSettings();
         if (currentSettings.profile_image_path) {
           try {
-            await unlink(currentSettings.profile_image_path);
+            // Convert URL path to file path: /uploads/file.jpg -> ./uploads/file.jpg
+            const oldFilePath = `.${currentSettings.profile_image_path}`;
+            await unlink(oldFilePath);
           } catch {
             // Ignore if file doesn't exist
           }
@@ -158,18 +160,21 @@ const server = Bun.serve({
         const ext = file.name.split(".").pop() || "png";
         const filename = `teacher-profile-${Date.now()}.${ext}`;
         const filepath = `./uploads/${filename}`;
+        const urlPath = `/uploads/${filename}`;
 
         // Save file
         await Bun.write(filepath, file);
-        updateTeacherProfileImage(filepath);
+        updateTeacherProfileImage(urlPath);
 
-        return Response.json({ path: `/uploads/${filename}` });
+        return Response.json({ path: urlPath });
       },
       DELETE: async () => {
         const settings = getTeacherSettings();
         if (settings.profile_image_path) {
           try {
-            await unlink(settings.profile_image_path);
+            // Convert URL path to file path: /uploads/file.jpg -> ./uploads/file.jpg
+            const filePath = `.${settings.profile_image_path}`;
+            await unlink(filePath);
           } catch {
             // Ignore if file doesn't exist
           }

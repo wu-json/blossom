@@ -1,9 +1,11 @@
 import * as React from "react";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
+import Cropper from "react-easy-crop";
+import type { Area } from "react-easy-crop";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { useChatStore } from "../../store/chat-store";
 import { version } from "../../version";
-import { User, Upload, Trash2 } from "lucide-react";
+import { User, Upload, Trash2, X, Check } from "lucide-react";
 import type { Language } from "../../types/chat";
 
 const translations: Record<Language, {
@@ -14,6 +16,9 @@ const translations: Record<Language, {
   save: string;
   saving: string;
   saved: string;
+  cropImage: string;
+  cancel: string;
+  apply: string;
 }> = {
   ja: {
     profilePicture: "プロフィール画像",
@@ -23,6 +28,9 @@ const translations: Record<Language, {
     save: "保存",
     saving: "保存中...",
     saved: "保存しました",
+    cropImage: "画像を切り抜き",
+    cancel: "キャンセル",
+    apply: "適用",
   },
   zh: {
     profilePicture: "头像",
@@ -32,6 +40,9 @@ const translations: Record<Language, {
     save: "保存",
     saving: "保存中...",
     saved: "已保存",
+    cropImage: "裁剪图片",
+    cancel: "取消",
+    apply: "应用",
   },
   ko: {
     profilePicture: "프로필 사진",
@@ -41,8 +52,53 @@ const translations: Record<Language, {
     save: "저장",
     saving: "저장 중...",
     saved: "저장됨",
+    cropImage: "이미지 자르기",
+    cancel: "취소",
+    apply: "적용",
   },
 };
+
+// Helper function to create cropped image blob
+async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob> {
+  const image = new Image();
+  image.src = imageSrc;
+  await new Promise((resolve) => {
+    image.onload = resolve;
+  });
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not get canvas context");
+
+  // Set canvas size to the cropped area
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  // Draw the cropped image
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  // Convert canvas to blob
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Failed to create blob"));
+      },
+      "image/png",
+      1
+    );
+  });
+}
 
 export function TeacherPage() {
   const {
@@ -60,6 +116,13 @@ export function TeacherPage() {
   const [name, setName] = useState(teacherSettings?.name || "Blossom");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
+  // Cropper state
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
   useEffect(() => {
     if (teacherSettings?.name) {
       setName(teacherSettings.name);
@@ -74,13 +137,43 @@ export function TeacherPage() {
     setTimeout(() => setSaveStatus("idle"), 2000);
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      await uploadTeacherImage(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImageSrc(reader.result as string);
+        setCropperOpen(true);
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+      };
+      reader.readAsDataURL(file);
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleCropCancel = () => {
+    setCropperOpen(false);
+    setImageSrc(null);
+  };
+
+  const handleCropApply = async () => {
+    if (!imageSrc || !croppedAreaPixels) return;
+
+    try {
+      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      const file = new File([croppedBlob], "profile.png", { type: "image/png" });
+      await uploadTeacherImage(file);
+      setCropperOpen(false);
+      setImageSrc(null);
+    } catch (error) {
+      console.error("Failed to crop image:", error);
     }
   };
 
@@ -230,6 +323,90 @@ export function TeacherPage() {
           </section>
         </div>
       </main>
+
+      {/* Image Cropper Modal */}
+      {cropperOpen && imageSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+        >
+          <div
+            className="w-full max-w-lg mx-4 rounded-xl overflow-hidden"
+            style={{ backgroundColor: "var(--surface)" }}
+          >
+            {/* Modal Header */}
+            <div
+              className="px-4 py-3 border-b flex items-center justify-between"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <h3 className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                {t.cropImage}
+              </h3>
+              <button
+                onClick={handleCropCancel}
+                className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              >
+                <X size={18} style={{ color: "var(--text-muted)" }} />
+              </button>
+            </div>
+
+            {/* Cropper Area */}
+            <div className="relative h-80" style={{ backgroundColor: "#000" }}>
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            </div>
+
+            {/* Zoom Slider */}
+            <div className="px-4 py-3">
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full"
+                style={{ accentColor: "var(--primary)" }}
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              className="px-4 py-3 border-t flex justify-end gap-2"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <button
+                onClick={handleCropCancel}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <X size={14} />
+                {t.cancel}
+              </button>
+              <button
+                onClick={handleCropApply}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors"
+                style={{
+                  backgroundColor: "var(--primary)",
+                  color: "white",
+                }}
+              >
+                <Check size={14} />
+                {t.apply}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
