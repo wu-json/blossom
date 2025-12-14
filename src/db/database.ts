@@ -46,8 +46,16 @@ db.run(`
     id INTEGER PRIMARY KEY CHECK (id = 1),
     name TEXT NOT NULL DEFAULT 'Blossom',
     profile_image_path TEXT,
+    personality TEXT,
     updated_at INTEGER NOT NULL
   )
 `);
+
+// Migration: Add personality column if it doesn't exist (for existing databases)
+try {
+  db.run(`ALTER TABLE teacher_settings ADD COLUMN personality TEXT`);
+} catch {
+  // Column already exists, ignore
+}
 
 export { db, blossomDir };

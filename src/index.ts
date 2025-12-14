@@ -12,6 +12,7 @@ import {
   getTeacherSettings,
   updateTeacherName,
   updateTeacherProfileImage,
+  updateTeacherPersonality,
 } from "./db/teacher";
 import { blossomDir } from "./db/database";
 import { mkdir, unlink } from "node:fs/promises";
@@ -122,6 +123,7 @@ const server = Bun.serve({
         return Response.json({
           name: settings.name,
           profileImagePath: settings.profile_image_path,
+          personality: settings.personality,
         });
       },
       PUT: async (req) => {
@@ -130,6 +132,13 @@ const server = Bun.serve({
           return Response.json({ error: "Name is required" }, { status: 400 });
         }
         updateTeacherName(name.trim());
+        return Response.json({ success: true });
+      },
+    },
+    "/api/teacher/personality": {
+      PUT: async (req) => {
+        const { personality } = await req.json();
+        updateTeacherPersonality(personality?.trim() || null);
         return Response.json({ success: true });
       },
     },
@@ -213,7 +222,13 @@ const server = Bun.serve({
         const { messages, language } = await req.json();
         const teacherSettings = getTeacherSettings();
         const languageName = languageNames[language] || "Japanese";
-        const systemPrompt = `You are ${teacherSettings.name}, a warm and encouraging ${languageName} language learning assistant. Be patient, explain concepts clearly with examples, correct mistakes gently, and celebrate progress.`;
+
+        let systemPrompt = `You are ${teacherSettings.name}, a warm and encouraging ${languageName} language learning assistant. Be patient, explain concepts clearly with examples, correct mistakes gently, and celebrate progress.`;
+
+        // Add custom personality if defined
+        if (teacherSettings.personality) {
+          systemPrompt += `\n\n${teacherSettings.personality}`;
+        }
 
         const anthropic = new Anthropic({ apiKey });
 

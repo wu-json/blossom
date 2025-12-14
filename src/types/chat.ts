@@ -23,6 +23,7 @@ export type View = "chat" | "settings" | "teacher";
 export interface TeacherSettings {
   name: string;
   profileImagePath: string | null;
+  personality: string | null;
 }
 
 export interface ChatState {
@@ -55,6 +56,7 @@ export interface ChatActions {
   startNewChat: () => void;
   loadTeacherSettings: () => Promise<void>;
   updateTeacherName: (name: string) => Promise<void>;
+  updateTeacherPersonality: (personality: string) => Promise<void>;
   uploadTeacherImage: (file: File) => Promise<void>;
   removeTeacherImage: () => Promise<void>;
 }

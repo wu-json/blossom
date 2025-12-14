@@ -155,6 +155,7 @@ export const useChatStore = create<ChatStore>()(
             teacherSettings: {
               name: data.name,
               profileImagePath: data.profileImagePath,
+              personality: data.personality,
             },
           });
         } catch {
@@ -172,10 +173,27 @@ export const useChatStore = create<ChatStore>()(
           set((state) => ({
             teacherSettings: state.teacherSettings
               ? { ...state.teacherSettings, name }
-              : { name, profileImagePath: null },
+              : { name, profileImagePath: null, personality: null },
           }));
         } catch {
           console.error("Failed to update teacher name");
+        }
+      },
+
+      updateTeacherPersonality: async (personality: string) => {
+        try {
+          await fetch("/api/teacher/personality", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ personality }),
+          });
+          set((state) => ({
+            teacherSettings: state.teacherSettings
+              ? { ...state.teacherSettings, personality: personality || null }
+              : { name: "Blossom", profileImagePath: null, personality: personality || null },
+          }));
+        } catch {
+          console.error("Failed to update teacher personality");
         }
       },
 
@@ -191,7 +209,7 @@ export const useChatStore = create<ChatStore>()(
           set((state) => ({
             teacherSettings: state.teacherSettings
               ? { ...state.teacherSettings, profileImagePath: data.path }
-              : { name: "Blossom", profileImagePath: data.path },
+              : { name: "Blossom", profileImagePath: data.path, personality: null },
           }));
         } catch {
           console.error("Failed to upload teacher image");

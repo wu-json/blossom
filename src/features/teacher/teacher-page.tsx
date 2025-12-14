@@ -13,6 +13,8 @@ const translations: Record<Language, {
   uploadPhoto: string;
   removePhoto: string;
   teacherName: string;
+  personality: string;
+  personalityPlaceholder: string;
   save: string;
   saving: string;
   saved: string;
@@ -25,6 +27,8 @@ const translations: Record<Language, {
     uploadPhoto: "写真をアップロード",
     removePhoto: "削除",
     teacherName: "先生の名前",
+    personality: "性格・スタイル",
+    personalityPlaceholder: "先生の性格やスタイルを説明してください（例：厳格で規律を重視する、ユーモアがある、など）",
     save: "保存",
     saving: "保存中...",
     saved: "保存しました",
@@ -37,6 +41,8 @@ const translations: Record<Language, {
     uploadPhoto: "上传照片",
     removePhoto: "删除",
     teacherName: "老师的名字",
+    personality: "性格和风格",
+    personalityPlaceholder: "描述老师的性格和教学风格（例如：严格且注重纪律、幽默风趣等）",
     save: "保存",
     saving: "保存中...",
     saved: "已保存",
@@ -49,6 +55,8 @@ const translations: Record<Language, {
     uploadPhoto: "사진 업로드",
     removePhoto: "삭제",
     teacherName: "선생님 이름",
+    personality: "성격 및 스타일",
+    personalityPlaceholder: "선생님의 성격과 스타일을 설명해 주세요 (예: 엄격하고 규율을 중시함, 유머가 있음 등)",
     save: "저장",
     saving: "저장 중...",
     saved: "저장됨",
@@ -107,6 +115,7 @@ export function TeacherPage() {
     language,
     teacherSettings,
     updateTeacherName,
+    updateTeacherPersonality,
     uploadTeacherImage,
     removeTeacherImage,
   } = useChatStore();
@@ -114,7 +123,9 @@ export function TeacherPage() {
   const t = translations[language];
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(teacherSettings?.name || "Blossom");
+  const [personality, setPersonality] = useState(teacherSettings?.personality || "");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [personalitySaveStatus, setPersonalitySaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   // Cropper state
   const [cropperOpen, setCropperOpen] = useState(false);
@@ -129,12 +140,25 @@ export function TeacherPage() {
     }
   }, [teacherSettings?.name]);
 
+  useEffect(() => {
+    if (teacherSettings?.personality !== undefined) {
+      setPersonality(teacherSettings.personality || "");
+    }
+  }, [teacherSettings?.personality]);
+
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaveStatus("saving");
     await updateTeacherName(name.trim());
     setSaveStatus("saved");
     setTimeout(() => setSaveStatus("idle"), 2000);
+  };
+
+  const handlePersonalitySave = async () => {
+    setPersonalitySaveStatus("saving");
+    await updateTeacherPersonality(personality.trim());
+    setPersonalitySaveStatus("saved");
+    setTimeout(() => setPersonalitySaveStatus("idle"), 2000);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -319,6 +343,55 @@ export function TeacherPage() {
               >
                 {saveStatus === "saving" ? t.saving : saveStatus === "saved" ? t.saved : t.save}
               </button>
+            </div>
+          </section>
+
+          {/* Personality Section */}
+          <section
+            className="p-4 rounded-lg border"
+            style={{
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+            }}
+          >
+            <h2
+              className="text-sm font-medium mb-4"
+              style={{ color: "var(--text)" }}
+            >
+              {t.personality}
+            </h2>
+            <div className="flex flex-col gap-3">
+              <textarea
+                value={personality}
+                onChange={(e) => setPersonality(e.target.value)}
+                placeholder={t.personalityPlaceholder}
+                rows={4}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors resize-none"
+                style={{
+                  backgroundColor: "var(--background)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text)",
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = "var(--primary)";
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = "var(--border)";
+                }}
+              />
+              <div className="flex justify-end">
+                <button
+                  onClick={handlePersonalitySave}
+                  disabled={personalitySaveStatus === "saving"}
+                  className="px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+                  style={{
+                    backgroundColor: personalitySaveStatus === "saved" ? "var(--success, #22c55e)" : "var(--primary)",
+                    color: "white",
+                  }}
+                >
+                  {personalitySaveStatus === "saving" ? t.saving : personalitySaveStatus === "saved" ? t.saved : t.save}
+                </button>
+              </div>
             </div>
           </section>
         </div>
