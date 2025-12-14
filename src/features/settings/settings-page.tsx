@@ -27,7 +27,7 @@ export function SettingsPage() {
           <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
             blossom
           </h1>
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+          <span className="text-xs self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
             v{version}
           </span>
         </button>
