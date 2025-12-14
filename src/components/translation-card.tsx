@@ -92,6 +92,7 @@ interface WordRowProps {
 function WordRow({ item, isEven, onSave }: WordRowProps) {
   const color = getPosColor(item.partOfSpeech);
   const [isSaved, setIsSaved] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleClick = () => {
     if (onSave && !isSaved) {
@@ -103,13 +104,18 @@ function WordRow({ item, isEven, onSave }: WordRowProps) {
 
   return (
     <div
-      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${onSave ? "cursor-pointer group" : ""}`}
+      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${onSave ? "cursor-pointer hover:scale-[1.01]" : ""}`}
       style={{
-        backgroundColor: isEven
-          ? "rgba(255, 255, 255, 0.03)"
-          : "rgba(255, 255, 255, 0.06)",
+        backgroundColor: isHovered && onSave
+          ? "rgba(255, 255, 255, 0.15)"
+          : isEven
+            ? "rgba(255, 255, 255, 0.03)"
+            : "rgba(255, 255, 255, 0.06)",
+        boxShadow: isHovered && onSave ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
       }}
       onClick={handleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div className="w-[90px] flex-shrink-0">
         <div className="font-medium leading-tight">{item.word}</div>
@@ -124,8 +130,11 @@ function WordRow({ item, isEven, onSave }: WordRowProps) {
       </div>
       {onSave && (
         <div
-          className={`flex-shrink-0 transition-opacity ${isSaved ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-          style={{ color: isSaved ? "#22c55e" : "var(--primary)" }}
+          className="flex-shrink-0 transition-opacity duration-150"
+          style={{
+            color: isSaved ? "#22c55e" : "var(--primary)",
+            opacity: isSaved || isHovered ? 1 : 0,
+          }}
         >
           {isSaved ? <Check size={16} /> : <Plus size={16} />}
         </div>

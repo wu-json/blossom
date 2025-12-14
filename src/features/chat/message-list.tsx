@@ -77,7 +77,8 @@ export function MessageList() {
     // Look backwards for the most recent user message before this assistant message
     for (let i = index - 1; i >= 0; i--) {
       if (messages[i].role === "user") {
-        return messages[i].content;
+        // Return content, or a placeholder if user only sent images
+        return messages[i].content || "[image]";
       }
     }
     return undefined;
