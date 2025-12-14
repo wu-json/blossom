@@ -90,6 +90,22 @@ const server = Bun.serve({
           return Response.json({ error: "Conversation not found" }, { status: 404 });
         }
 
+        // Parse language from request body
+        let language = "ja";
+        try {
+          const body = await req.json();
+          if (body.language) language = body.language;
+        } catch {
+          // No body or invalid JSON, use default
+        }
+
+        const languageNames: Record<string, string> = {
+          ja: "Japanese",
+          zh: "Chinese",
+          ko: "Korean",
+        };
+        const languageName = languageNames[language] || "Japanese";
+
         const messages = getMessagesByConversationId(id);
         if (messages.length === 0) {
           return Response.json({ error: "No messages in conversation" }, { status: 400 });
@@ -169,7 +185,7 @@ const server = Bun.serve({
         // Add the title generation instruction as the final user message
         titleMessages.push({
           role: "user",
-          content: "Based on this conversation, generate a short, concise title (max 5 words). Return ONLY the title, no quotes or punctuation.",
+          content: `Based on this conversation, generate a short, concise title (max 5 words) in ${languageName}. Focus primarily on the most recent messages to capture the current topic. Return ONLY the title, no quotes or punctuation.`,
         });
 
         const response = await anthropic.messages.create({
