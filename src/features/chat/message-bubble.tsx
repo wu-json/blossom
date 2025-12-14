@@ -1,8 +1,18 @@
+import { useMemo } from "react";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../store/chat-store";
 import { useSmoothText } from "../../hooks/use-smooth-text";
 import { Markdown } from "../../components/markdown";
+import {
+  TranslationCard,
+  TranslationSkeleton,
+} from "../../components/translation-card";
+import {
+  parseTranslationContent,
+  hasTranslationMarkers,
+} from "../../lib/parse-translation";
 import type { Message } from "../../types/chat";
+import type { ParsedContent } from "../../types/translation";
 
 interface MessageBubbleProps {
   message: Message;
@@ -15,6 +25,18 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
   const teacherSettings = useChatStore((state) => state.teacherSettings);
   const isStreaming = !isUser && isLastAssistant && isTyping;
   const displayedContent = useSmoothText(message.content, isStreaming);
+
+  const parsed: ParsedContent = useMemo(() => {
+    if (isUser) return { type: "text", data: displayedContent };
+
+    if (isStreaming) {
+      const markers = hasTranslationMarkers(displayedContent);
+      if (markers.hasStart && !markers.hasEnd) {
+        return { type: "streaming-translation", data: null };
+      }
+    }
+    return parseTranslationContent(displayedContent);
+  }, [displayedContent, isStreaming, isUser]);
 
   const showAvatar = !isUser && teacherSettings?.profileImagePath;
 
@@ -76,10 +98,14 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
             <>
               {isUser ? (
                 <p className="whitespace-pre-wrap break-words">{displayedContent}</p>
+              ) : parsed.type === "streaming-translation" ? (
+                <TranslationSkeleton />
+              ) : parsed.type === "translation" ? (
+                <TranslationCard data={parsed.data} />
               ) : (
                 <Markdown content={displayedContent} />
               )}
-              {isStreaming && (
+              {isStreaming && parsed.type !== "streaming-translation" && (
                 <span
                   className="inline-block w-[2px] h-[1em] ml-0.5 align-middle animate-pulse"
                   style={{ backgroundColor: "var(--assistant-bubble-text)", opacity: 0.7 }}

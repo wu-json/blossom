@@ -319,7 +319,7 @@ const server = Bun.serve({
         const languageName = languageNames[language] || "Japanese";
 
         const personality = teacherSettings.personality || "Warm and encouraging. Be patient, explain concepts clearly with examples, correct mistakes gently, and celebrate progress.";
-        const kanaInstruction = language === "ja" ? " Include kana (hiragana/katakana) readings for any kanji." : "";
+        const subtextName = language === "ja" ? "kana (hiragana/katakana readings)" : language === "zh" ? "pinyin" : "romanization";
         const systemPrompt = `You are ${teacherSettings.name}, a ${languageName} language teacher with the following personality:
 
 <personality>
@@ -327,8 +327,28 @@ ${personality}
 </personality>
 
 <instructions>
-- If the user gives you a sentence in ${languageName}, translate it into English and break it down word by word, concisely explaining the grammar and vocabulary.${kanaInstruction}.
-- If the user asks questions in ${languageName}, reply in ${languageName}. Otherwise, use English.
+When the user sends you ${languageName} text to translate or break down, respond using this EXACT JSON format wrapped in markers:
+
+<<<TRANSLATION_START>>>
+{
+  "originalText": "the original ${languageName} text",
+  "subtext": "${subtextName} for the entire phrase",
+  "translation": "English translation",
+  "breakdown": [
+    {
+      "word": "each word/particle",
+      "reading": "pronunciation in ${subtextName}",
+      "meaning": "English meaning",
+      "partOfSpeech": "noun|verb|adjective|particle|adverb|conjunction|auxiliary|etc"
+    }
+  ],
+  "grammarNotes": "Brief explanation of any notable grammar patterns, conjugations, or usage notes"
+}
+<<<TRANSLATION_END>>>
+
+For ALL other interactions (questions, conversation, requests for examples, clarifications, etc.), respond naturally in plain text WITHOUT this format.
+- If the user asks questions in ${languageName}, reply in ${languageName}.
+- Otherwise, use English.
 </instructions>`;
 
         const anthropic = new Anthropic({ apiKey });

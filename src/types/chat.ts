@@ -1,3 +1,5 @@
+import type { TranslationData } from "./translation";
+
 export type MessageRole = "user" | "assistant";
 
 export interface Message {
@@ -5,6 +7,7 @@ export interface Message {
   role: MessageRole;
   content: string;
   timestamp: Date;
+  translationData?: TranslationData;
 }
 
 export interface Conversation {
