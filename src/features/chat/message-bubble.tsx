@@ -23,7 +23,7 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
   const isUser = message.role === "user";
   const isTyping = useChatStore((state) => state.isTyping);
   const teacherSettings = useChatStore((state) => state.teacherSettings);
-  const isStreaming = !isUser && isLastAssistant && isTyping;
+  const isStreaming = !isUser && !!isLastAssistant && isTyping;
   const displayedContent = useSmoothText(message.content, isStreaming);
 
   const parsed: ParsedContent = useMemo(() => {
@@ -31,7 +31,8 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
 
     if (isStreaming) {
       const markers = hasTranslationMarkers(displayedContent);
-      if (markers.hasStart && !markers.hasEnd) {
+      // Show skeleton if we're starting to type the marker or have started but not finished
+      if (markers.isStarting || (markers.hasStart && !markers.hasEnd)) {
         return { type: "streaming-translation", data: null };
       }
     }

@@ -64,13 +64,21 @@ export function hasTranslationMarkers(content: string): {
   hasStart: boolean;
   hasEnd: boolean;
   isComplete: boolean;
+  isStarting: boolean;
 } {
   const hasStart = content.includes(TRANSLATION_START);
   const hasEnd = content.includes(TRANSLATION_END);
+  // Detect if we're starting to type the marker (e.g., "<<<", "<<<T", etc.)
+  const trimmed = content.trim();
+  const isStarting =
+    !hasStart &&
+    trimmed.length > 0 &&
+    TRANSLATION_START.startsWith(trimmed);
 
   return {
     hasStart,
     hasEnd,
     isComplete: hasStart && hasEnd,
+    isStarting,
   };
 }
