@@ -2,6 +2,7 @@ import { Moon, Sun } from "lucide-react";
 import { Toggle } from "../../components/ui/toggle";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { useChatStore } from "../../store/chat-store";
+import { version } from "../../version";
 import type { Language } from "../../types/chat";
 
 const languageLabels: Record<Language, string> = {
@@ -31,6 +32,9 @@ export function ChatHeader() {
         <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
           blossom
         </h1>
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+          v{version}
+        </span>
       </button>
       <div className="flex items-center gap-2">
         <select

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { useChatStore } from "../../store/chat-store";
+import { version } from "../../version";
 
 export function SettingsPage() {
   const { toggleSidebar, sidebarCollapsed } = useChatStore();
@@ -26,6 +27,9 @@ export function SettingsPage() {
           <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
             blossom
           </h1>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            v{version}
+          </span>
         </button>
       </header>
 
@@ -70,27 +74,6 @@ export function SettingsPage() {
               style={{ color: "var(--text-muted)" }}
             >
               Preference settings coming soon.
-            </p>
-          </section>
-
-          <section
-            className="p-4 rounded-lg border"
-            style={{
-              backgroundColor: "var(--surface)",
-              borderColor: "var(--border)",
-            }}
-          >
-            <h2
-              className="text-sm font-medium mb-2"
-              style={{ color: "var(--text)" }}
-            >
-              About
-            </h2>
-            <p
-              className="text-sm"
-              style={{ color: "var(--text-muted)" }}
-            >
-              Blossom v1.0.0
             </p>
           </section>
         </div>
