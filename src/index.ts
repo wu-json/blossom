@@ -319,7 +319,7 @@ const server = Bun.serve({
         const languageName = languageNames[language] || "Japanese";
 
         const personality = teacherSettings.personality || "Warm and encouraging. Be patient, explain concepts clearly with examples, correct mistakes gently, and celebrate progress.";
-        const systemPrompt = `You are ${teacherSettings.name}, a ${languageName} language teacher.
+        const systemPrompt = `You are ${teacherSettings.name}, a ${languageName} language teacher with the following personality:
 
 <personality>
 ${personality}
