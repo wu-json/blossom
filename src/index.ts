@@ -5,11 +5,11 @@ const server = Bun.serve({
   routes: {
     "/": index,
     "/api/status": {
-      GET: () => Response.json({ hasApiKey: !!process.env.ANTHROPIC_API_KEY }),
+      GET: () => Response.json({ hasApiKey: !!Bun.env.ANTHROPIC_API_KEY }),
     },
     "/api/chat": {
       POST: async (req) => {
-        const apiKey = process.env.ANTHROPIC_API_KEY;
+        const apiKey = Bun.env.ANTHROPIC_API_KEY;
         if (!apiKey) {
           return Response.json({ error: "API key not configured" }, { status: 401 });
         }

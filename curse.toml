@@ -1,0 +1,14 @@
+version = 0
+
+[[process]]
+name = "api"
+command = "bun --hot ./src/index.ts"
+
+[process.readiness_probe.http]
+url = "http://localhost:3000/api/status"
+
+[[process]]
+name = "vite"
+command = "bunx vite"
+cwd = "."
+deps = { api = "ready" }
