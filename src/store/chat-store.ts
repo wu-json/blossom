@@ -229,6 +229,16 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
+      deleteAllData: async () => {
+        try {
+          await fetch("/api/data", { method: "DELETE" });
+          localStorage.removeItem("blossom-chat-storage");
+          window.location.reload();
+        } catch {
+          console.error("Failed to delete all data");
+        }
+      },
+
       sendMessage: async (content: string) => {
         const { messages, updateMessage, setTyping, createConversation, loadConversations, language } = get();
         let { currentConversationId } = get();

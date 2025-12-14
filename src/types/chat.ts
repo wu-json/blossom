@@ -59,6 +59,7 @@ export interface ChatActions {
   updateTeacherPersonality: (personality: string) => Promise<void>;
   uploadTeacherImage: (file: File) => Promise<void>;
   removeTeacherImage: () => Promise<void>;
+  deleteAllData: () => Promise<void>;
 }
 
 export type ChatStore = ChatState & ChatActions;

@@ -14,8 +14,8 @@ import {
   updateTeacherProfileImage,
   updateTeacherPersonality,
 } from "./db/teacher";
-import { blossomDir } from "./db/database";
-import { mkdir, unlink } from "node:fs/promises";
+import { db, blossomDir } from "./db/database";
+import { mkdir, unlink, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 // Ensure uploads directory exists in ~/.blossom/uploads
@@ -210,6 +210,13 @@ const server = Bun.serve({
           return new Response(file);
         }
         return new Response("Not found", { status: 404 });
+      },
+    },
+    "/api/data": {
+      DELETE: async () => {
+        db.close();
+        await rm(blossomDir, { recursive: true, force: true });
+        return Response.json({ success: true });
       },
     },
     "/api/chat": {
