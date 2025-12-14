@@ -68,7 +68,7 @@ export const useChatStore = create<ChatStore>()(
         try {
           const response = await fetch("/api/status");
           const data = await response.json();
-          set({ apiKeyConfigured: data.hasApiKey });
+          set({ apiKeyConfigured: data.anthropicConfigured });
         } catch {
           set({ apiKeyConfigured: false });
         }

@@ -5,7 +5,7 @@ const server = Bun.serve({
   routes: {
     "/": index,
     "/api/status": {
-      GET: () => Response.json({ hasApiKey: !!process.env.ANTHROPIC_API_KEY }),
+      GET: () => Response.json({ anthropicConfigured: !!process.env.ANTHROPIC_API_KEY }),
     },
     "/api/chat": {
       POST: async (req) => {
