@@ -1,0 +1,16 @@
+version = 0
+
+[[process]]
+name = "api"
+command = "bun --hot ./src/index.ts"
+
+[process.readiness_probe]
+type = "http"
+host = "localhost"
+port = 3000
+path = "/api/status"
+
+[[process]]
+name = "vite"
+command = "bunx vite"
+deps = [{ name = "api", condition = "ready" }]

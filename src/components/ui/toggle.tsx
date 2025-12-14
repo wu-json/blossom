@@ -14,21 +14,10 @@ const Toggle = React.forwardRef<HTMLButtonElement, ToggleProps>(
         type="button"
         aria-pressed={pressed}
         className={cn(
-          "inline-flex items-center justify-center rounded-xl p-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
+          "inline-flex items-center justify-center rounded-lg p-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer hover:bg-black/5 dark:hover:bg-white/10",
           className
         )}
-        style={{
-          backgroundColor: pressed ? "var(--border)" : "transparent",
-          ...style,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = "var(--border)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = pressed
-            ? "var(--border)"
-            : "transparent";
-        }}
+        style={style}
         {...props}
       >
         {children}

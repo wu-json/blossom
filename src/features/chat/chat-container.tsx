@@ -1,4 +1,4 @@
-import { ChatHeader } from "./chat-header";
+import { Header } from "./header";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
 
@@ -8,7 +8,7 @@ export function ChatContainer() {
       className="flex flex-col h-full"
       style={{ backgroundColor: "var(--background)" }}
     >
-      <ChatHeader />
+      <Header />
       <MessageList />
       <ChatInput />
     </div>
