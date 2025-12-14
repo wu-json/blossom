@@ -5,7 +5,7 @@ import { useChatStore } from "../../store/chat-store";
 import { version } from "../../version";
 
 export function SettingsPage() {
-  const { toggleSidebar, sidebarCollapsed, deleteAllData, exportData, importData } = useChatStore();
+  const { toggleSidebar, sidebarCollapsed, deleteAllData, exportData, importData, dataDir, apiKeyPreview } = useChatStore();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -82,6 +82,78 @@ export function SettingsPage() {
 
       <main className="flex-1 overflow-auto p-6">
         <div className="space-y-6">
+          <section
+            className="p-4 rounded-lg border"
+            style={{
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+            }}
+          >
+            <h2
+              className="text-sm font-medium mb-2"
+              style={{ color: "var(--text)" }}
+            >
+              Data Storage
+            </h2>
+            <p
+              className="text-sm mb-4"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Directory where Blossom stores your data. Configure with BLOSSOM_DATA_DIR environment variable.
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+                Data directory:
+              </span>
+              <code
+                className="px-2 py-1 rounded text-sm font-mono"
+                style={{
+                  backgroundColor: "var(--background)",
+                  color: "var(--text)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                {dataDir || "~/.blossom"}
+              </code>
+            </div>
+          </section>
+
+          <section
+            className="p-4 rounded-lg border"
+            style={{
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+            }}
+          >
+            <h2
+              className="text-sm font-medium mb-2"
+              style={{ color: "var(--text)" }}
+            >
+              AI Provider
+            </h2>
+            <p
+              className="text-sm mb-4"
+              style={{ color: "var(--text-muted)" }}
+            >
+              API key for Claude. Configure with ANTHROPIC_API_KEY environment variable.
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+                Anthropic API key:
+              </span>
+              <code
+                className="px-2 py-1 rounded text-sm font-mono"
+                style={{
+                  backgroundColor: "var(--background)",
+                  color: apiKeyPreview ? "var(--text)" : "var(--text-muted)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                {apiKeyPreview || "Not configured"}
+              </code>
+            </div>
+          </section>
+
           <section
             className="p-4 rounded-lg border"
             style={{

@@ -36,7 +36,15 @@ const distDir = join(import.meta.dir, "..", "dist");
 const server = Bun.serve({
   routes: {
     "/api/status": {
-      GET: () => Response.json({ anthropicConfigured: !!process.env.ANTHROPIC_API_KEY }),
+      GET: () => {
+        const apiKey = Bun.env.ANTHROPIC_API_KEY;
+        const maskedKey = apiKey ? `...${apiKey.slice(-6)}` : null;
+        return Response.json({
+          anthropicConfigured: !!apiKey,
+          anthropicKeyPreview: maskedKey,
+          dataDir: blossomDir,
+        });
+      },
     },
     "/api/conversations": {
       GET: () => {

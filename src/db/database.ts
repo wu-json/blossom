@@ -1,10 +1,13 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 
-// Create ~/.blossom directory if it doesn't exist
-const blossomDir = join(homedir(), ".blossom");
+// Get data directory from BLOSSOM_DATA_DIR env var, default to ~/.blossom
+const envDataDir = Bun.env.BLOSSOM_DATA_DIR;
+const blossomDir = envDataDir
+  ? (isAbsolute(envDataDir) ? envDataDir : resolve(envDataDir))
+  : join(homedir(), ".blossom");
 mkdirSync(blossomDir, { recursive: true });
 
 const dbPath = join(blossomDir, "sqlite.db");

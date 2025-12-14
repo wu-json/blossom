@@ -38,6 +38,8 @@ export interface ChatState {
   sidebarCollapsed: boolean;
   currentView: View;
   apiKeyConfigured: boolean | null;
+  apiKeyPreview: string | null;
+  dataDir: string | null;
   currentConversationId: string | null;
   conversations: Conversation[];
   teacherSettings: TeacherSettings | null;
