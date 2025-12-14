@@ -58,4 +58,11 @@ try {
   // Column already exists, ignore
 }
 
+// Migration: Add images column to messages table (for existing databases)
+try {
+  db.run(`ALTER TABLE messages ADD COLUMN images TEXT DEFAULT NULL`);
+} catch {
+  // Column already exists, ignore
+}
+
 export { db, blossomDir };

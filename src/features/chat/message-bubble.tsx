@@ -73,6 +73,30 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
               }
         }
       >
+        {/* Render attached images */}
+        {message.images && message.images.length > 0 && (
+          <div
+            className={cn(
+              "flex flex-wrap gap-1.5 mb-2",
+              message.images.length === 1 ? "max-w-[280px]" : ""
+            )}
+          >
+            {message.images.map((url, index) => (
+              <img
+                key={index}
+                src={url}
+                alt={`Attachment ${index + 1}`}
+                className={cn(
+                  "rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity",
+                  message.images!.length === 1
+                    ? "max-w-full max-h-[200px] w-auto"
+                    : "w-[100px] h-[100px]"
+                )}
+                onClick={() => window.open(url, "_blank")}
+              />
+            ))}
+          </div>
+        )}
         <div className="text-[14px] leading-relaxed">
           {isStreaming && !displayedContent ? (
             <span className="inline-flex gap-1 items-center h-[1em]">

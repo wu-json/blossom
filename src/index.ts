@@ -105,16 +105,16 @@ const server = Bun.serve({
           return Response.json({ error: "Conversation not found" }, { status: 404 });
         }
 
-        const { role, content, messageId } = await req.json();
+        const { role, content, messageId, images } = await req.json();
 
         // If messageId provided, update existing message; otherwise create new
         if (messageId) {
           updateMessageContent(messageId, content);
           updateConversationTimestamp(id);
-          return Response.json({ id: messageId, role, content });
+          return Response.json({ id: messageId, role, content, images });
         }
 
-        const message = createMessage(id, role, content);
+        const message = createMessage(id, role, content, images);
         updateConversationTimestamp(id);
         return Response.json(message);
       },
@@ -197,6 +197,38 @@ const server = Bun.serve({
         }
         updateTeacherProfileImage(null);
         return Response.json({ success: true });
+      },
+    },
+    "/api/chat/images": {
+      POST: async (req) => {
+        const formData = await req.formData();
+        const file = formData.get("image") as File | null;
+
+        if (!file) {
+          return Response.json({ error: "No image provided" }, { status: 400 });
+        }
+
+        const validTypes = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+        if (!validTypes.includes(file.type)) {
+          return Response.json({ error: "Invalid image type" }, { status: 400 });
+        }
+
+        // Limit file size to 20MB (Claude vision API limit)
+        const maxSize = 20 * 1024 * 1024;
+        if (file.size > maxSize) {
+          return Response.json({ error: "Image too large (max 20MB)" }, { status: 400 });
+        }
+
+        // Generate unique filename
+        const ext = file.name.split(".").pop() || "png";
+        const filename = `chat-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+        const filepath = join(uploadsDir, filename);
+        const urlPath = `/api/uploads/${filename}`;
+
+        // Save file
+        await Bun.write(filepath, file);
+
+        return Response.json({ url: urlPath, filename });
       },
     },
     "/api/uploads/:filename": {
@@ -327,7 +359,7 @@ ${personality}
 </personality>
 
 <instructions>
-When the user sends you ${languageName} text to translate or break down, respond using this EXACT JSON format wrapped in markers:
+When the user sends you ${languageName} text to translate or break down (including text in images), respond using this EXACT JSON format wrapped in markers:
 
 <<<TRANSLATION_START>>>
 {
@@ -349,18 +381,66 @@ When the user sends you ${languageName} text to translate or break down, respond
 For ALL other interactions (questions, conversation, requests for examples, clarifications, etc.), respond naturally in plain text WITHOUT this format.
 - If the user asks questions in ${languageName}, reply in ${languageName}.
 - Otherwise, use English.
+- When analyzing images containing ${languageName} text, extract the text and provide translation/breakdown.
 </instructions>`;
 
         const anthropic = new Anthropic({ apiKey });
+
+        // Transform messages to include images in Claude format
+        const transformedMessages = await Promise.all(
+          messages.map(async (m: { role: string; content: string; images?: string[] }) => {
+            // If no images, return simple text message
+            if (!m.images || m.images.length === 0) {
+              return { role: m.role, content: m.content };
+            }
+
+            // Build content array with images and text
+            type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+            const contentBlocks: Array<
+              | { type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } }
+              | { type: "text"; text: string }
+            > = [];
+
+            // Add images first
+            for (const imageUrl of m.images) {
+              const filename = imageUrl.replace("/api/uploads/", "");
+              const filepath = join(uploadsDir, filename);
+              const file = Bun.file(filepath);
+
+              if (await file.exists()) {
+                const buffer = await file.arrayBuffer();
+                const base64 = Buffer.from(buffer).toString("base64");
+                // Determine media type from file extension
+                const ext = filename.split(".").pop()?.toLowerCase();
+                let mediaType: ImageMediaType = "image/png";
+                if (ext === "jpg" || ext === "jpeg") mediaType = "image/jpeg";
+                else if (ext === "gif") mediaType = "image/gif";
+                else if (ext === "webp") mediaType = "image/webp";
+
+                contentBlocks.push({
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: mediaType,
+                    data: base64,
+                  },
+                });
+              }
+            }
+
+            // Add text content last (or a default prompt if no text)
+            const text = m.content.trim() || "Please translate any text in this image.";
+            contentBlocks.push({ type: "text", text });
+
+            return { role: m.role, content: contentBlocks };
+          })
+        );
 
         const stream = anthropic.messages.stream({
           model: "claude-sonnet-4-20250514",
           max_tokens: 4096,
           system: systemPrompt,
-          messages: messages.map((m: { role: string; content: string }) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: transformedMessages,
         });
 
         const encoder = new TextEncoder();

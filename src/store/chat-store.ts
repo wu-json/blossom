@@ -123,11 +123,12 @@ export const useChatStore = create<ChatStore>()(
         try {
           const response = await fetch(`/api/conversations/${id}`);
           const data = await response.json();
-          const messages: Message[] = data.messages.map((m: { id: string; role: string; content: string; timestamp: number }) => ({
+          const messages: Message[] = data.messages.map((m: { id: string; role: string; content: string; timestamp: number; images: string | null }) => ({
             id: m.id,
             role: m.role as MessageRole,
             content: m.content,
             timestamp: new Date(m.timestamp),
+            images: m.images ? JSON.parse(m.images) : undefined,
           }));
           set({
             currentConversationId: id,
@@ -274,7 +275,7 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
-      sendMessage: async (content: string) => {
+      sendMessage: async (content: string, images?: string[]) => {
         const { messages, updateMessage, setTyping, createConversation, loadConversations, language } = get();
         let { currentConversationId } = get();
 
@@ -293,6 +294,7 @@ export const useChatStore = create<ChatStore>()(
           role: "user",
           content,
           timestamp: new Date(),
+          images,
         };
 
         // Add assistant message placeholder
@@ -311,7 +313,7 @@ export const useChatStore = create<ChatStore>()(
         await fetch(`/api/conversations/${currentConversationId}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: "user", content }),
+          body: JSON.stringify({ role: "user", content, images }),
         });
 
         setTyping(true);
@@ -327,6 +329,7 @@ export const useChatStore = create<ChatStore>()(
               messages: [...messages, userMessage].map((m) => ({
                 role: m.role,
                 content: m.content,
+                images: m.images,
               })),
               language,
             }),

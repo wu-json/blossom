@@ -8,6 +8,7 @@ export interface Message {
   content: string;
   timestamp: Date;
   translationData?: TranslationData;
+  images?: string[];
 }
 
 export interface Conversation {
@@ -50,7 +51,7 @@ export interface ChatActions {
   clearMessages: () => void;
   toggleSidebar: () => void;
   setView: (view: View) => void;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, images?: string[]) => Promise<void>;
   updateMessage: (id: string, content: string) => void;
   checkApiKeyStatus: () => Promise<void>;
   loadConversations: () => Promise<void>;
