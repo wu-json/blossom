@@ -233,7 +233,7 @@ export function TeacherPage() {
               >
                 {teacherSettings?.profileImagePath ? (
                   <img
-                    src={teacherSettings.profileImagePath}
+                    src={`${teacherSettings.profileImagePath}?t=${Date.now()}`}
                     alt="Teacher"
                     className="w-full h-full object-cover"
                   />

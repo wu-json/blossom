@@ -152,7 +152,7 @@ const server = Bun.serve({
         if (currentSettings.profile_image_path) {
           try {
             // Extract filename from URL path and build full file path
-            const oldFilename = currentSettings.profile_image_path.replace("/uploads/", "");
+            const oldFilename = currentSettings.profile_image_path.replace("/api/uploads/", "");
             const oldFilePath = join(uploadsDir, oldFilename);
             await unlink(oldFilePath);
           } catch {
@@ -164,7 +164,7 @@ const server = Bun.serve({
         const ext = file.name.split(".").pop() || "png";
         const filename = `teacher-profile-${Date.now()}.${ext}`;
         const filepath = join(uploadsDir, filename);
-        const urlPath = `/uploads/${filename}`;
+        const urlPath = `/api/uploads/${filename}`;
 
         // Save file
         await Bun.write(filepath, file);
@@ -177,7 +177,7 @@ const server = Bun.serve({
         if (settings.profile_image_path) {
           try {
             // Extract filename from URL path and build full file path
-            const filename = settings.profile_image_path.replace("/uploads/", "");
+            const filename = settings.profile_image_path.replace("/api/uploads/", "");
             const filePath = join(uploadsDir, filename);
             await unlink(filePath);
           } catch {
@@ -188,17 +188,20 @@ const server = Bun.serve({
         return Response.json({ success: true });
       },
     },
-    "/uploads/:filename": {
+    "/api/uploads/:filename": {
       GET: async (req) => {
         const filename = req.params.filename;
         // Prevent path traversal
         if (filename.includes("..") || filename.includes("/")) {
           return new Response("Not found", { status: 404 });
         }
-        const file = Bun.file(join(uploadsDir, filename));
+        const filePath = join(uploadsDir, filename);
+        console.log("Serving file:", filePath);
+        const file = Bun.file(filePath);
         if (await file.exists()) {
           return new Response(file);
         }
+        console.log("File not found:", filePath);
         return new Response("Not found", { status: 404 });
       },
     },
