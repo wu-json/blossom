@@ -1,6 +1,14 @@
 import { Database } from "bun:sqlite";
+import { mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
-const db = new Database("blossom.db");
+// Create ~/.blossom directory if it doesn't exist
+const blossomDir = join(homedir(), ".blossom");
+mkdirSync(blossomDir, { recursive: true });
+
+const dbPath = join(blossomDir, "sqlite.db");
+const db = new Database(dbPath);
 
 // Enable foreign keys
 db.run("PRAGMA foreign_keys = ON");
@@ -42,4 +50,4 @@ db.run(`
   )
 `);
 
-export { db };
+export { db, blossomDir };

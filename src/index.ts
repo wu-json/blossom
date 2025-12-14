@@ -13,10 +13,13 @@ import {
   updateTeacherName,
   updateTeacherProfileImage,
 } from "./db/teacher";
+import { blossomDir } from "./db/database";
 import { mkdir, unlink } from "node:fs/promises";
+import { join } from "node:path";
 
-// Ensure uploads directory exists
-await mkdir("./uploads", { recursive: true });
+// Ensure uploads directory exists in ~/.blossom/uploads
+const uploadsDir = join(blossomDir, "uploads");
+await mkdir(uploadsDir, { recursive: true });
 
 const languageNames: Record<string, string> = {
   ja: "Japanese",
@@ -148,8 +151,9 @@ const server = Bun.serve({
         const currentSettings = getTeacherSettings();
         if (currentSettings.profile_image_path) {
           try {
-            // Convert URL path to file path: /uploads/file.jpg -> ./uploads/file.jpg
-            const oldFilePath = `.${currentSettings.profile_image_path}`;
+            // Extract filename from URL path and build full file path
+            const oldFilename = currentSettings.profile_image_path.replace("/uploads/", "");
+            const oldFilePath = join(uploadsDir, oldFilename);
             await unlink(oldFilePath);
           } catch {
             // Ignore if file doesn't exist
@@ -159,7 +163,7 @@ const server = Bun.serve({
         // Generate unique filename
         const ext = file.name.split(".").pop() || "png";
         const filename = `teacher-profile-${Date.now()}.${ext}`;
-        const filepath = `./uploads/${filename}`;
+        const filepath = join(uploadsDir, filename);
         const urlPath = `/uploads/${filename}`;
 
         // Save file
@@ -172,8 +176,9 @@ const server = Bun.serve({
         const settings = getTeacherSettings();
         if (settings.profile_image_path) {
           try {
-            // Convert URL path to file path: /uploads/file.jpg -> ./uploads/file.jpg
-            const filePath = `.${settings.profile_image_path}`;
+            // Extract filename from URL path and build full file path
+            const filename = settings.profile_image_path.replace("/uploads/", "");
+            const filePath = join(uploadsDir, filename);
             await unlink(filePath);
           } catch {
             // Ignore if file doesn't exist
@@ -190,7 +195,7 @@ const server = Bun.serve({
         if (filename.includes("..") || filename.includes("/")) {
           return new Response("Not found", { status: 404 });
         }
-        const file = Bun.file(`./uploads/${filename}`);
+        const file = Bun.file(join(uploadsDir, filename));
         if (await file.exists()) {
           return new Response(file);
         }
