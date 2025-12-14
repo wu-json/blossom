@@ -20,6 +20,7 @@ export interface ChatState {
   language: Language;
   sidebarCollapsed: boolean;
   currentView: View;
+  apiKeyConfigured: boolean | null;
 }
 
 export interface ChatActions {
@@ -30,6 +31,9 @@ export interface ChatActions {
   clearMessages: () => void;
   toggleSidebar: () => void;
   setView: (view: View) => void;
+  sendMessage: (content: string) => Promise<void>;
+  updateMessage: (id: string, content: string) => void;
+  checkApiKeyStatus: () => Promise<void>;
 }
 
 export type ChatStore = ChatState & ChatActions;

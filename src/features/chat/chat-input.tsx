@@ -13,15 +13,16 @@ export function ChatInput() {
   const [input, setInput] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const addMessage = useChatStore((state) => state.addMessage);
+  const sendMessage = useChatStore((state) => state.sendMessage);
+  const isTyping = useChatStore((state) => state.isTyping);
   const language = useChatStore((state) => state.language);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed || isTyping) return;
 
-    addMessage(trimmed, "user");
+    sendMessage(trimmed);
     setInput("");
 
     if (textareaRef.current) {
@@ -37,6 +38,7 @@ export function ChatInput() {
   };
 
   const hasInput = input.trim().length > 0;
+  const canSend = hasInput && !isTyping;
 
   return (
     <div className="p-4 pb-6">
@@ -76,12 +78,12 @@ export function ChatInput() {
           />
           <button
             type="submit"
-            disabled={!hasInput}
+            disabled={!canSend}
             className="absolute right-2 bottom-2 h-9 w-9 shrink-0 rounded-full flex items-center justify-center transition-all duration-150 hover:scale-105 active:scale-95 disabled:hover:scale-100"
             style={{
-              backgroundColor: hasInput ? "var(--primary)" : "var(--border)",
-              color: hasInput ? "white" : "var(--text-muted)",
-              opacity: hasInput ? 1 : 0.6,
+              backgroundColor: canSend ? "var(--primary)" : "var(--border)",
+              color: canSend ? "white" : "var(--text-muted)",
+              opacity: canSend ? 1 : 0.6,
             }}
           >
             <ArrowUp className="w-[18px] h-[18px]" strokeWidth={2.5} />

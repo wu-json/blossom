@@ -1,4 +1,5 @@
-import { Moon, Sun } from "lucide-react";
+import { useEffect } from "react";
+import { Moon, Sun, AlertTriangle } from "lucide-react";
 import { Toggle } from "../../components/ui/toggle";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { useChatStore } from "../../store/chat-store";
@@ -12,8 +13,12 @@ const languageLabels: Record<Language, string> = {
 };
 
 export function Header() {
-  const { theme, toggleTheme, language, setLanguage, toggleSidebar, sidebarCollapsed } = useChatStore();
+  const { theme, toggleTheme, language, setLanguage, toggleSidebar, sidebarCollapsed, apiKeyConfigured, checkApiKeyStatus } = useChatStore();
   const isDark = theme === "dark";
+
+  useEffect(() => {
+    checkApiKeyStatus();
+  }, [checkApiKeyStatus]);
 
   return (
     <header
@@ -35,6 +40,25 @@ export function Header() {
         <span className="text-sm self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
           v{version}
         </span>
+        {apiKeyConfigured === false && (
+          <span
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-sm transition-all duration-200 hover:scale-105"
+            style={{
+              background: isDark
+                ? "linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%)"
+                : "linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.15) 100%)",
+              color: isDark ? "#FCD34D" : "#B45309",
+              border: isDark ? "1px solid rgba(251, 191, 36, 0.3)" : "1px solid rgba(245, 158, 11, 0.3)",
+              boxShadow: isDark
+                ? "0 2px 8px rgba(251, 191, 36, 0.1)"
+                : "0 2px 8px rgba(245, 158, 11, 0.1)",
+            }}
+            title="Set ANTHROPIC_API_KEY environment variable to enable AI responses"
+          >
+            <AlertTriangle className="w-3 h-3" />
+            ANTHROPIC_API_KEY not set
+          </span>
+        )}
       </button>
       <div className="flex items-center gap-2">
         <select
