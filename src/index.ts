@@ -87,38 +87,104 @@ const server = Bun.serve({
           return Response.json({ error: "No messages in conversation" }, { status: 400 });
         }
 
-        // Generate title using Haiku with full conversation context
+        // Generate title using Haiku with full conversation context (including images)
         const anthropic = new Anthropic({ apiKey });
 
-        // Transform and compact messages
-        const transformedMessages = messages.map(m => ({
-          role: m.role,
-          content: m.content || "",
-        }));
-        const { messages: compactedMessages } = compactMessages("", transformedMessages);
-
-        // Build summary from compacted messages
-        const summary = compactedMessages.map(m => {
-          const text = typeof m.content === "string" ? m.content :
-            m.content.filter((b): b is { type: "text"; text: string } => b.type === "text").map(b => b.text).join(" ");
-          return `${m.role}: ${text}`;
-        }).join("\n");
-
-        const response = await anthropic.messages.create({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 50,
-          messages: [
-            {
-              role: "user",
-              content: `Generate a short, concise title (max 5 words) for this conversation. Return ONLY the title, no quotes or punctuation:\n\n${summary}`,
-            },
-          ],
+        // Filter messages with content or images
+        const filteredMessages = messages.filter((m) => {
+          const hasContent = m.content && m.content.trim().length > 0;
+          const hasImages = m.images && m.images.length > 0;
+          return hasContent || hasImages;
         });
 
-        const title = (response.content[0] as { type: string; text: string }).text.trim();
-        updateConversationTitle(id, title);
+        // Transform messages to include images
+        type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+        const transformedMessages = await Promise.all(
+          filteredMessages.map(async (m) => {
+            if (!m.images || m.images.length === 0) {
+              return { role: m.role, content: m.content || "" };
+            }
 
-        return Response.json({ title });
+            const contentBlocks: Array<
+              | { type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } }
+              | { type: "text"; text: string }
+            > = [];
+
+            for (const imageUrl of m.images) {
+              const filename = imageUrl.replace("/api/uploads/", "");
+              const filepath = join(uploadsDir, filename);
+              const file = Bun.file(filepath);
+
+              if (await file.exists()) {
+                const buffer = await file.arrayBuffer();
+                const base64 = Buffer.from(buffer).toString("base64");
+                const ext = filename.split(".").pop()?.toLowerCase();
+                let mediaType: ImageMediaType = "image/png";
+                if (ext === "jpg" || ext === "jpeg") mediaType = "image/jpeg";
+                else if (ext === "gif") mediaType = "image/gif";
+                else if (ext === "webp") mediaType = "image/webp";
+
+                contentBlocks.push({
+                  type: "image",
+                  source: { type: "base64", media_type: mediaType, data: base64 },
+                });
+              }
+            }
+
+            if (m.content && m.content.trim()) {
+              contentBlocks.push({ type: "text", text: m.content });
+            }
+
+            return { role: m.role, content: contentBlocks.length > 0 ? contentBlocks : "" };
+          })
+        );
+
+        // Filter out messages with empty content
+        const validMessages = transformedMessages.filter(m => {
+          if (typeof m.content === "string") return m.content.length > 0;
+          return Array.isArray(m.content) && m.content.length > 0;
+        });
+
+        // Apply compaction
+        const { messages: compactedMessages } = compactMessages("", validMessages);
+
+        // Build final messages for title generation
+        const titleMessages: Array<{ role: "user" | "assistant"; content: string | Array<{ type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } } | { type: "text"; text: string }> }> = [];
+
+        for (const m of compactedMessages) {
+          titleMessages.push({
+            role: m.role as "user" | "assistant",
+            content: m.content as string | Array<{ type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } } | { type: "text"; text: string }>,
+          });
+        }
+
+        // Add the title generation instruction as the final user message
+        titleMessages.push({
+          role: "user",
+          content: "Based on this conversation, generate a short, concise title (max 5 words). Return ONLY the title, no quotes or punctuation.",
+        });
+
+        try {
+          const response = await anthropic.messages.create({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 50,
+            messages: titleMessages,
+          });
+
+          const title = (response.content[0] as { type: string; text: string }).text.trim();
+          updateConversationTitle(id, title);
+
+          return Response.json({ title });
+        } catch (err: unknown) {
+          const error = err as { message?: string; status?: number; error?: unknown };
+          console.error("Title generation error:", error.message, error.status, JSON.stringify(error.error));
+          console.error("Messages sent:", JSON.stringify(titleMessages.map(m => ({
+            role: m.role,
+            contentType: typeof m.content,
+            contentLength: typeof m.content === "string" ? m.content.length : (m.content as unknown[]).length
+          })), null, 2));
+          throw err;
+        }
       },
       PUT: async (req) => {
         const id = req.params.id;
