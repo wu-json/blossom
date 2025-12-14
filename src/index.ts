@@ -318,11 +318,11 @@ const server = Bun.serve({
         const teacherSettings = getTeacherSettings();
         const languageName = languageNames[language] || "Japanese";
 
-        let systemPrompt = `You are ${teacherSettings.name}, a warm and encouraging ${languageName} language learning assistant. Be patient, explain concepts clearly with examples, correct mistakes gently, and celebrate progress.`;
+        let systemPrompt = `You are ${teacherSettings.name}, a ${languageName} language teacher.`;
 
         // Add custom personality if defined
         if (teacherSettings.personality) {
-          systemPrompt += `\n\n${teacherSettings.personality}`;
+          systemPrompt += `\n\n<personality>\n${teacherSettings.personality}\n</personality>`;
         }
 
         const anthropic = new Anthropic({ apiKey });
