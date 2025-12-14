@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Check } from "lucide-react";
 import type {
   TranslationData,
@@ -96,20 +96,35 @@ function WordRow({ item, isEven, onSave, initialSaved = false }: WordRowProps) {
   const color = getPosColor(item.partOfSpeech);
   const [isSaved, setIsSaved] = useState(initialSaved);
   const [isHovered, setIsHovered] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [showBloom, setShowBloom] = useState(false);
 
   // If already saved (persisted), don't allow saving again
   const canSave = onSave && !initialSaved;
+
+  // Show tooltip after brief hover delay
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+    if (isHovered && canSave && !isSaved) {
+      timeout = setTimeout(() => setShowTooltip(true), 400);
+    } else {
+      setShowTooltip(false);
+    }
+    return () => clearTimeout(timeout);
+  }, [isHovered, canSave, isSaved]);
 
   const handleClick = () => {
     if (canSave && !isSaved) {
       onSave();
       setIsSaved(true);
+      setShowBloom(true);
+      setTimeout(() => setShowBloom(false), 500);
     }
   };
 
   return (
     <div
-      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${canSave ? "cursor-pointer hover:scale-[1.01]" : ""}`}
+      className={`relative flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${canSave ? "cursor-pointer hover:scale-[1.01]" : ""}`}
       style={{
         backgroundColor: isHovered && canSave
           ? "rgba(255, 255, 255, 0.15)"
@@ -134,16 +149,66 @@ function WordRow({ item, isEven, onSave, initialSaved = false }: WordRowProps) {
         {item.partOfSpeech}
       </div>
       {onSave && (
-        <div
-          className="flex-shrink-0 transition-opacity duration-150"
-          style={{
-            color: isSaved ? "#22c55e" : "var(--primary)",
-            opacity: initialSaved || isSaved || isHovered ? 1 : 0,
-          }}
-        >
-          {isSaved ? <Check size={16} /> : <Plus size={16} />}
+        <div className="relative flex-shrink-0">
+          {/* Tooltip */}
+          {showTooltip && (
+            <div
+              className="absolute bottom-full right-0 mb-2 px-2 py-1 text-[10px] font-medium rounded whitespace-nowrap z-10"
+              style={{
+                backgroundColor: "var(--surface)",
+                color: "var(--text-muted)",
+                border: "1px solid var(--border)",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                animation: "fadeIn 0.15s ease-out",
+              }}
+            >
+              Save to garden
+            </div>
+          )}
+          {/* Icon with bloom effect */}
+          <div className="relative">
+            <div
+              className="transition-all duration-150"
+              style={{
+                color: isSaved ? "#22c55e" : "var(--primary)",
+                opacity: initialSaved || isSaved || isHovered ? 1 : 0,
+                transform: showBloom ? "scale(1.4)" : "scale(1)",
+              }}
+            >
+              {isSaved ? <Check size={16} /> : <Plus size={16} />}
+            </div>
+            {/* Petal bloom particles */}
+            {showBloom && <PetalBloom />}
+          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PetalBloom() {
+  // Generate petals with different angles for radial burst
+  const petals = [
+    { angle: 0, delay: 0 },
+    { angle: 60, delay: 25 },
+    { angle: 120, delay: 50 },
+    { angle: 180, delay: 75 },
+    { angle: 240, delay: 100 },
+    { angle: 300, delay: 125 },
+  ];
+
+  return (
+    <div className="absolute inset-0 overflow-visible pointer-events-none">
+      {petals.map((petal, i) => (
+        <div
+          key={i}
+          className="petal-particle"
+          style={{
+            "--petal-angle": `${petal.angle}deg`,
+            "--petal-delay": `${petal.delay}ms`,
+          } as React.CSSProperties}
+        />
+      ))}
     </div>
   );
 }

@@ -84,3 +84,27 @@ body {
     transform: scale(1);
   }
 }
+
+@keyframes petalBurst {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--petal-angle)) translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(var(--petal-angle)) translateY(-24px) scale(0.4);
+    opacity: 0;
+  }
+}
+
+.petal-particle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 10px;
+  background: var(--primary);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  animation: petalBurst 450ms ease-out forwards;
+  animation-delay: var(--petal-delay);
+  pointer-events: none;
+}
