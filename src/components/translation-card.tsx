@@ -45,9 +45,9 @@ export function TranslationCard({ data }: TranslationCardProps) {
       {/* Word Breakdown */}
       <div>
         <div className="text-xs font-medium opacity-50 mb-2">Breakdown</div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-1.5">
           {data.breakdown.map((item, idx) => (
-            <WordPill key={idx} item={item} />
+            <WordRow key={idx} item={item} />
           ))}
         </div>
       </div>
@@ -70,23 +70,25 @@ export function TranslationCard({ data }: TranslationCardProps) {
   );
 }
 
-interface WordPillProps {
+interface WordRowProps {
   item: WordBreakdown;
 }
 
-function WordPill({ item }: WordPillProps) {
+function WordRow({ item }: WordRowProps) {
   const color = getPosColor(item.partOfSpeech);
 
   return (
     <div
-      className="px-3 py-2 rounded-lg text-center min-w-[70px]"
+      className="flex items-center gap-3 px-3 py-2 rounded-lg"
       style={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}
     >
-      <div className="font-medium">{item.word}</div>
-      <div className="text-xs opacity-60">{item.reading}</div>
-      <div className="text-sm mt-1 opacity-90">{item.meaning}</div>
+      <div className="min-w-[60px]">
+        <div className="font-medium">{item.word}</div>
+        <div className="text-xs opacity-60">{item.reading}</div>
+      </div>
+      <div className="flex-1 text-sm opacity-90">{item.meaning}</div>
       <div
-        className="text-[10px] mt-1.5 px-2 py-0.5 rounded-full inline-block font-medium"
+        className="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
         style={{ backgroundColor: `${color}25`, color }}
       >
         {item.partOfSpeech}
@@ -112,11 +114,11 @@ export function TranslationSkeleton() {
         className="h-14 rounded-lg"
         style={{ backgroundColor: "rgba(255, 255, 255, 0.06)" }}
       />
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-1.5">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-20 w-20 rounded-lg"
+            className="h-10 rounded-lg"
             style={{ backgroundColor: "rgba(255, 255, 255, 0.06)" }}
           />
         ))}
