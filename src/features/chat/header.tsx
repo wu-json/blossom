@@ -103,111 +103,113 @@ export function Header() {
         backgroundColor: "var(--surface)",
       }}
     >
-      <button
-        onClick={toggleSidebar}
-        className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
-        aria-label="Toggle sidebar"
-      >
-        <MenuIcon isOpen={sidebarCollapsed} />
-        <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
-          blossom
-        </h1>
-        <span className="text-sm self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
-          v{version}
-        </span>
-        {apiKeyConfigured === false && (
-          <span
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-sm transition-all duration-200 hover:scale-105"
-            style={{
-              background: isDark
-                ? "linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%)"
-                : "linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.15) 100%)",
-              color: isDark ? "#FCD34D" : "#B45309",
-              border: isDark ? "1px solid rgba(251, 191, 36, 0.3)" : "1px solid rgba(245, 158, 11, 0.3)",
-              boxShadow: isDark
-                ? "0 2px 8px rgba(251, 191, 36, 0.1)"
-                : "0 2px 8px rgba(245, 158, 11, 0.1)",
-            }}
-            title="Set ANTHROPIC_API_KEY environment variable to enable AI responses"
-          >
-            <AlertTriangle className="w-3 h-3" />
-            ANTHROPIC_API_KEY not set
+      <div className="flex items-center gap-2">
+        <button
+          onClick={toggleSidebar}
+          className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
+          aria-label="Toggle sidebar"
+        >
+          <MenuIcon isOpen={sidebarCollapsed} />
+          <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
+            blossom
+          </h1>
+          <span className="text-sm self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
+            v{version}
           </span>
-        )}
-      </button>
-
-      {/* Chat title with dropdown - only show when conversation is open in chat view */}
-      {currentView === "chat" && currentConversation && (
-        <div className="relative" ref={dropdownRef}>
-          {isRenaming ? (
-            <input
-              ref={inputRef}
-              type="text"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={handleRenameKeyDown}
-              onBlur={handleRenameSubmit}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium focus:outline-none"
+          {apiKeyConfigured === false && (
+            <span
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-sm transition-all duration-200 hover:scale-105"
               style={{
-                color: "var(--text)",
-                backgroundColor: "var(--surface)",
-                border: "1px solid var(--primary)",
-                minWidth: "200px",
-                maxWidth: "400px",
+                background: isDark
+                  ? "linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%)"
+                  : "linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.15) 100%)",
+                color: isDark ? "#FCD34D" : "#B45309",
+                border: isDark ? "1px solid rgba(251, 191, 36, 0.3)" : "1px solid rgba(245, 158, 11, 0.3)",
+                boxShadow: isDark
+                  ? "0 2px 8px rgba(251, 191, 36, 0.1)"
+                  : "0 2px 8px rgba(245, 158, 11, 0.1)",
               }}
-            />
-          ) : (
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
-              style={{ color: "var(--text)" }}
+              title="Set ANTHROPIC_API_KEY environment variable to enable AI responses"
             >
-              <span
-                className="text-sm font-medium truncate"
-                style={{ maxWidth: "300px" }}
-              >
-                {currentConversation.title}
-              </span>
-              <ChevronDown
-                className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+              <AlertTriangle className="w-3 h-3" />
+              ANTHROPIC_API_KEY not set
+            </span>
+          )}
+        </button>
+
+        {/* Chat title with dropdown - only show when conversation is open in chat view */}
+        {currentView === "chat" && currentConversation && (
+          <div className="relative" ref={dropdownRef}>
+            {isRenaming ? (
+              <input
+                ref={inputRef}
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={handleRenameKeyDown}
+                onBlur={handleRenameSubmit}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium focus:outline-none"
                 style={{
-                  color: "var(--text-muted)",
-                  transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  color: "var(--text)",
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--primary)",
+                  minWidth: "200px",
+                  maxWidth: "400px",
                 }}
               />
-            </button>
-          )}
-
-          {/* Dropdown menu */}
-          {isDropdownOpen && (
-            <div
-              className="absolute top-full left-1/2 -translate-x-1/2 mt-1 py-1 rounded-lg shadow-lg z-50"
-              style={{
-                backgroundColor: "var(--surface)",
-                border: "1px solid var(--border)",
-                minWidth: "140px",
-              }}
-            >
+            ) : (
               <button
-                onClick={handleRenameClick}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
                 style={{ color: "var(--text)" }}
               >
-                <Pencil className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
-                Rename
+                <span
+                  className="text-sm font-medium truncate"
+                  style={{ maxWidth: "300px" }}
+                >
+                  {currentConversation.title}
+                </span>
+                <ChevronDown
+                  className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+                  style={{
+                    color: "var(--text-muted)",
+                    transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
+                />
               </button>
-              <button
-                onClick={handleDeleteClick}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-red-500/10"
-                style={{ color: "#EF4444" }}
+            )}
+
+            {/* Dropdown menu */}
+            {isDropdownOpen && (
+              <div
+                className="absolute top-full left-0 mt-1 py-1 rounded-lg shadow-lg z-50"
+                style={{
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  minWidth: "140px",
+                }}
               >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+                <button
+                  onClick={handleRenameClick}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                  style={{ color: "var(--text)" }}
+                >
+                  <Pencil className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                  Rename
+                </button>
+                <button
+                  onClick={handleDeleteClick}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-red-500/10"
+                  style={{ color: "#EF4444" }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center gap-2">
         <select
