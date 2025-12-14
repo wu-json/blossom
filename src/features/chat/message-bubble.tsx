@@ -34,12 +34,37 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
         }
       >
         <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
-          {displayedContent}
-          {isStreaming && (
-            <span
-              className="inline-block w-[2px] h-[1em] ml-0.5 align-middle animate-pulse"
-              style={{ backgroundColor: "var(--assistant-bubble-text)", opacity: 0.7 }}
-            />
+          {isStreaming && !displayedContent ? (
+            <span className="inline-flex gap-1 items-center h-[1em]">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{
+                    backgroundColor: "var(--assistant-bubble-text)",
+                    opacity: 0.6,
+                    animation: "loading-dot 1.4s ease-in-out infinite",
+                    animationDelay: `${i * 0.16}s`,
+                  }}
+                />
+              ))}
+              <style>{`
+                @keyframes loading-dot {
+                  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+                  40% { transform: scale(1); opacity: 0.8; }
+                }
+              `}</style>
+            </span>
+          ) : (
+            <>
+              {displayedContent}
+              {isStreaming && (
+                <span
+                  className="inline-block w-[2px] h-[1em] ml-0.5 align-middle animate-pulse"
+                  style={{ backgroundColor: "var(--assistant-bubble-text)", opacity: 0.7 }}
+                />
+              )}
+            </>
           )}
         </p>
       </div>
