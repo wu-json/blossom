@@ -11,11 +11,27 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const isTyping = useChatStore((state) => state.isTyping);
+  const teacherSettings = useChatStore((state) => state.teacherSettings);
   const isStreaming = !isUser && isLastAssistant && isTyping;
   const displayedContent = useSmoothText(message.content, isStreaming);
 
+  const showAvatar = !isUser && teacherSettings?.profileImagePath;
+
   return (
     <div className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}>
+      {/* Teacher Avatar */}
+      {showAvatar && (
+        <div className="flex-shrink-0 mr-2.5 self-end mb-1">
+          <img
+            src={teacherSettings.profileImagePath!}
+            alt=""
+            className="w-7 h-7 rounded-full object-cover ring-2 ring-white/10"
+            style={{
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+            }}
+          />
+        </div>
+      )}
       <div
         className={cn(
           "max-w-[75%] rounded-2xl px-4 py-2.5 transition-colors duration-150",
