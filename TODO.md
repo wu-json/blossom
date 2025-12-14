@@ -1,4 +1,6 @@
 - [ ] sidebar should be in the language that is set
+- [ ] upload images
+- [ ] youtube translation; play the video in a webview or something
 - [ ] sqlite to store conversations
 - [ ] compaction
 - [ ] make notecard for words
