@@ -83,10 +83,23 @@ interface ConversationItemProps {
 }
 
 function ConversationItem({ conversation, isActive, onClick }: ConversationItemProps) {
+  const [showTooltip, setShowTooltip] = React.useState(false);
+  const [isTruncated, setIsTruncated] = React.useState(false);
+  const textRef = React.useRef<HTMLSpanElement>(null);
+
+  React.useEffect(() => {
+    const el = textRef.current;
+    if (el) {
+      setIsTruncated(el.scrollWidth > el.clientWidth);
+    }
+  }, [conversation.title]);
+
   return (
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => isTruncated && setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
       className={cn(
         "group relative flex items-center w-full px-3 py-2 rounded-lg text-left",
         "transition-all duration-200 ease-out",
@@ -104,6 +117,7 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
       />
 
       <span
+        ref={textRef}
         className="text-sm truncate"
         style={{
           color: isActive ? "var(--text)" : "var(--text-muted)",
@@ -112,6 +126,23 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
       >
         {conversation.title}
       </span>
+
+      {/* Tooltip */}
+      {showTooltip && (
+        <div
+          className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-2 rounded-lg shadow-lg z-50 text-sm whitespace-nowrap"
+          style={{
+            backgroundColor: "var(--surface)",
+            border: "1px solid var(--border)",
+            color: "var(--text)",
+            maxWidth: "300px",
+            whiteSpace: "normal",
+            wordBreak: "break-word",
+          }}
+        >
+          {conversation.title}
+        </div>
+      )}
     </button>
   );
 }
@@ -166,7 +197,7 @@ export function Sidebar() {
       <aside
         className="flex flex-col h-full border-r"
         style={{
-          width: "200px",
+          width: "240px",
           backgroundColor: "var(--surface)",
           borderColor: "var(--border)",
           animation: "fadeIn 0.2s ease-out",
