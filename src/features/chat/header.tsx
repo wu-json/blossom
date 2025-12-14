@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Moon, Sun, AlertTriangle } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Moon, Sun, AlertTriangle, ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { Toggle } from "../../components/ui/toggle";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { useChatStore } from "../../store/chat-store";
@@ -13,12 +13,87 @@ const languageLabels: Record<Language, string> = {
 };
 
 export function Header() {
-  const { theme, toggleTheme, language, setLanguage, toggleSidebar, sidebarCollapsed, apiKeyConfigured, checkApiKeyStatus } = useChatStore();
+  const {
+    theme,
+    toggleTheme,
+    language,
+    setLanguage,
+    toggleSidebar,
+    sidebarCollapsed,
+    apiKeyConfigured,
+    checkApiKeyStatus,
+    currentConversationId,
+    conversations,
+    currentView,
+    renameConversation,
+    deleteConversation,
+  } = useChatStore();
   const isDark = theme === "dark";
+
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const currentConversation = currentConversationId
+    ? conversations.find((c) => c.id === currentConversationId)
+    : null;
 
   useEffect(() => {
     checkApiKeyStatus();
   }, [checkApiKeyStatus]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    if (isDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isDropdownOpen]);
+
+  // Focus input when entering rename mode
+  useEffect(() => {
+    if (isRenaming && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isRenaming]);
+
+  const handleRenameClick = () => {
+    if (currentConversation) {
+      setRenameValue(currentConversation.title);
+      setIsRenaming(true);
+      setIsDropdownOpen(false);
+    }
+  };
+
+  const handleRenameSubmit = async () => {
+    if (currentConversationId && renameValue.trim()) {
+      await renameConversation(currentConversationId, renameValue.trim());
+    }
+    setIsRenaming(false);
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleRenameSubmit();
+    } else if (e.key === "Escape") {
+      setIsRenaming(false);
+    }
+  };
+
+  const handleDeleteClick = async () => {
+    if (currentConversationId) {
+      await deleteConversation(currentConversationId);
+    }
+    setIsDropdownOpen(false);
+  };
 
   return (
     <header
@@ -60,6 +135,80 @@ export function Header() {
           </span>
         )}
       </button>
+
+      {/* Chat title with dropdown - only show when conversation is open in chat view */}
+      {currentView === "chat" && currentConversation && (
+        <div className="relative" ref={dropdownRef}>
+          {isRenaming ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={handleRenameKeyDown}
+              onBlur={handleRenameSubmit}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium focus:outline-none"
+              style={{
+                color: "var(--text)",
+                backgroundColor: "var(--surface)",
+                border: "1px solid var(--primary)",
+                minWidth: "200px",
+                maxWidth: "400px",
+              }}
+            />
+          ) : (
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
+              style={{ color: "var(--text)" }}
+            >
+              <span
+                className="text-sm font-medium truncate"
+                style={{ maxWidth: "300px" }}
+              >
+                {currentConversation.title}
+              </span>
+              <ChevronDown
+                className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+                style={{
+                  color: "var(--text-muted)",
+                  transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                }}
+              />
+            </button>
+          )}
+
+          {/* Dropdown menu */}
+          {isDropdownOpen && (
+            <div
+              className="absolute top-full left-1/2 -translate-x-1/2 mt-1 py-1 rounded-lg shadow-lg z-50"
+              style={{
+                backgroundColor: "var(--surface)",
+                border: "1px solid var(--border)",
+                minWidth: "140px",
+              }}
+            >
+              <button
+                onClick={handleRenameClick}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ color: "var(--text)" }}
+              >
+                <Pencil className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                Rename
+              </button>
+              <button
+                onClick={handleDeleteClick}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-red-500/10"
+                style={{ color: "#EF4444" }}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center gap-2">
         <select
           value={language}

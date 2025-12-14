@@ -58,6 +58,8 @@ export interface ChatActions {
   createConversation: () => Promise<string>;
   selectConversation: (id: string) => Promise<void>;
   startNewChat: () => void;
+  renameConversation: (id: string, title: string) => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
   loadTeacherSettings: () => Promise<void>;
   updateTeacherName: (name: string) => Promise<void>;
   updateTeacherPersonality: (personality: string) => Promise<void>;

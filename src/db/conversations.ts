@@ -46,3 +46,8 @@ export function updateConversationTimestamp(id: string): void {
     [Date.now(), id]
   );
 }
+
+export function deleteConversation(id: string): void {
+  db.run("DELETE FROM messages WHERE conversation_id = ?", [id]);
+  db.run("DELETE FROM conversations WHERE id = ?", [id]);
+}

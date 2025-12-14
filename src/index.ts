@@ -5,6 +5,7 @@ import {
   getConversationById,
   updateConversationTitle,
   updateConversationTimestamp,
+  deleteConversation,
 } from "./db/conversations";
 import { createMessage, getMessagesByConversationId, updateMessageContent } from "./db/messages";
 import {
@@ -58,6 +59,15 @@ const server = Bun.serve({
         const messages = getMessagesByConversationId(id);
         return Response.json({ conversation, messages });
       },
+      DELETE: (req) => {
+        const id = req.params.id;
+        const conversation = getConversationById(id);
+        if (!conversation) {
+          return Response.json({ error: "Conversation not found" }, { status: 404 });
+        }
+        deleteConversation(id);
+        return Response.json({ success: true });
+      },
     },
     "/api/conversations/:id/title": {
       POST: async (req) => {
@@ -96,6 +106,21 @@ const server = Bun.serve({
         updateConversationTitle(id, title);
 
         return Response.json({ title });
+      },
+      PUT: async (req) => {
+        const id = req.params.id;
+        const conversation = getConversationById(id);
+        if (!conversation) {
+          return Response.json({ error: "Conversation not found" }, { status: 404 });
+        }
+
+        const { title } = await req.json();
+        if (!title || typeof title !== "string") {
+          return Response.json({ error: "Title is required" }, { status: 400 });
+        }
+
+        updateConversationTitle(id, title.trim());
+        return Response.json({ success: true });
       },
     },
     "/api/conversations/:id/messages": {

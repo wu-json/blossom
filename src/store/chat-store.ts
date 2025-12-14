@@ -148,6 +148,40 @@ export const useChatStore = create<ChatStore>()(
         });
       },
 
+      renameConversation: async (id: string, title: string) => {
+        try {
+          await fetch(`/api/conversations/${id}/title`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title }),
+          });
+          set((state) => ({
+            conversations: state.conversations.map((c) =>
+              c.id === id ? { ...c, title } : c
+            ),
+          }));
+        } catch {
+          console.error("Failed to rename conversation");
+        }
+      },
+
+      deleteConversation: async (id: string) => {
+        try {
+          await fetch(`/api/conversations/${id}`, {
+            method: "DELETE",
+          });
+          const { currentConversationId, startNewChat } = get();
+          set((state) => ({
+            conversations: state.conversations.filter((c) => c.id !== id),
+          }));
+          if (currentConversationId === id) {
+            startNewChat();
+          }
+        } catch {
+          console.error("Failed to delete conversation");
+        }
+      },
+
       loadTeacherSettings: async () => {
         try {
           const response = await fetch("/api/teacher");
