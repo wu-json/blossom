@@ -1,4 +1,3 @@
-import index from "./index.html";
 import Anthropic from "@anthropic-ai/sdk";
 import {
   createConversation,
@@ -31,9 +30,10 @@ const languageNames: Record<string, string> = {
   ko: "Korean",
 };
 
+const distDir = join(import.meta.dir, "..", "dist");
+
 const server = Bun.serve({
   routes: {
-    "/": index,
     "/api/status": {
       GET: () => Response.json({ anthropicConfigured: !!process.env.ANTHROPIC_API_KEY }),
     },
@@ -519,6 +519,36 @@ For ALL other interactions (questions, conversation, requests for examples, clar
         }
       },
     },
+  },
+  async fetch(req) {
+    // Fallback: serve static files from dist/ for production
+    const url = new URL(req.url);
+    let pathname = url.pathname;
+
+    // Default to index.html for root
+    if (pathname === "/") {
+      pathname = "/index.html";
+    }
+
+    // Try to serve the requested file from dist/
+    const filePath = join(distDir, pathname);
+    const file = Bun.file(filePath);
+
+    if (await file.exists()) {
+      return new Response(file);
+    }
+
+    // SPA fallback - serve index.html for client-side routing
+    const indexFile = Bun.file(join(distDir, "index.html"));
+    if (await indexFile.exists()) {
+      return new Response(indexFile);
+    }
+
+    // In development without dist/, tell user to use Vite
+    return new Response(
+      "Not found. For development, use http://localhost:5173 (Vite dev server)",
+      { status: 404 }
+    );
   },
   development: {
     hmr: true,
