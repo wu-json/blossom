@@ -1,6 +1,7 @@
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../store/chat-store";
 import { useSmoothText } from "../../hooks/use-smooth-text";
+import { Markdown } from "../../components/markdown";
 import type { Message } from "../../types/chat";
 
 interface MessageBubbleProps {
@@ -49,7 +50,7 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
               }
         }
       >
-        <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
+        <div className="text-[14px] leading-relaxed">
           {isStreaming && !displayedContent ? (
             <span className="inline-flex gap-1 items-center h-[1em]">
               {[0, 1, 2].map((i) => (
@@ -73,7 +74,11 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
             </span>
           ) : (
             <>
-              {displayedContent}
+              {isUser ? (
+                <p className="whitespace-pre-wrap break-words">{displayedContent}</p>
+              ) : (
+                <Markdown content={displayedContent} />
+              )}
               {isStreaming && (
                 <span
                   className="inline-block w-[2px] h-[1em] ml-0.5 align-middle animate-pulse"
@@ -82,7 +87,7 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
               )}
             </>
           )}
-        </p>
+        </div>
       </div>
       <span
         className={cn(
