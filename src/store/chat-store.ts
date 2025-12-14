@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ChatStore, Language, Message, MessageRole, Theme, View } from "../types/chat";
+import type { ChatStore, Conversation, Language, Message, MessageRole, Theme, View } from "../types/chat";
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -14,6 +14,8 @@ export const useChatStore = create<ChatStore>()(
       sidebarCollapsed: true,
       currentView: "chat" as View,
       apiKeyConfigured: null,
+      currentConversationId: null,
+      conversations: [],
 
       addMessage: (content: string, role: MessageRole) => {
         const newMessage: Message = {
@@ -74,8 +76,88 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
+      loadConversations: async () => {
+        try {
+          const response = await fetch("/api/conversations");
+          const data = await response.json();
+          const conversations: Conversation[] = data.map((c: { id: string; title: string; created_at: number; updated_at: number }) => ({
+            id: c.id,
+            title: c.title,
+            createdAt: new Date(c.created_at),
+            updatedAt: new Date(c.updated_at),
+          }));
+          set({ conversations });
+        } catch {
+          console.error("Failed to load conversations");
+        }
+      },
+
+      createConversation: async () => {
+        try {
+          const response = await fetch("/api/conversations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: "New Conversation" }),
+          });
+          const data = await response.json();
+          const conversation: Conversation = {
+            id: data.id,
+            title: data.title,
+            createdAt: new Date(data.created_at),
+            updatedAt: new Date(data.updated_at),
+          };
+          set((state) => ({
+            conversations: [conversation, ...state.conversations].slice(0, 10),
+            currentConversationId: conversation.id,
+            messages: [],
+          }));
+          return conversation.id;
+        } catch {
+          console.error("Failed to create conversation");
+          return "";
+        }
+      },
+
+      selectConversation: async (id: string) => {
+        try {
+          const response = await fetch(`/api/conversations/${id}`);
+          const data = await response.json();
+          const messages: Message[] = data.messages.map((m: { id: string; role: string; content: string; timestamp: number }) => ({
+            id: m.id,
+            role: m.role as MessageRole,
+            content: m.content,
+            timestamp: new Date(m.timestamp),
+          }));
+          set({
+            currentConversationId: id,
+            messages,
+            currentView: "chat" as View,
+          });
+        } catch {
+          console.error("Failed to load conversation");
+        }
+      },
+
+      startNewChat: () => {
+        set({
+          currentConversationId: null,
+          messages: [],
+          currentView: "chat" as View,
+        });
+      },
+
       sendMessage: async (content: string) => {
-        const { messages, updateMessage, setTyping } = get();
+        const { messages, updateMessage, setTyping, createConversation, loadConversations } = get();
+        let { currentConversationId } = get();
+
+        // Create conversation if none exists
+        if (!currentConversationId) {
+          currentConversationId = await createConversation();
+          if (!currentConversationId) {
+            console.error("Failed to create conversation");
+            return;
+          }
+        }
 
         // Add user message
         const userMessage: Message = {
@@ -97,7 +179,17 @@ export const useChatStore = create<ChatStore>()(
           messages: [...state.messages, userMessage, assistantMessage],
         }));
 
+        // Save user message to database
+        await fetch(`/api/conversations/${currentConversationId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "user", content }),
+        });
+
         setTyping(true);
+
+        // Check if this is the first message (for title generation later)
+        const isFirstMessage = messages.length === 0;
 
         try {
           const response = await fetch("/api/chat", {
@@ -144,6 +236,20 @@ export const useChatStore = create<ChatStore>()(
                 }
               }
             }
+          }
+
+          // Save assistant message to database
+          await fetch(`/api/conversations/${currentConversationId}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: "assistant", content: fullContent }),
+          });
+
+          // Generate title with Haiku after first exchange
+          if (isFirstMessage && fullContent) {
+            fetch(`/api/conversations/${currentConversationId}/title`, {
+              method: "POST",
+            }).then(() => loadConversations());
           }
         } catch (error) {
           updateMessage(

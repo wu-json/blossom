@@ -7,6 +7,13 @@ export interface Message {
   timestamp: Date;
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export type Theme = "light" | "dark";
 
 export type Language = "ja" | "zh" | "ko";
@@ -21,6 +28,8 @@ export interface ChatState {
   sidebarCollapsed: boolean;
   currentView: View;
   apiKeyConfigured: boolean | null;
+  currentConversationId: string | null;
+  conversations: Conversation[];
 }
 
 export interface ChatActions {
@@ -34,6 +43,10 @@ export interface ChatActions {
   sendMessage: (content: string) => Promise<void>;
   updateMessage: (id: string, content: string) => void;
   checkApiKeyStatus: () => Promise<void>;
+  loadConversations: () => Promise<void>;
+  createConversation: () => Promise<string>;
+  selectConversation: (id: string) => Promise<void>;
+  startNewChat: () => void;
 }
 
 export type ChatStore = ChatState & ChatActions;

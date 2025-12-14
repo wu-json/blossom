@@ -1,13 +1,13 @@
 import * as React from "react";
-import { MessageSquare, Settings } from "lucide-react";
+import { MessageSquare, Settings, Plus } from "lucide-react";
 import { useChatStore } from "../../store/chat-store";
-import type { Language, View } from "../../types/chat";
+import type { Conversation, Language, View } from "../../types/chat";
 import { cn } from "../../lib/utils";
 
-const translations: Record<Language, { chat: string; settings: string }> = {
-  ja: { chat: "チャット", settings: "設定" },
-  zh: { chat: "聊天", settings: "设置" },
-  ko: { chat: "채팅", settings: "설정" },
+const translations: Record<Language, { chat: string; settings: string; newChat: string; conversations: string }> = {
+  ja: { chat: "チャット", settings: "設定", newChat: "新しいチャット", conversations: "履歴" },
+  zh: { chat: "聊天", settings: "设置", newChat: "新聊天", conversations: "历史" },
+  ko: { chat: "채팅", settings: "설정", newChat: "새 채팅", conversations: "기록" },
 };
 
 interface NavItemProps {
@@ -21,6 +21,7 @@ interface NavItemProps {
 function NavItem({ icon, label, isActive, onClick, delay }: NavItemProps) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
         "group relative flex items-center gap-3 w-full px-3 py-2.5 rounded-xl",
@@ -75,8 +76,57 @@ function NavItem({ icon, label, isActive, onClick, delay }: NavItemProps) {
   );
 }
 
+interface ConversationItemProps {
+  conversation: Conversation;
+  isActive: boolean;
+  onClick: () => void;
+}
+
+function ConversationItem({ conversation, isActive, onClick }: ConversationItemProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group relative flex items-center w-full px-3 py-2 rounded-lg text-left",
+        "transition-all duration-200 ease-out",
+        "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
+      )}
+    >
+      {/* Active indicator */}
+      <div
+        className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] rounded-full transition-all duration-200"
+        style={{
+          height: isActive ? "50%" : "0%",
+          backgroundColor: "var(--primary)",
+          opacity: isActive ? 1 : 0,
+        }}
+      />
+
+      <span
+        className="text-sm truncate"
+        style={{
+          color: isActive ? "var(--text)" : "var(--text-muted)",
+          fontWeight: isActive ? 500 : 400,
+        }}
+      >
+        {conversation.title}
+      </span>
+    </button>
+  );
+}
+
 export function Sidebar() {
-  const { sidebarCollapsed, currentView, setView, language } = useChatStore();
+  const {
+    sidebarCollapsed,
+    currentView,
+    setView,
+    language,
+    conversations,
+    currentConversationId,
+    selectConversation,
+    startNewChat,
+  } = useChatStore();
   const t = translations[language];
 
   const navItems: { icon: React.ReactNode; label: string; view: View }[] = [
@@ -123,7 +173,30 @@ export function Sidebar() {
       >
         {/* Spacer matching header height */}
         <div className="h-[53px] flex-shrink-0" />
-        <nav className="flex-1 px-3 pt-3 space-y-1">
+
+        {/* New Chat Button */}
+        <div className="px-3 pt-3">
+          <button
+            type="button"
+            onClick={startNewChat}
+            className={cn(
+              "flex items-center gap-2 w-full px-3 py-2 rounded-xl",
+              "transition-all duration-200 ease-out",
+              "border border-dashed",
+              "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
+            )}
+            style={{
+              borderColor: "var(--border)",
+              color: "var(--text-muted)",
+            }}
+          >
+            <Plus size={16} />
+            <span className="text-sm">{t.newChat}</span>
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="px-3 pt-3 space-y-1">
           {navItems.map((item, index) => (
             <NavItem
               key={item.view}
@@ -135,6 +208,28 @@ export function Sidebar() {
             />
           ))}
         </nav>
+
+        {/* Conversation History */}
+        {conversations.length > 0 && (
+          <div className="flex-1 px-3 pt-4 overflow-hidden flex flex-col">
+            <div
+              className="text-xs font-medium mb-2 px-3"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {t.conversations}
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-0.5">
+              {conversations.map((conversation) => (
+                <ConversationItem
+                  key={conversation.id}
+                  conversation={conversation}
+                  isActive={currentConversationId === conversation.id}
+                  onClick={() => selectConversation(conversation.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </aside>
     </>
   );
