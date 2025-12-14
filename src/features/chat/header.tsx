@@ -11,7 +11,7 @@ const languageLabels: Record<Language, string> = {
   ko: "한국어",
 };
 
-export function ChatHeader() {
+export function Header() {
   const { theme, toggleTheme, language, setLanguage, toggleSidebar, sidebarCollapsed } = useChatStore();
   const isDark = theme === "dark";
 
