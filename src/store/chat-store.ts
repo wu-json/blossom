@@ -427,6 +427,8 @@ export const useChatStore = create<ChatStore>()(
           if (isFirstMessage && fullContent) {
             fetch(`/api/conversations/${currentConversationId}/title`, {
               method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ language }),
             }).then(() => loadConversations());
           }
         } catch (error) {
