@@ -1,12 +1,18 @@
 import { cn } from "../../lib/utils";
+import { useChatStore } from "../../store/chat-store";
+import { useSmoothText } from "../../hooks/use-smooth-text";
 import type { Message } from "../../types/chat";
 
 interface MessageBubbleProps {
   message: Message;
+  isLastAssistant?: boolean;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const isTyping = useChatStore((state) => state.isTyping);
+  const isStreaming = !isUser && isLastAssistant && isTyping;
+  const displayedContent = useSmoothText(message.content, isStreaming);
 
   return (
     <div className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}>
@@ -28,7 +34,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         }
       >
         <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words">
-          {message.content}
+          {displayedContent}
+          {isStreaming && (
+            <span
+              className="inline-block w-[2px] h-[1em] ml-0.5 align-middle animate-pulse"
+              style={{ backgroundColor: "var(--assistant-bubble-text)", opacity: 0.7 }}
+            />
+          )}
         </p>
       </div>
       <span

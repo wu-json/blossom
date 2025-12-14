@@ -62,11 +62,17 @@ export function MessageList() {
     );
   }
 
+  const lastAssistantIndex = messages.findLastIndex((m) => m.role === "assistant");
+
   return (
     <ScrollArea className="flex-1 p-4">
       <div className="flex flex-col gap-3 max-w-2xl mx-auto">
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+        {messages.map((message, index) => (
+          <MessageBubble
+            key={message.id}
+            message={message}
+            isLastAssistant={index === lastAssistantIndex}
+          />
         ))}
         <div ref={bottomRef} />
       </div>
