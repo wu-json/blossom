@@ -196,12 +196,10 @@ const server = Bun.serve({
           return new Response("Not found", { status: 404 });
         }
         const filePath = join(uploadsDir, filename);
-        console.log("Serving file:", filePath);
         const file = Bun.file(filePath);
         if (await file.exists()) {
           return new Response(file);
         }
-        console.log("File not found:", filePath);
         return new Response("Not found", { status: 404 });
       },
     },
