@@ -15,6 +15,7 @@ import {
   updateTeacherPersonality,
 } from "./db/teacher";
 import { db, blossomDir } from "./db/database";
+import { compactMessages } from "./lib/message-compaction";
 import { mkdir, unlink, rm, rename } from "node:fs/promises";
 import archiver from "archiver";
 import unzipper from "unzipper";
@@ -445,12 +446,23 @@ For ALL other interactions (questions, conversation, requests for examples, clar
           })
         );
 
+        // Compact messages to fit within API size limits (pure transformation, does not modify stored data)
+        const compactionResult = compactMessages(systemPrompt, transformedMessages);
+        const finalMessages = compactionResult.messages;
+
+        if (compactionResult.wasCompacted) {
+          console.log(
+            `Compacted conversation: dropped ${compactionResult.droppedImageCount} images, ` +
+            `${compactionResult.droppedMessageCount} messages`
+          );
+        }
+
         try {
           const stream = anthropic.messages.stream({
             model: "claude-sonnet-4-20250514",
             max_tokens: 4096,
             system: systemPrompt,
-            messages: transformedMessages,
+            messages: finalMessages,
           });
 
           const encoder = new TextEncoder();
@@ -479,6 +491,29 @@ For ALL other interactions (questions, conversation, requests for examples, clar
           });
         } catch (error: unknown) {
           console.error("API error:", error);
+
+          // Handle specific API errors
+          if (error instanceof Anthropic.APIError) {
+            if (error.status === 413) {
+              return Response.json(
+                {
+                  error: "request_too_large",
+                  message: "The conversation is too long. Please start a new conversation.",
+                },
+                { status: 413 }
+              );
+            }
+            if (error.status === 429) {
+              return Response.json(
+                {
+                  error: "rate_limited",
+                  message: "Too many requests. Please wait a moment and try again.",
+                },
+                { status: 429 }
+              );
+            }
+          }
+
           const message = error instanceof Error ? error.message : "Unknown error";
           return Response.json({ error: message }, { status: 500 });
         }

@@ -335,6 +335,13 @@ export const useChatStore = create<ChatStore>()(
           });
 
           if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: "unknown" }));
+            if (response.status === 413 || errorData.error === "request_too_large") {
+              throw new Error("CONVERSATION_TOO_LARGE");
+            }
+            if (response.status === 429 || errorData.error === "rate_limited") {
+              throw new Error("RATE_LIMITED");
+            }
             throw new Error("Failed to get response");
           }
 
@@ -383,10 +390,24 @@ export const useChatStore = create<ChatStore>()(
             }).then(() => loadConversations());
           }
         } catch (error) {
-          updateMessage(
-            assistantMessage.id,
-            "Sorry, there was an error getting a response. Please try again."
-          );
+          let errorMessage: string;
+
+          if (error instanceof Error) {
+            switch (error.message) {
+              case "CONVERSATION_TOO_LARGE":
+                errorMessage = "This conversation has grown too long. Please start a new chat to continue.";
+                break;
+              case "RATE_LIMITED":
+                errorMessage = "Too many requests. Please wait a moment and try again.";
+                break;
+              default:
+                errorMessage = "Sorry, there was an error getting a response. Please try again.";
+            }
+          } else {
+            errorMessage = "Sorry, there was an error getting a response. Please try again.";
+          }
+
+          updateMessage(assistantMessage.id, errorMessage);
         } finally {
           setTyping(false);
         }
