@@ -25,6 +25,9 @@ export function PetalCard({ petal }: PetalCardProps) {
     await deletePetal(petal.id);
   };
 
+  const hasImages = petal.userImages && petal.userImages.length > 0;
+  const hasText = petal.userInput && petal.userInput.trim().length > 0;
+
   return (
     <div
       className="p-4 rounded-lg border"
@@ -32,10 +35,28 @@ export function PetalCard({ petal }: PetalCardProps) {
     >
       {/* User input context */}
       <div
-        className="text-sm mb-3 p-3 rounded-lg"
+        className="mb-3 p-3 rounded-lg"
         style={{ backgroundColor: "var(--background)" }}
       >
-        <span style={{ color: "var(--text-muted)" }}>"{petal.userInput}"</span>
+        {hasImages && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {petal.userImages!.map((url, idx) => (
+              <img
+                key={idx}
+                src={url}
+                alt={`Context ${idx + 1}`}
+                className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => window.open(url, "_blank")}
+              />
+            ))}
+          </div>
+        )}
+        {hasText && (
+          <span className="text-sm" style={{ color: "var(--text-muted)" }}>"{petal.userInput}"</span>
+        )}
+        {!hasImages && !hasText && (
+          <span className="text-sm italic" style={{ color: "var(--text-muted)" }}>(no context)</span>
+        )}
       </div>
 
       {/* Word details */}

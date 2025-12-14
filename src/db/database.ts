@@ -66,10 +66,18 @@ db.run(`
     conversation_id TEXT NOT NULL,
     message_id TEXT NOT NULL,
     user_input TEXT NOT NULL,
+    user_images TEXT DEFAULT NULL,
     created_at INTEGER NOT NULL,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
   )
 `);
+
+// Migration: Add user_images column to petals table (for existing databases)
+try {
+  db.run(`ALTER TABLE petals ADD COLUMN user_images TEXT DEFAULT NULL`);
+} catch {
+  // Column already exists, ignore
+}
 
 // Create indexes for petals queries
 db.run(`CREATE INDEX IF NOT EXISTS idx_petals_language ON petals(language)`);

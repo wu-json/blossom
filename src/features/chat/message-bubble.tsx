@@ -21,9 +21,10 @@ interface MessageBubbleProps {
   message: Message;
   isLastAssistant?: boolean;
   userInput?: string;
+  userImages?: string[];
 }
 
-export function MessageBubble({ message, isLastAssistant, userInput }: MessageBubbleProps) {
+export function MessageBubble({ message, isLastAssistant, userInput, userImages }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const isTyping = useChatStore((state) => state.isTyping);
   const teacherSettings = useChatStore((state) => state.teacherSettings);
@@ -31,12 +32,12 @@ export function MessageBubble({ message, isLastAssistant, userInput }: MessageBu
   const savePetal = useChatStore((state) => state.savePetal);
 
   const handleSaveWord = (word: WordBreakdown) => {
-    if (currentConversationId && userInput) {
-      savePetal(word, currentConversationId, message.id, userInput);
+    if (currentConversationId && (userInput || userImages?.length)) {
+      savePetal(word, currentConversationId, message.id, userInput || "", userImages);
     }
   };
 
-  const canSaveWords = !isUser && currentConversationId && userInput;
+  const canSaveWords = !isUser && currentConversationId && (userInput || userImages?.length);
   const isStreaming = !isUser && !!isLastAssistant && isTyping;
   const displayedContent = useSmoothText(message.content, isStreaming);
 

@@ -466,9 +466,9 @@ const server = Bun.serve({
     },
     "/api/petals": {
       POST: async (req) => {
-        const { word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput } = await req.json();
+        const { word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput, userImages } = await req.json();
 
-        if (!word || !language || !conversationId || !messageId || !userInput) {
+        if (!word || !language || !conversationId || !messageId) {
           return Response.json({ error: "Missing required fields" }, { status: 400 });
         }
 
@@ -480,7 +480,8 @@ const server = Bun.serve({
           language,
           conversationId,
           messageId,
-          userInput
+          userInput || "",
+          userImages
         );
         return Response.json(petal);
       },

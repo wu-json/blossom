@@ -40,6 +40,7 @@ export interface Petal {
   conversationId: string;
   messageId: string;
   userInput: string;
+  userImages?: string[];
   createdAt: Date;
 }
 
@@ -96,7 +97,7 @@ export interface ChatActions {
   loadFlowers: () => Promise<void>;
   selectFlower: (word: string) => Promise<void>;
   clearSelectedFlower: () => void;
-  savePetal: (word: WordBreakdown, conversationId: string, messageId: string, userInput: string) => Promise<void>;
+  savePetal: (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]) => Promise<void>;
   deletePetal: (id: string) => Promise<void>;
 }
 

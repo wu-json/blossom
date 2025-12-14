@@ -10,6 +10,7 @@ export interface PetalRow {
   conversation_id: string;
   message_id: string;
   user_input: string;
+  user_images: string | null;
   created_at: number;
 }
 
@@ -30,15 +31,17 @@ export function createPetal(
   language: string,
   conversationId: string,
   messageId: string,
-  userInput: string
+  userInput: string,
+  userImages?: string[]
 ): PetalRow {
   const id = generateId();
   const createdAt = Date.now();
+  const userImagesJson = userImages && userImages.length > 0 ? JSON.stringify(userImages) : null;
 
   db.run(
-    `INSERT INTO petals (id, word, reading, meaning, part_of_speech, language, conversation_id, message_id, user_input, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput, createdAt]
+    `INSERT INTO petals (id, word, reading, meaning, part_of_speech, language, conversation_id, message_id, user_input, user_images, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput, userImagesJson, createdAt]
   );
 
   return {
@@ -51,6 +54,7 @@ export function createPetal(
     conversation_id: conversationId,
     message_id: messageId,
     user_input: userInput,
+    user_images: userImagesJson,
     created_at: createdAt,
   };
 }

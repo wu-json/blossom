@@ -73,12 +73,14 @@ export function MessageList() {
   const lastAssistantIndex = messages.findLastIndex((m) => m.role === "assistant");
 
   // Find the user input that prompted each assistant message
-  const getUserInputForAssistant = (index: number): string | undefined => {
+  const getUserContextForAssistant = (index: number): { content: string; images?: string[] } | undefined => {
     // Look backwards for the most recent user message before this assistant message
     for (let i = index - 1; i >= 0; i--) {
       if (messages[i].role === "user") {
-        // Return content, or a placeholder if user only sent images
-        return messages[i].content || "[image]";
+        return {
+          content: messages[i].content || "",
+          images: messages[i].images,
+        };
       }
     }
     return undefined;
@@ -87,14 +89,18 @@ export function MessageList() {
   return (
     <ScrollArea className="flex-1 p-4">
       <div className="flex flex-col gap-3 max-w-2xl mx-auto">
-        {messages.map((message, index) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            isLastAssistant={index === lastAssistantIndex}
-            userInput={message.role === "assistant" ? getUserInputForAssistant(index) : undefined}
-          />
-        ))}
+        {messages.map((message, index) => {
+          const userContext = message.role === "assistant" ? getUserContextForAssistant(index) : undefined;
+          return (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              isLastAssistant={index === lastAssistantIndex}
+              userInput={userContext?.content}
+              userImages={userContext?.images}
+            />
+          );
+        })}
         <div ref={bottomRef} />
       </div>
     </ScrollArea>
