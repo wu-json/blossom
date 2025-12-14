@@ -14,6 +14,7 @@ export const useChatStore = create<ChatStore>()(
       sidebarCollapsed: true,
       currentView: "chat" as View,
       apiKeyConfigured: null,
+      dataDir: null,
       currentConversationId: null,
       conversations: [],
       teacherSettings: null,
@@ -71,9 +72,12 @@ export const useChatStore = create<ChatStore>()(
         try {
           const response = await fetch("/api/status");
           const data = await response.json();
-          set({ apiKeyConfigured: data.anthropicConfigured });
+          set({
+            apiKeyConfigured: data.anthropicConfigured,
+            dataDir: data.dataDir,
+          });
         } catch {
-          set({ apiKeyConfigured: false });
+          set({ apiKeyConfigured: false, dataDir: null });
         }
       },
 
