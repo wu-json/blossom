@@ -156,6 +156,7 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
             boxShadow: "0 2px 12px rgba(0, 0, 0, 0.12)",
             border: "1px solid var(--border)",
             zIndex: 9999,
+            animation: "expandTitle 0.15s ease-out",
           }}
         >
           {conversation.title}
@@ -208,6 +209,16 @@ export function Sidebar() {
             }
             to {
               opacity: 1;
+            }
+          }
+          @keyframes expandTitle {
+            from {
+              opacity: 0;
+              transform: translateX(-4px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
             }
           }
         `}
