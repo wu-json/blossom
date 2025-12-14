@@ -37,6 +37,7 @@ export function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const currentConversation = currentConversationId
     ? conversations.find((c) => c.id === currentConversationId)
@@ -121,12 +122,17 @@ export function Header() {
 
   const handleRegenerateTitle = async () => {
     if (currentConversationId) {
-      await fetch(`/api/conversations/${currentConversationId}/title`, {
-        method: "POST",
-      });
-      await loadConversations();
+      setIsDropdownOpen(false);
+      setIsRegenerating(true);
+      try {
+        await fetch(`/api/conversations/${currentConversationId}/title`, {
+          method: "POST",
+        });
+        await loadConversations();
+      } finally {
+        setIsRegenerating(false);
+      }
     }
-    setIsDropdownOpen(false);
   };
 
   return (
@@ -193,23 +199,37 @@ export function Header() {
               />
             ) : (
               <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                onClick={() => !isRegenerating && setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
-                style={{ color: "var(--text)" }}
+                style={{
+                  color: "var(--text)",
+                  cursor: isRegenerating ? "default" : "pointer",
+                }}
               >
+                {isRegenerating && (
+                  <RefreshCw
+                    className="w-3.5 h-3.5 flex-shrink-0 animate-spin"
+                    style={{ color: "var(--text-muted)" }}
+                  />
+                )}
                 <span
-                  className="text-sm font-medium truncate"
-                  style={{ maxWidth: "300px" }}
+                  className="text-sm font-medium truncate transition-opacity duration-200"
+                  style={{
+                    maxWidth: "300px",
+                    opacity: isRegenerating ? 0.5 : 1,
+                  }}
                 >
                   {currentConversation.title}
                 </span>
-                <ChevronDown
-                  className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
-                  style={{
-                    color: "var(--text-muted)",
-                    transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
-                  }}
-                />
+                {!isRegenerating && (
+                  <ChevronDown
+                    className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+                    style={{
+                      color: "var(--text-muted)",
+                      transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    }}
+                  />
+                )}
               </button>
             )}
 
