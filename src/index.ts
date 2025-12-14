@@ -386,9 +386,18 @@ For ALL other interactions (questions, conversation, requests for examples, clar
 
         const anthropic = new Anthropic({ apiKey });
 
+        // Filter out messages with empty content (except allow final assistant message to be empty)
+        const filteredMessages = messages.filter((m: { role: string; content: string; images?: string[] }, index: number) => {
+          const isLastMessage = index === messages.length - 1;
+          const hasContent = m.content && m.content.trim().length > 0;
+          const hasImages = m.images && m.images.length > 0;
+          // Keep message if it has content, has images, or is the last assistant message
+          return hasContent || hasImages || (isLastMessage && m.role === 'assistant');
+        });
+
         // Transform messages to include images in Claude format
         const transformedMessages = await Promise.all(
-          messages.map(async (m: { role: string; content: string; images?: string[] }) => {
+          filteredMessages.map(async (m: { role: string; content: string; images?: string[] }) => {
             // If no images, return simple text message
             if (!m.images || m.images.length === 0) {
               return { role: m.role, content: m.content };
@@ -436,36 +445,43 @@ For ALL other interactions (questions, conversation, requests for examples, clar
           })
         );
 
-        const stream = anthropic.messages.stream({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 4096,
-          system: systemPrompt,
-          messages: transformedMessages,
-        });
+        try {
+          const stream = anthropic.messages.stream({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages: transformedMessages,
+          });
 
-        const encoder = new TextEncoder();
-        const readable = new ReadableStream({
-          async start(controller) {
-            try {
-              for await (const event of stream) {
-                const data = `data: ${JSON.stringify(event)}\n\n`;
-                controller.enqueue(encoder.encode(data));
+          const encoder = new TextEncoder();
+          const readable = new ReadableStream({
+            async start(controller) {
+              try {
+                for await (const event of stream) {
+                  const data = `data: ${JSON.stringify(event)}\n\n`;
+                  controller.enqueue(encoder.encode(data));
+                }
+                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                controller.close();
+              } catch (error) {
+                console.error("Stream error:", error);
+                controller.error(error);
               }
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-              controller.close();
-            } catch (error) {
-              controller.error(error);
-            }
-          },
-        });
+            },
+          });
 
-        return new Response(readable, {
-          headers: {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-          },
-        });
+          return new Response(readable, {
+            headers: {
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              "Connection": "keep-alive",
+            },
+          });
+        } catch (error: unknown) {
+          console.error("API error:", error);
+          const message = error instanceof Error ? error.message : "Unknown error";
+          return Response.json({ error: message }, { status: 500 });
+        }
       },
     },
   },
