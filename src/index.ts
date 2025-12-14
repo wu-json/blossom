@@ -164,27 +164,16 @@ const server = Bun.serve({
           content: "Based on this conversation, generate a short, concise title (max 5 words). Return ONLY the title, no quotes or punctuation.",
         });
 
-        try {
-          const response = await anthropic.messages.create({
-            model: "claude-haiku-4-5-20251001",
-            max_tokens: 50,
-            messages: titleMessages,
-          });
+        const response = await anthropic.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 50,
+          messages: titleMessages,
+        });
 
-          const title = (response.content[0] as { type: string; text: string }).text.trim();
-          updateConversationTitle(id, title);
+        const title = (response.content[0] as { type: string; text: string }).text.trim();
+        updateConversationTitle(id, title);
 
-          return Response.json({ title });
-        } catch (err: unknown) {
-          const error = err as { message?: string; status?: number; error?: unknown };
-          console.error("Title generation error:", error.message, error.status, JSON.stringify(error.error));
-          console.error("Messages sent:", JSON.stringify(titleMessages.map(m => ({
-            role: m.role,
-            contentType: typeof m.content,
-            contentLength: typeof m.content === "string" ? m.content.length : (m.content as unknown[]).length
-          })), null, 2));
-          throw err;
-        }
+        return Response.json({ title });
       },
       PUT: async (req) => {
         const id = req.params.id;
