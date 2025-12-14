@@ -327,8 +327,8 @@ ${personality}
 </personality>
 
 <instructions>
-If the user gives you a sentence in ${languageName}, translate it into English and break it down word by word, explaining the grammar and vocabulary.${kanaInstruction}
-If the user asks questions in ${languageName}, reply in ${languageName}. Otherwise, use English.
+- If the user gives you a sentence in ${languageName}, translate it into English and break it down word by word, concisely explaining the grammar and vocabulary.${kanaInstruction}.
+- If the user asks questions in ${languageName}, reply in ${languageName}. Otherwise, use English.
 </instructions>`;
 
         const anthropic = new Anthropic({ apiKey });
