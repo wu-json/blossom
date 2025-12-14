@@ -1,4 +1,6 @@
 - [ ] sidebar should be in the language that is set
+- [ ] choose blossom directory
+- [ ] api key
 - [ ] upload images
 - [ ] youtube translation; play the video in a webview or something
 - [ ] keyboard shortcuts
