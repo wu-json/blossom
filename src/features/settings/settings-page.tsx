@@ -1,19 +1,56 @@
 import * as React from "react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { useChatStore } from "../../store/chat-store";
 import { version } from "../../version";
 
 export function SettingsPage() {
-  const { toggleSidebar, sidebarCollapsed, deleteAllData } = useChatStore();
+  const { toggleSidebar, sidebarCollapsed, deleteAllData, exportData, importData } = useChatStore();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDeleteAllData = async () => {
     if (deleteInput !== "delete") return;
     setIsDeleting(true);
     await deleteAllData();
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await exportData();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setShowImportModal(true);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) return;
+    setIsImporting(true);
+    try {
+      await importData(selectedFile);
+    } finally {
+      setIsImporting(false);
+      setShowImportModal(false);
+      setSelectedFile(null);
+    }
   };
 
   return (
@@ -85,6 +122,58 @@ export function SettingsPage() {
             >
               Preference settings coming soon.
             </p>
+          </section>
+
+          <section
+            className="p-4 rounded-lg border"
+            style={{
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+            }}
+          >
+            <h2
+              className="text-sm font-medium mb-2"
+              style={{ color: "var(--text)" }}
+            >
+              Data Management
+            </h2>
+            <p
+              className="text-sm mb-4"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Transfer your data between devices by exporting and importing backups.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleExport}
+                disabled={isExporting}
+                className="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  borderColor: "var(--border)",
+                  color: "var(--text)",
+                }}
+              >
+                {isExporting ? "Exporting..." : "Export Data"}
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+                className="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  borderColor: "var(--border)",
+                  color: "var(--text)",
+                }}
+              >
+                {isImporting ? "Importing..." : "Import Data"}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".zip"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </div>
           </section>
 
           <section
@@ -176,6 +265,60 @@ export function SettingsPage() {
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-700 disabled:hover:bg-red-600"
               >
                 {isDeleting ? "Deleting..." : "Delete Everything"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => {
+              setShowImportModal(false);
+              setSelectedFile(null);
+            }}
+          />
+          <div
+            className="relative z-10 w-full max-w-md p-6 rounded-xl border shadow-xl"
+            style={{
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+            }}
+          >
+            <h3
+              className="text-lg font-semibold mb-4"
+              style={{ color: "var(--text)" }}
+            >
+              Import Data
+            </h3>
+            <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
+              This will replace all existing data with the contents of the backup file. This action cannot be undone.
+            </p>
+            <p className="text-sm mb-4" style={{ color: "var(--text)" }}>
+              File: <strong>{selectedFile?.name}</strong>
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowImportModal(false);
+                  setSelectedFile(null);
+                }}
+                className="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{
+                  borderColor: "var(--border)",
+                  color: "var(--text)",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImport}
+                disabled={isImporting}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 disabled:hover:bg-blue-600"
+              >
+                {isImporting ? "Importing..." : "Import"}
               </button>
             </div>
           </div>

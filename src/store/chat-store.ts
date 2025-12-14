@@ -239,6 +239,41 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
+      exportData: async () => {
+        try {
+          const response = await fetch("/api/data/export");
+          if (!response.ok) throw new Error("Export failed");
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          a.download = `blossom-backup-${timestamp}.zip`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch {
+          console.error("Failed to export data");
+          throw new Error("Failed to export data");
+        }
+      },
+
+      importData: async (file: File) => {
+        try {
+          const formData = new FormData();
+          formData.append("backup", file);
+          const response = await fetch("/api/data/import", {
+            method: "POST",
+            body: formData,
+          });
+          if (!response.ok) throw new Error("Import failed");
+          localStorage.removeItem("blossom-chat-storage");
+          window.location.reload();
+        } catch {
+          console.error("Failed to import data");
+          throw new Error("Failed to import data");
+        }
+      },
+
       sendMessage: async (content: string) => {
         const { messages, updateMessage, setTyping, createConversation, loadConversations, language } = get();
         let { currentConversationId } = get();

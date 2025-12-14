@@ -15,7 +15,9 @@ import {
   updateTeacherPersonality,
 } from "./db/teacher";
 import { db, blossomDir } from "./db/database";
-import { mkdir, unlink, rm } from "node:fs/promises";
+import { mkdir, unlink, rm, rename } from "node:fs/promises";
+import archiver from "archiver";
+import unzipper from "unzipper";
 import { join } from "node:path";
 
 // Ensure uploads directory exists in ~/.blossom/uploads
@@ -217,6 +219,92 @@ const server = Bun.serve({
         db.close();
         await rm(blossomDir, { recursive: true, force: true });
         return Response.json({ success: true });
+      },
+    },
+    "/api/data/export": {
+      GET: async () => {
+        const archive = archiver("zip", { zlib: { level: 9 } });
+        const chunks: Uint8Array[] = [];
+
+        archive.on("data", (chunk: Uint8Array) => chunks.push(chunk));
+
+        // Add the entire ~/.blossom directory to the archive
+        archive.directory(blossomDir, "blossom");
+        await archive.finalize();
+
+        const blob = new Blob(chunks, { type: "application/zip" });
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+        return new Response(blob, {
+          headers: {
+            "Content-Type": "application/zip",
+            "Content-Disposition": `attachment; filename="blossom-backup-${timestamp}.zip"`,
+          },
+        });
+      },
+    },
+    "/api/data/import": {
+      POST: async (req) => {
+        const formData = await req.formData();
+        const file = formData.get("backup") as File | null;
+
+        if (!file) {
+          return Response.json({ error: "No backup file provided" }, { status: 400 });
+        }
+
+        const backupDir = `${blossomDir}.backup`;
+
+        try {
+          // Close database before modifying files
+          db.close();
+
+          // Backup existing directory
+          try {
+            await rename(blossomDir, backupDir);
+          } catch {
+            // Directory might not exist, that's fine
+          }
+
+          // Create fresh blossom directory
+          await mkdir(blossomDir, { recursive: true });
+
+          // Extract zip contents
+          const buffer = Buffer.from(await file.arrayBuffer());
+          const directory = await unzipper.Open.buffer(buffer);
+
+          for (const entry of directory.files) {
+            if (entry.type === "Directory") continue;
+
+            // Remove "blossom/" prefix from path
+            const relativePath = entry.path.replace(/^blossom\//, "");
+            if (!relativePath) continue;
+
+            const targetPath = join(blossomDir, relativePath);
+            const targetDir = join(targetPath, "..");
+            await mkdir(targetDir, { recursive: true });
+
+            const content = await entry.buffer();
+            await Bun.write(targetPath, content);
+          }
+
+          // Remove backup on success
+          try {
+            await rm(backupDir, { recursive: true, force: true });
+          } catch {
+            // Ignore cleanup errors
+          }
+
+          return Response.json({ success: true });
+        } catch (error) {
+          // Restore backup on failure
+          try {
+            await rm(blossomDir, { recursive: true, force: true });
+            await rename(backupDir, blossomDir);
+          } catch {
+            // Best effort restore
+          }
+          return Response.json({ error: "Failed to import backup" }, { status: 500 });
+        }
       },
     },
     "/api/chat": {
