@@ -1,8 +1,14 @@
 import * as React from "react";
 import { MessageSquare, Settings } from "lucide-react";
 import { useChatStore } from "../../store/chat-store";
-import type { View } from "../../types/chat";
+import type { Language, View } from "../../types/chat";
 import { cn } from "../../lib/utils";
+
+const translations: Record<Language, { chat: string; settings: string }> = {
+  ja: { chat: "チャット", settings: "設定" },
+  zh: { chat: "聊天", settings: "设置" },
+  ko: { chat: "채팅", settings: "설정" },
+};
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -70,11 +76,12 @@ function NavItem({ icon, label, isActive, onClick, delay }: NavItemProps) {
 }
 
 export function Sidebar() {
-  const { sidebarCollapsed, currentView, setView } = useChatStore();
+  const { sidebarCollapsed, currentView, setView, language } = useChatStore();
+  const t = translations[language];
 
   const navItems: { icon: React.ReactNode; label: string; view: View }[] = [
-    { icon: <MessageSquare size={18} />, label: "Chat", view: "chat" },
-    { icon: <Settings size={18} />, label: "Settings", view: "settings" },
+    { icon: <MessageSquare size={18} />, label: t.chat, view: "chat" },
+    { icon: <Settings size={18} />, label: t.settings, view: "settings" },
   ];
 
   if (sidebarCollapsed) {
