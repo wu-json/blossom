@@ -1,3 +1,4 @@
+- [ ] sidebar should be in the language that is set
 - [ ] sqlite to store conversations
 - [ ] compaction
 - [ ] make notecard for words
