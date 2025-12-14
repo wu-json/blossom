@@ -319,11 +319,16 @@ const server = Bun.serve({
         const languageName = languageNames[language] || "Japanese";
 
         const personality = teacherSettings.personality || "Warm and encouraging. Be patient, explain concepts clearly with examples, correct mistakes gently, and celebrate progress.";
+        const kanaInstruction = language === "ja" ? " Include kana (hiragana/katakana) readings for any kanji." : "";
         const systemPrompt = `You are ${teacherSettings.name}, a ${languageName} language teacher with the following personality:
 
 <personality>
 ${personality}
-</personality>`;
+</personality>
+
+<instructions>
+If the user gives you a sentence in ${languageName}, translate it into English and break it down word by word, explaining the grammar and vocabulary.${kanaInstruction}
+</instructions>`;
 
         const anthropic = new Anthropic({ apiKey });
 
