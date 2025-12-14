@@ -93,87 +93,64 @@ export function SettingsPage() {
               className="text-sm font-medium mb-2"
               style={{ color: "var(--text)" }}
             >
-              Account
-            </h2>
-            <p
-              className="text-sm"
-              style={{ color: "var(--text-muted)" }}
-            >
-              Account settings coming soon.
-            </p>
-          </section>
-
-          <section
-            className="p-4 rounded-lg border"
-            style={{
-              backgroundColor: "var(--surface)",
-              borderColor: "var(--border)",
-            }}
-          >
-            <h2
-              className="text-sm font-medium mb-2"
-              style={{ color: "var(--text)" }}
-            >
-              Preferences
-            </h2>
-            <p
-              className="text-sm"
-              style={{ color: "var(--text-muted)" }}
-            >
-              Preference settings coming soon.
-            </p>
-          </section>
-
-          <section
-            className="p-4 rounded-lg border"
-            style={{
-              backgroundColor: "var(--surface)",
-              borderColor: "var(--border)",
-            }}
-          >
-            <h2
-              className="text-sm font-medium mb-2"
-              style={{ color: "var(--text)" }}
-            >
-              Data Management
+              Export Data
             </h2>
             <p
               className="text-sm mb-4"
               style={{ color: "var(--text-muted)" }}
             >
-              Transfer your data between devices by exporting and importing backups.
+              Download all your data as a backup file to transfer to another device.
             </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleExport}
-                disabled={isExporting}
-                className="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: "var(--border)",
-                  color: "var(--text)",
-                }}
-              >
-                {isExporting ? "Exporting..." : "Export Data"}
-              </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isImporting}
-                className="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: "var(--border)",
-                  color: "var(--text)",
-                }}
-              >
-                {isImporting ? "Importing..." : "Import Data"}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".zip"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </div>
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                borderColor: "var(--border)",
+                color: "var(--text)",
+              }}
+            >
+              {isExporting ? "Exporting..." : "Export Data"}
+            </button>
+          </section>
+
+          <section
+            className="p-4 rounded-lg border"
+            style={{
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+            }}
+          >
+            <h2
+              className="text-sm font-medium mb-2"
+              style={{ color: "var(--text)" }}
+            >
+              Import Data
+            </h2>
+            <p
+              className="text-sm mb-4"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Restore your data from a backup file.
+            </p>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isImporting}
+              className="px-4 py-2 text-sm font-medium rounded-lg border transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                borderColor: "var(--border)",
+                color: "var(--text)",
+              }}
+            >
+              {isImporting ? "Importing..." : "Import Data"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".zip"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
           </section>
 
           <section
