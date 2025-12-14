@@ -1,4 +1,4 @@
-import type { TranslationData } from "./translation";
+import type { TranslationData, WordBreakdown } from "./translation";
 
 export type MessageRole = "user" | "assistant";
 
@@ -22,12 +22,32 @@ export type Theme = "light" | "dark";
 
 export type Language = "ja" | "zh" | "ko";
 
-export type View = "chat" | "settings" | "teacher";
+export type View = "chat" | "settings" | "teacher" | "garden";
 
 export interface TeacherSettings {
   name: string;
   profileImagePath: string | null;
   personality: string | null;
+}
+
+export interface Petal {
+  id: string;
+  word: string;
+  reading: string;
+  meaning: string;
+  partOfSpeech: string;
+  language: Language;
+  conversationId: string;
+  messageId: string;
+  userInput: string;
+  createdAt: Date;
+}
+
+export interface Flower {
+  word: string;
+  petalCount: number;
+  latestReading: string;
+  latestMeaning: string;
 }
 
 export interface ChatState {
@@ -43,6 +63,9 @@ export interface ChatState {
   currentConversationId: string | null;
   conversations: Conversation[];
   teacherSettings: TeacherSettings | null;
+  flowers: Flower[];
+  selectedFlower: string | null;
+  flowerPetals: Petal[];
 }
 
 export interface ChatActions {
@@ -70,6 +93,11 @@ export interface ChatActions {
   deleteAllData: () => Promise<void>;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
+  loadFlowers: () => Promise<void>;
+  selectFlower: (word: string) => Promise<void>;
+  clearSelectedFlower: () => void;
+  savePetal: (word: WordBreakdown, conversationId: string, messageId: string, userInput: string) => Promise<void>;
+  deletePetal: (id: string) => Promise<void>;
 }
 
 export type ChatStore = ChatState & ChatActions;

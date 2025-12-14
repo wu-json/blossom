@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Plus, Check } from "lucide-react";
 import type {
   TranslationData,
   WordBreakdown,
@@ -7,6 +9,7 @@ import type {
 
 interface TranslationCardProps {
   data: TranslationData;
+  onSaveWord?: (word: WordBreakdown) => void;
 }
 
 const posColors: Record<string, string> = {
@@ -27,7 +30,7 @@ function getPosColor(partOfSpeech: string): string {
   return "#6B7280";
 }
 
-export function TranslationCard({ data }: TranslationCardProps) {
+export function TranslationCard({ data, onSaveWord }: TranslationCardProps) {
   return (
     <div className="space-y-3">
       {/* Original Text with Subtext */}
@@ -52,7 +55,12 @@ export function TranslationCard({ data }: TranslationCardProps) {
         <div className="text-xs font-medium opacity-50 mb-2">Breakdown</div>
         <div className="flex flex-col gap-1">
           {data.breakdown.map((item, idx) => (
-            <WordRow key={idx} item={item} isEven={idx % 2 === 0} />
+            <WordRow
+              key={idx}
+              item={item}
+              isEven={idx % 2 === 0}
+              onSave={onSaveWord ? () => onSaveWord(item) : undefined}
+            />
           ))}
         </div>
       </div>
@@ -78,19 +86,30 @@ export function TranslationCard({ data }: TranslationCardProps) {
 interface WordRowProps {
   item: WordBreakdown;
   isEven: boolean;
+  onSave?: () => void;
 }
 
-function WordRow({ item, isEven }: WordRowProps) {
+function WordRow({ item, isEven, onSave }: WordRowProps) {
   const color = getPosColor(item.partOfSpeech);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const handleClick = () => {
+    if (onSave && !isSaved) {
+      onSave();
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    }
+  };
 
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2 rounded-md"
+      className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${onSave ? "cursor-pointer group" : ""}`}
       style={{
         backgroundColor: isEven
           ? "rgba(255, 255, 255, 0.03)"
           : "rgba(255, 255, 255, 0.06)",
       }}
+      onClick={handleClick}
     >
       <div className="w-[90px] flex-shrink-0">
         <div className="font-medium leading-tight">{item.word}</div>
@@ -103,6 +122,14 @@ function WordRow({ item, isEven }: WordRowProps) {
       >
         {item.partOfSpeech}
       </div>
+      {onSave && (
+        <div
+          className={`flex-shrink-0 transition-opacity ${isSaved ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+          style={{ color: isSaved ? "#22c55e" : "var(--primary)" }}
+        >
+          {isSaved ? <Check size={16} /> : <Plus size={16} />}
+        </div>
+      )}
     </div>
   );
 }

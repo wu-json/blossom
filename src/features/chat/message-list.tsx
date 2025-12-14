@@ -72,6 +72,17 @@ export function MessageList() {
 
   const lastAssistantIndex = messages.findLastIndex((m) => m.role === "assistant");
 
+  // Find the user input that prompted each assistant message
+  const getUserInputForAssistant = (index: number): string | undefined => {
+    // Look backwards for the most recent user message before this assistant message
+    for (let i = index - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        return messages[i].content;
+      }
+    }
+    return undefined;
+  };
+
   return (
     <ScrollArea className="flex-1 p-4">
       <div className="flex flex-col gap-3 max-w-2xl mx-auto">
@@ -80,6 +91,7 @@ export function MessageList() {
             key={message.id}
             message={message}
             isLastAssistant={index === lastAssistantIndex}
+            userInput={message.role === "assistant" ? getUserInputForAssistant(index) : undefined}
           />
         ))}
         <div ref={bottomRef} />

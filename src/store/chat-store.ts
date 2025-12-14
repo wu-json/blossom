@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ChatStore, Conversation, Language, Message, MessageRole, TeacherSettings, Theme, View } from "../types/chat";
+import type { ChatStore, Conversation, Flower, Language, Message, MessageRole, Petal, TeacherSettings, Theme, View } from "../types/chat";
+import type { WordBreakdown } from "../types/translation";
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
@@ -19,6 +20,9 @@ export const useChatStore = create<ChatStore>()(
       currentConversationId: null,
       conversations: [],
       teacherSettings: null,
+      flowers: [],
+      selectedFlower: null,
+      flowerPetals: [],
 
       addMessage: (content: string, role: MessageRole) => {
         const newMessage: Message = {
@@ -312,6 +316,94 @@ export const useChatStore = create<ChatStore>()(
         } catch {
           console.error("Failed to import data");
           throw new Error("Failed to import data");
+        }
+      },
+
+      loadFlowers: async () => {
+        const { language } = get();
+        try {
+          const response = await fetch(`/api/petals/flowers?language=${language}`);
+          const data = await response.json();
+          const flowers: Flower[] = data.map((f: { word: string; petalCount: number; latestReading: string; latestMeaning: string }) => ({
+            word: f.word,
+            petalCount: f.petalCount,
+            latestReading: f.latestReading,
+            latestMeaning: f.latestMeaning,
+          }));
+          set({ flowers });
+        } catch {
+          console.error("Failed to load flowers");
+        }
+      },
+
+      selectFlower: async (word: string) => {
+        const { language } = get();
+        try {
+          const response = await fetch(`/api/petals/flower/${encodeURIComponent(word)}?language=${language}`);
+          const data = await response.json();
+          const petals: Petal[] = data.map((p: { id: string; word: string; reading: string; meaning: string; part_of_speech: string; language: string; conversation_id: string; message_id: string; user_input: string; created_at: number }) => ({
+            id: p.id,
+            word: p.word,
+            reading: p.reading,
+            meaning: p.meaning,
+            partOfSpeech: p.part_of_speech,
+            language: p.language as Language,
+            conversationId: p.conversation_id,
+            messageId: p.message_id,
+            userInput: p.user_input,
+            createdAt: new Date(p.created_at),
+          }));
+          set({ selectedFlower: word, flowerPetals: petals });
+        } catch {
+          console.error("Failed to load flower petals");
+        }
+      },
+
+      clearSelectedFlower: () => {
+        set({ selectedFlower: null, flowerPetals: [] });
+      },
+
+      savePetal: async (word: WordBreakdown, conversationId: string, messageId: string, userInput: string) => {
+        const { language, loadFlowers } = get();
+        try {
+          await fetch("/api/petals", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              word: word.word,
+              reading: word.reading,
+              meaning: word.meaning,
+              partOfSpeech: word.partOfSpeech,
+              language,
+              conversationId,
+              messageId,
+              userInput,
+            }),
+          });
+          await loadFlowers();
+        } catch {
+          console.error("Failed to save petal");
+        }
+      },
+
+      deletePetal: async (id: string) => {
+        const { selectedFlower, selectFlower, loadFlowers } = get();
+        try {
+          await fetch(`/api/petals/${id}`, { method: "DELETE" });
+          await loadFlowers();
+          // Refresh current flower view if one is selected
+          if (selectedFlower) {
+            const { flowers } = get();
+            // Check if the flower still exists after deletion
+            const flowerStillExists = flowers.some(f => f.word === selectedFlower);
+            if (flowerStillExists) {
+              await selectFlower(selectedFlower);
+            } else {
+              set({ selectedFlower: null, flowerPetals: [] });
+            }
+          }
+        } catch {
+          console.error("Failed to delete petal");
         }
       },
 

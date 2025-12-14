@@ -54,6 +54,28 @@ db.run(`
   )
 `);
 
+// Create petals table for Garden feature
+db.run(`
+  CREATE TABLE IF NOT EXISTS petals (
+    id TEXT PRIMARY KEY,
+    word TEXT NOT NULL,
+    reading TEXT NOT NULL,
+    meaning TEXT NOT NULL,
+    part_of_speech TEXT NOT NULL,
+    language TEXT NOT NULL,
+    conversation_id TEXT NOT NULL,
+    message_id TEXT NOT NULL,
+    user_input TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+  )
+`);
+
+// Create indexes for petals queries
+db.run(`CREATE INDEX IF NOT EXISTS idx_petals_language ON petals(language)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_petals_word ON petals(word)`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_petals_word_language ON petals(word, language)`);
+
 // Migration: Add personality column if it doesn't exist (for existing databases)
 try {
   db.run(`ALTER TABLE teacher_settings ADD COLUMN personality TEXT`);

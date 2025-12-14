@@ -15,17 +15,28 @@ import {
 } from "../../lib/parse-translation";
 import type { PartialTranslationData } from "../../types/translation";
 import type { Message } from "../../types/chat";
-import type { ParsedContent } from "../../types/translation";
+import type { ParsedContent, WordBreakdown } from "../../types/translation";
 
 interface MessageBubbleProps {
   message: Message;
   isLastAssistant?: boolean;
+  userInput?: string;
 }
 
-export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) {
+export function MessageBubble({ message, isLastAssistant, userInput }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const isTyping = useChatStore((state) => state.isTyping);
   const teacherSettings = useChatStore((state) => state.teacherSettings);
+  const currentConversationId = useChatStore((state) => state.currentConversationId);
+  const savePetal = useChatStore((state) => state.savePetal);
+
+  const handleSaveWord = (word: WordBreakdown) => {
+    if (currentConversationId && userInput) {
+      savePetal(word, currentConversationId, message.id, userInput);
+    }
+  };
+
+  const canSaveWords = !isUser && currentConversationId && userInput;
   const isStreaming = !isUser && !!isLastAssistant && isTyping;
   const displayedContent = useSmoothText(message.content, isStreaming);
 
@@ -152,7 +163,10 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
               ) : parsed.type === "streaming-partial" ? (
                 <StreamingTranslationCard data={parsed.data} />
               ) : parsed.type === "translation" ? (
-                <TranslationCard data={parsed.data} />
+                <TranslationCard
+                  data={parsed.data}
+                  onSaveWord={canSaveWords ? handleSaveWord : undefined}
+                />
               ) : (
                 <Markdown content={displayedContent} />
               )}
