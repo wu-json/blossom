@@ -1,10 +1,10 @@
 # Blossom 🌸
 
-Blossom is a conversational language learning app powered by Claude AI, designed to help you practice Japanese, Chinese, and Korean through natural dialogue. It compiles to a single binary and runs locally in your browser.
+Blossom is an AI conversational language learning app, designed to help you practice Japanese, Chinese, and Korean through natural dialogue. It compiles to a single binary and runs locally in your browser.
 
 ## Key Features
 
-- **AI-Powered Conversations**: Practice with Claude as your language tutor
+- **AI-Powered Conversations**: Practice with AI as your language tutor
 - **Multi-Language Support**: Learn Japanese, Chinese, or Korean
 - **Teacher Customization**: Personalize your tutor's name, profile image, and teaching style
 - **Conversation History**: All chats are saved locally for review
