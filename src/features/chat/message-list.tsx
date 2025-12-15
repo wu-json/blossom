@@ -30,6 +30,7 @@ export function MessageList() {
   const setScrollToMessage = useChatStore((state) => state.setScrollToMessage);
   const bottomRef = useRef<HTMLDivElement>(null);
   const didTargetedScroll = useRef(false);
+  const lastScrollTime = useRef(0);
 
   // Scroll to specific message (from garden petal card)
   useEffect(() => {
@@ -48,19 +49,25 @@ export function MessageList() {
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    // Skip auto-scroll if we just did a targeted scroll
     if (didTargetedScroll.current) {
       didTargetedScroll.current = false;
       return;
     }
 
-    // During streaming, use instant scroll with shorter delay to keep up with content growth
-    // After streaming, use smooth scroll for better UX
+    const now = Date.now();
+    const timeSinceLastScroll = now - lastScrollTime.current;
+
+    // During streaming: throttle to every 150ms with smooth scroll
+    // After streaming: immediate smooth scroll
+    const delay = isTyping
+      ? Math.max(0, 150 - timeSinceLastScroll)
+      : 100;
+
     const timeout = setTimeout(() => {
-      bottomRef.current?.scrollIntoView({
-        behavior: isTyping ? "instant" : "smooth",
-      });
-    }, isTyping ? 50 : 250);
+      lastScrollTime.current = Date.now();
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, delay);
+
     return () => clearTimeout(timeout);
   }, [messages, isTyping]);
 
