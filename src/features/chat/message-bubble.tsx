@@ -55,7 +55,7 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
   const canSaveWords = !isUser && currentConversationId && (userInput || userImages?.length);
   // Keep showing streaming UI during transition to prevent layout shift before scroll completes
   const isStreaming = !isUser && !!isLastAssistant && (isTyping || isStreamingTransition);
-  const displayedContent = useSmoothText(message.content, isTyping && isLastAssistant);
+  const displayedContent = useSmoothText(message.content, isTyping && !!isLastAssistant);
 
   const parsed: ParsedContent = useMemo(() => {
     if (isUser) return { type: "text", data: displayedContent };
