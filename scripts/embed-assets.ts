@@ -4,7 +4,7 @@
  * This script:
  * 1. Builds the frontend with Vite
  * 2. Reads all files from .vite-build/
- * 3. Generates src/embedded-assets.ts with embedded content
+ * 3. Generates src/generated/embedded-assets.ts with embedded content
  */
 
 import { $ } from "bun";
@@ -12,7 +12,7 @@ import { join } from "node:path";
 
 const rootDir = join(import.meta.dir, "..");
 const viteBuildDir = join(rootDir, ".vite-build");
-const outputFile = join(rootDir, "src", "embedded-assets.ts");
+const outputFile = join(rootDir, "src", "generated", "embedded-assets.ts");
 
 // Content type mapping
 const contentTypes: Record<string, string> = {

@@ -31,7 +31,7 @@ import { mkdir, unlink, rm, rename } from "node:fs/promises";
 import archiver from "archiver";
 import unzipper from "unzipper";
 import { join } from "node:path";
-import { assets } from "./embedded-assets";
+import { assets } from "./generated/embedded-assets";
 
 // Ensure uploads directory exists in ~/.blossom/uploads
 const uploadsDir = join(blossomDir, "uploads");

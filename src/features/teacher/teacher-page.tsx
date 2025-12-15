@@ -5,7 +5,7 @@ import type { Area } from "react-easy-crop";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { HeaderControls } from "../../components/ui/header-controls";
 import { useChatStore } from "../../store/chat-store";
-import { version } from "../../version";
+import { version } from "../../generated/version";
 import { User, Upload, Trash2, X, Check } from "lucide-react";
 import type { Language } from "../../types/chat";
 
