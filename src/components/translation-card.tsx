@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Flower2, X } from "lucide-react";
+import { useSmoothText } from "../hooks/use-smooth-text";
 import type {
   TranslationData,
   WordBreakdown,
@@ -406,7 +407,19 @@ interface StreamingWordRowProps {
 }
 
 function StreamingWordRow({ item, isEven, isStreaming }: StreamingWordRowProps) {
-  const color = item.partOfSpeech ? getPosColor(item.partOfSpeech) : "#6B7280";
+  // Animate each field with typewriter effect
+  const displayedWord = useSmoothText(item.word ?? "", isStreaming && !!item.word);
+  const displayedReading = useSmoothText(item.reading ?? "", isStreaming && !!item.reading);
+  const displayedMeaning = useSmoothText(item.meaning ?? "", isStreaming && !!item.meaning);
+  const displayedPos = useSmoothText(item.partOfSpeech ?? "", isStreaming && !!item.partOfSpeech);
+
+  // Track completion for cursor placement
+  const isWordComplete = displayedWord === (item.word ?? "");
+  const isReadingComplete = displayedReading === (item.reading ?? "");
+  const isMeaningComplete = displayedMeaning === (item.meaning ?? "");
+  const isPosComplete = displayedPos === (item.partOfSpeech ?? "");
+
+  const color = displayedPos ? getPosColor(displayedPos) : "#6B7280";
 
   return (
     <div
@@ -418,33 +431,40 @@ function StreamingWordRow({ item, isEven, isStreaming }: StreamingWordRowProps) 
       }}
     >
       <div className="w-[90px] flex-shrink-0">
-        {item.word ? (
-          <div className="font-medium leading-tight">{item.word}</div>
+        {displayedWord ? (
+          <div className="font-medium leading-tight">
+            {displayedWord}
+            {isStreaming && !isWordComplete && <StreamingCursor />}
+          </div>
         ) : (
           <FieldSkeleton width="w-12" height="h-4" />
         )}
-        {item.reading ? (
-          <div className="text-[11px] opacity-50 leading-tight">{item.reading}</div>
+        {displayedReading ? (
+          <div className="text-[11px] opacity-50 leading-tight">
+            {displayedReading}
+            {isStreaming && isWordComplete && !isReadingComplete && <StreamingCursor />}
+          </div>
         ) : (
           <FieldSkeleton width="w-10" height="h-3" className="mt-0.5" />
         )}
       </div>
       <div className="flex-1 text-sm opacity-85">
-        {item.meaning ? (
+        {displayedMeaning ? (
           <>
-            {item.meaning}
-            {isStreaming && !item.partOfSpeech && <StreamingCursor />}
+            {displayedMeaning}
+            {isStreaming && isReadingComplete && !isMeaningComplete && <StreamingCursor />}
           </>
         ) : (
           <FieldSkeleton width="w-20" height="h-4" />
         )}
       </div>
-      {item.partOfSpeech ? (
+      {displayedPos ? (
         <div
           className="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap min-w-[60px] text-center"
           style={{ backgroundColor: `${color}20`, color }}
         >
-          {item.partOfSpeech}
+          {displayedPos}
+          {isStreaming && isMeaningComplete && !isPosComplete && <StreamingCursor />}
         </div>
       ) : (
         <div
