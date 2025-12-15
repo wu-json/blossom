@@ -4,10 +4,10 @@ import type { Petal, Language } from "../../types/chat";
 import type { TranslationData, WordBreakdown } from "../../types/translation";
 import { Trash2, ExternalLink } from "lucide-react";
 
-const translations: Record<Language, { viewContext: string; delete: string }> = {
-  ja: { viewContext: "会話を見る", delete: "削除" },
-  zh: { viewContext: "查看对话", delete: "删除" },
-  ko: { viewContext: "대화 보기", delete: "삭제" },
+const translations: Record<Language, { viewContext: string; delete: string; confirmDelete: string }> = {
+  ja: { viewContext: "会話を見る", delete: "削除", confirmDelete: "確認" },
+  zh: { viewContext: "查看对话", delete: "删除", confirmDelete: "确认" },
+  ko: { viewContext: "대화 보기", delete: "삭제", confirmDelete: "확인" },
 };
 
 const posColors: Record<string, string> = {
@@ -37,6 +37,7 @@ export function PetalCard({ petal }: PetalCardProps) {
   const t = translations[language];
   const [translationData, setTranslationData] = useState<TranslationData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
     const fetchTranslation = async () => {
@@ -65,7 +66,12 @@ export function PetalCard({ petal }: PetalCardProps) {
   };
 
   const handleDelete = async () => {
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
     await deletePetal(petal.id);
+    setConfirmingDelete(false);
   };
 
   const hasImages = petal.userImages && petal.userImages.length > 0;
@@ -217,10 +223,15 @@ export function PetalCard({ petal }: PetalCardProps) {
           </span>
           <button
             onClick={handleDelete}
-            className="flex items-center gap-1.5 text-xs text-red-500 transition-colors hover:opacity-80"
+            onBlur={() => setConfirmingDelete(false)}
+            className={`flex items-center gap-1.5 text-xs transition-all ${
+              confirmingDelete
+                ? "bg-red-500 text-white px-2 py-1 rounded-md"
+                : "text-red-500 hover:opacity-80"
+            }`}
           >
             <Trash2 size={14} />
-            {t.delete}
+            {confirmingDelete ? t.confirmDelete : t.delete}
           </button>
         </div>
       </div>
