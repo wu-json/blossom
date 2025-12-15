@@ -96,7 +96,7 @@ export function PetalCard({ petal }: PetalCardProps) {
                   key={idx}
                   src={url}
                   alt={`Context ${idx + 1}`}
-                  className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                  className="max-h-96 w-auto object-contain rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => window.open(url, "_blank")}
                 />
               ))}
