@@ -28,6 +28,7 @@ import {
 } from "./db/petals";
 import { db, blossomDir } from "./db/database";
 import { compactMessages } from "./lib/message-compaction";
+import { getImageForApi, type ImageMediaType } from "./lib/image-compression";
 import { mkdir, unlink, rm, rename } from "node:fs/promises";
 import archiver from "archiver";
 import unzipper from "unzipper";
@@ -166,7 +167,6 @@ const server = Bun.serve({
         });
 
         // Transform messages to include images
-        type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
         const transformedMessages = await Promise.all(
           filteredMessages.map(async (m) => {
             if (!m.images || m.images.length === 0) {
@@ -181,20 +181,12 @@ const server = Bun.serve({
             for (const imageUrl of m.images) {
               const filename = imageUrl.replace("/api/uploads/", "");
               const filepath = join(uploadsDir, filename);
-              const file = Bun.file(filepath);
+              const result = await getImageForApi(filepath, filename);
 
-              if (await file.exists()) {
-                const buffer = await file.arrayBuffer();
-                const base64 = Buffer.from(buffer).toString("base64");
-                const ext = filename.split(".").pop()?.toLowerCase();
-                let mediaType: ImageMediaType = "image/png";
-                if (ext === "jpg" || ext === "jpeg") mediaType = "image/jpeg";
-                else if (ext === "gif") mediaType = "image/gif";
-                else if (ext === "webp") mediaType = "image/webp";
-
+              if (result) {
                 contentBlocks.push({
                   type: "image",
-                  source: { type: "base64", media_type: mediaType, data: base64 },
+                  source: { type: "base64", media_type: result.mediaType, data: result.base64 },
                 });
               }
             }
@@ -653,7 +645,6 @@ For ALL other interactions (questions, conversation, requests for examples, clar
             }
 
             // Build content array with images and text
-            type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
             const contentBlocks: Array<
               | { type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } }
               | { type: "text"; text: string }
@@ -663,24 +654,15 @@ For ALL other interactions (questions, conversation, requests for examples, clar
             for (const imageUrl of m.images) {
               const filename = imageUrl.replace("/api/uploads/", "");
               const filepath = join(uploadsDir, filename);
-              const file = Bun.file(filepath);
+              const result = await getImageForApi(filepath, filename);
 
-              if (await file.exists()) {
-                const buffer = await file.arrayBuffer();
-                const base64 = Buffer.from(buffer).toString("base64");
-                // Determine media type from file extension
-                const ext = filename.split(".").pop()?.toLowerCase();
-                let mediaType: ImageMediaType = "image/png";
-                if (ext === "jpg" || ext === "jpeg") mediaType = "image/jpeg";
-                else if (ext === "gif") mediaType = "image/gif";
-                else if (ext === "webp") mediaType = "image/webp";
-
+              if (result) {
                 contentBlocks.push({
                   type: "image",
                   source: {
                     type: "base64",
-                    media_type: mediaType,
-                    data: base64,
+                    media_type: result.mediaType,
+                    data: result.base64,
                   },
                 });
               }
