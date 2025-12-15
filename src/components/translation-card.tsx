@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Flower2, X, Check } from "lucide-react";
+import { Plus, Flower2, X } from "lucide-react";
 import type {
   TranslationData,
   WordBreakdown,
@@ -207,15 +207,16 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
           {isSaved && isHovered && (
             <button
               onClick={handleRemoveClick}
-              className="p-0.5 rounded transition-all duration-150"
+              className={`p-1 rounded-full transition-all duration-150 ${confirmingRemove ? "animate-pulse" : ""}`}
               style={{
-                color: confirmingRemove ? "var(--primary)" : "var(--text-muted)",
-                backgroundColor: confirmingRemove ? "rgba(255, 255, 255, 0.15)" : "transparent",
+                color: confirmingRemove ? "#fff" : "var(--text-muted)",
+                backgroundColor: confirmingRemove ? "rgba(239, 68, 68, 0.9)" : "transparent",
                 opacity: isRemoving ? 0.5 : 1,
+                transform: confirmingRemove ? "scale(1.1)" : "scale(1)",
               }}
-              title={confirmingRemove ? "Click to confirm" : "Remove from garden"}
+              title={confirmingRemove ? "Click again to remove" : "Remove from garden"}
             >
-              {confirmingRemove ? <Check size={14} /> : <X size={14} />}
+              <X size={14} />
             </button>
           )}
         </div>
