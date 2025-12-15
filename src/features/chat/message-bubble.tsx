@@ -15,17 +15,41 @@ import {
 } from "../../lib/parse-translation";
 import type { PartialTranslationData } from "../../types/translation";
 import type { Message } from "../../types/chat";
-import type { ParsedContent } from "../../types/translation";
+import type { ParsedContent, WordBreakdown } from "../../types/translation";
 
 interface MessageBubbleProps {
   message: Message;
   isLastAssistant?: boolean;
+  userInput?: string;
+  userImages?: string[];
 }
 
-export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) {
+export function MessageBubble({ message, isLastAssistant, userInput, userImages }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const isTyping = useChatStore((state) => state.isTyping);
   const teacherSettings = useChatStore((state) => state.teacherSettings);
+  const currentConversationId = useChatStore((state) => state.currentConversationId);
+  const savePetal = useChatStore((state) => state.savePetal);
+  const removePetalFromMessage = useChatStore((state) => state.removePetalFromMessage);
+  const viewFlowerInGarden = useChatStore((state) => state.viewFlowerInGarden);
+  const savedPetalWords = useChatStore((state) => state.savedPetalWords);
+  const savedWordsForMessage = savedPetalWords[message.id] || [];
+
+  const handleSaveWord = (word: WordBreakdown) => {
+    if (currentConversationId && (userInput || userImages?.length)) {
+      savePetal(word, currentConversationId, message.id, userInput || "", userImages);
+    }
+  };
+
+  const handleRemoveWord = async (word: string) => {
+    return removePetalFromMessage(message.id, word);
+  };
+
+  const handleViewFlower = (word: string) => {
+    viewFlowerInGarden(word);
+  };
+
+  const canSaveWords = !isUser && currentConversationId && (userInput || userImages?.length);
   const isStreaming = !isUser && !!isLastAssistant && isTyping;
   const displayedContent = useSmoothText(message.content, isStreaming);
 
@@ -66,7 +90,10 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
   const showAvatar = !isUser && teacherSettings?.profileImagePath;
 
   return (
-    <div className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}>
+    <div
+      className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}
+      data-message-id={message.id}
+    >
       {/* Teacher Avatar */}
       {showAvatar && (
         <div className="flex-shrink-0 mr-2.5 self-end mb-1">
@@ -152,7 +179,13 @@ export function MessageBubble({ message, isLastAssistant }: MessageBubbleProps) 
               ) : parsed.type === "streaming-partial" ? (
                 <StreamingTranslationCard data={parsed.data} />
               ) : parsed.type === "translation" ? (
-                <TranslationCard data={parsed.data} />
+                <TranslationCard
+                  data={parsed.data}
+                  onSaveWord={canSaveWords ? handleSaveWord : undefined}
+                  onRemoveWord={canSaveWords ? handleRemoveWord : undefined}
+                  onViewFlower={canSaveWords ? handleViewFlower : undefined}
+                  savedWords={savedWordsForMessage}
+                />
               ) : (
                 <Markdown content={displayedContent} />
               )}

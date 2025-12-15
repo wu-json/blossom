@@ -14,6 +14,16 @@ import {
   updateTeacherProfileImage,
   updateTeacherPersonality,
 } from "./db/teacher";
+import {
+  createPetal,
+  getPetalById,
+  getPetalsByWordAndLanguage,
+  getPetalsByConversationId,
+  petalExists,
+  deletePetal,
+  deletePetalByMessageAndWord,
+  getFlowersByLanguage,
+} from "./db/petals";
 import { db, blossomDir } from "./db/database";
 import { compactMessages } from "./lib/message-compaction";
 import { mkdir, unlink, rm, rename } from "node:fs/promises";
@@ -455,6 +465,79 @@ const server = Bun.serve({
           }
           return Response.json({ error: "Failed to import backup" }, { status: 500 });
         }
+      },
+    },
+    "/api/petals": {
+      POST: async (req) => {
+        const { word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput, userImages } = await req.json();
+
+        if (!word || !language || !conversationId || !messageId) {
+          return Response.json({ error: "Missing required fields" }, { status: 400 });
+        }
+
+        // Check for duplicate (same word in same message)
+        if (petalExists(messageId, word)) {
+          return Response.json({ error: "Petal already exists", duplicate: true }, { status: 409 });
+        }
+
+        const petal = createPetal(
+          word,
+          reading || "",
+          meaning || "",
+          partOfSpeech || "",
+          language,
+          conversationId,
+          messageId,
+          userInput || "",
+          userImages
+        );
+        return Response.json(petal);
+      },
+    },
+    "/api/petals/flowers": {
+      GET: (req) => {
+        const url = new URL(req.url);
+        const language = url.searchParams.get("language") || "ja";
+        const flowers = getFlowersByLanguage(language);
+        return Response.json(flowers);
+      },
+    },
+    "/api/petals/flower/:word": {
+      GET: (req) => {
+        const word = decodeURIComponent(req.params.word);
+        const url = new URL(req.url);
+        const language = url.searchParams.get("language") || "ja";
+        const petals = getPetalsByWordAndLanguage(word, language);
+        return Response.json(petals);
+      },
+    },
+    "/api/petals/:id": {
+      DELETE: (req) => {
+        const id = req.params.id;
+        const petal = getPetalById(id);
+        if (!petal) {
+          return Response.json({ error: "Petal not found" }, { status: 404 });
+        }
+        deletePetal(id);
+        return Response.json({ success: true });
+      },
+    },
+    "/api/petals/conversation/:conversationId": {
+      GET: (req) => {
+        const conversationId = req.params.conversationId;
+        const petals = getPetalsByConversationId(conversationId);
+        return Response.json(petals);
+      },
+    },
+    "/api/petals/message/:messageId/word/:word": {
+      DELETE: (req) => {
+        const messageId = req.params.messageId;
+        const word = decodeURIComponent(req.params.word);
+        const deleted = deletePetalByMessageAndWord(messageId, word);
+        if (!deleted) {
+          return Response.json({ error: "Petal not found" }, { status: 404 });
+        }
+        return Response.json({ success: true });
       },
     },
     "/api/chat": {
