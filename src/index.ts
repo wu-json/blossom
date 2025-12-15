@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { MessageParam, ContentBlockParam } from "@anthropic-ai/sdk/resources/messages";
 import {
   createConversation,
   getConversations,
@@ -32,6 +33,38 @@ import archiver from "archiver";
 import unzipper from "unzipper";
 import { join } from "node:path";
 import { assets } from "./generated/embedded-assets";
+
+// Add cache_control to the last assistant message for prompt caching
+function addCacheControlToMessages(messages: MessageParam[]): MessageParam[] {
+  if (messages.length === 0) return messages;
+
+  // Find the last assistant message
+  const lastAssistantIndex = messages.findLastIndex((m) => m.role === "assistant");
+  if (lastAssistantIndex === -1) return messages;
+
+  return messages.map((msg, index) => {
+    if (index !== lastAssistantIndex) return msg;
+
+    // Convert string content to array if needed
+    let content: ContentBlockParam[];
+    if (typeof msg.content === "string") {
+      content = [{ type: "text", text: msg.content }];
+    } else {
+      content = [...msg.content] as ContentBlockParam[];
+    }
+
+    // Add cache_control to the last block
+    const lastBlock = content.at(-1);
+    if (lastBlock && (lastBlock.type === "text" || lastBlock.type === "image")) {
+      content[content.length - 1] = {
+        ...lastBlock,
+        cache_control: { type: "ephemeral" },
+      } as ContentBlockParam;
+    }
+
+    return { ...msg, content };
+  });
+}
 
 // Ensure uploads directory exists in ~/.blossom/uploads
 const uploadsDir = join(blossomDir, "uploads");
@@ -663,7 +696,8 @@ For ALL other interactions (questions, conversation, requests for examples, clar
 
         // Compact messages to fit within API size limits (pure transformation, does not modify stored data)
         const compactionResult = compactMessages(systemPrompt, transformedMessages);
-        const finalMessages = compactionResult.messages;
+        // Add cache control to conversation history for prompt caching
+        const finalMessages = addCacheControlToMessages(compactionResult.messages as MessageParam[]);
 
         if (compactionResult.wasCompacted) {
           console.log(
