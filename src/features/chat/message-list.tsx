@@ -31,6 +31,7 @@ export function MessageList() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const didTargetedScroll = useRef(false);
   const lastScrollTime = useRef(0);
+  const prevIsTyping = useRef(isTyping);
 
   // Scroll to specific message (from garden petal card)
   useEffect(() => {
@@ -49,8 +50,27 @@ export function MessageList() {
 
   // Scroll to bottom on new messages
   useEffect(() => {
+    const wasTyping = prevIsTyping.current;
+    prevIsTyping.current = isTyping;
+
+    // When streaming ends, always do a final scroll
+    // (the cleanup from the previous effect cancelled any pending scroll)
+    if (wasTyping && !isTyping) {
+      const timeout = setTimeout(() => {
+        lastScrollTime.current = Date.now();
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+
     if (didTargetedScroll.current) {
       didTargetedScroll.current = false;
+      return;
+    }
+
+    // Skip scroll during the typing→not-typing transition
+    // (handled above with a single final scroll)
+    if (!isTyping && wasTyping === undefined) {
       return;
     }
 
@@ -58,7 +78,6 @@ export function MessageList() {
     const timeSinceLastScroll = now - lastScrollTime.current;
 
     // During streaming: throttle to every 150ms with smooth scroll
-    // After streaming: immediate smooth scroll
     const delay = isTyping
       ? Math.max(0, 150 - timeSinceLastScroll)
       : 100;
