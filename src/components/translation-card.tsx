@@ -458,6 +458,8 @@ function StreamingWordRow({ item, isEven, isStreaming }: StreamingWordRowProps) 
           style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
         />
       )}
+      {/* Spacer to match WordRow icon area */}
+      <div className="w-4 flex-shrink-0" />
     </div>
   );
 }
