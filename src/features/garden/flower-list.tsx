@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
+import { useQueryParams } from "../../hooks/use-query-params";
 import { FlowerCard } from "./flower-card";
 import { Search, X } from "lucide-react";
 import type { Language } from "../../types/chat";
@@ -14,18 +15,64 @@ const translations: Record<Language, { searchPlaceholder: string; noResults: str
 export function FlowerList() {
   const { flowers, language } = useChatStore();
   const { navigateToGarden } = useNavigation();
+  const { params, setQueryParams } = useQueryParams();
   const t = translations[language];
-  const [searchQuery, setSearchQuery] = useState("");
 
+  // Get initial search query from URL
+  const urlQuery = params.get("q") || "";
+
+  // Local state for immediate input feedback
+  const [inputValue, setInputValue] = useState(urlQuery);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Sync local state when URL changes (e.g., back/forward navigation)
+  useEffect(() => {
+    setInputValue(urlQuery);
+  }, [urlQuery]);
+
+  // Update URL when input changes (debounced)
+  const handleInputChange = useCallback(
+    (value: string) => {
+      setInputValue(value);
+
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+      debounceRef.current = setTimeout(() => {
+        setQueryParams({ q: value || undefined });
+      }, 300);
+    },
+    [setQueryParams]
+  );
+
+  // Clear search
+  const handleClear = useCallback(() => {
+    setInputValue("");
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    setQueryParams({ q: undefined });
+  }, [setQueryParams]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  // Use URL query for filtering (not local state) to ensure consistency
   const filteredFlowers = useMemo(() => {
-    if (!searchQuery.trim()) return flowers;
-    const query = searchQuery.toLowerCase();
+    if (!urlQuery.trim()) return flowers;
+    const query = urlQuery.toLowerCase();
     return flowers.filter(
       (f) =>
         f.word.toLowerCase().includes(query) ||
         f.latestReading?.toLowerCase().includes(query)
     );
-  }, [flowers, searchQuery]);
+  }, [flowers, urlQuery]);
 
   return (
     <div className="w-full">
@@ -38,8 +85,8 @@ export function FlowerList() {
         />
         <input
           type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          value={inputValue}
+          onChange={(e) => handleInputChange(e.target.value)}
           placeholder={t.searchPlaceholder}
           className="w-full py-2 pl-10 pr-10 rounded-lg border text-sm outline-none transition-colors focus:border-[var(--primary)]"
           style={{
@@ -48,9 +95,9 @@ export function FlowerList() {
             color: "var(--text)",
           }}
         />
-        {searchQuery && (
+        {inputValue && (
           <button
-            onClick={() => setSearchQuery("")}
+            onClick={handleClear}
             className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             style={{ color: "var(--text-muted)" }}
           >
@@ -71,7 +118,7 @@ export function FlowerList() {
       </div>
 
       {/* Empty search state */}
-      {filteredFlowers.length === 0 && searchQuery && (
+      {filteredFlowers.length === 0 && urlQuery && (
         <div className="text-center py-8" style={{ color: "var(--text-muted)" }}>
           {t.noResults}
         </div>

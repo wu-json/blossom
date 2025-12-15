@@ -180,10 +180,10 @@ export function Sidebar() {
   const t = translations[language];
 
   const navItems: { icon: React.ReactNode; label: string; path: string; onClick: () => void }[] = [
-    { icon: <MessageSquare size={18} />, label: t.chat, path: "/chat", onClick: navigateToChat },
-    { icon: <Flower2 size={18} />, label: t.garden, path: "/garden", onClick: navigateToGarden },
-    { icon: <GraduationCap size={18} />, label: t.teacher, path: "/teacher", onClick: navigateToTeacher },
-    { icon: <Settings size={18} />, label: t.settings, path: "/settings", onClick: navigateToSettings },
+    { icon: <MessageSquare size={18} />, label: t.chat, path: "/chat", onClick: () => navigateToChat() },
+    { icon: <Flower2 size={18} />, label: t.garden, path: "/garden", onClick: () => navigateToGarden() },
+    { icon: <GraduationCap size={18} />, label: t.teacher, path: "/teacher", onClick: () => navigateToTeacher() },
+    { icon: <Settings size={18} />, label: t.settings, path: "/settings", onClick: () => navigateToSettings() },
   ];
 
   const isActivePath = (path: string) => location === path || location.startsWith(path + "/");
