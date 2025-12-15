@@ -13,28 +13,19 @@ Blossom is an AI conversational language learning app, designed to help you prac
 
 ## Installation
 
-Prerequisites: [Bun](https://bun.sh)
+```bash
+brew tap wu-json/asahi
+brew install blossom
+```
 
-1. Clone and install:
-   ```bash
-   git clone <repo>
-   cd blossom
-   bun install
-   ```
-
-2. Set your API key:
-   ```bash
-   export ANTHROPIC_API_KEY=sk-ant-...
-   ```
-
-3. Run:
-   ```bash
-   bun start
-   ```
+```bash
+# run blossom server
+blossom
+```
 
 ## Configuration
 
-| Variable | Description | Default |
+| Environment Variable | Description | Default |
 |----------|-------------|---------|
 | `ANTHROPIC_API_KEY` | Your Anthropic API key (required) | - |
 | `BLOSSOM_DATA_DIR` | Directory for data storage | `~/.blossom` |
@@ -42,3 +33,13 @@ Prerequisites: [Bun](https://bun.sh)
 ## Design Philosophy
 
 Blossom focuses on immersive language practice through conversation rather than traditional drills. The AI tutor adapts to your level and provides natural corrections and explanations in context.
+
+## Development
+
+This project uses [aqua](https://aquaproj.github.io/) for package management and [curse](https://github.com/wu-json/curse) for running local development processes.
+
+To start the development environment:
+
+```bash
+curse
+```
