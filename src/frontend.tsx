@@ -10,6 +10,7 @@ function App() {
   const loadConversations = useChatStore((state) => state.loadConversations);
   const checkApiKeyStatus = useChatStore((state) => state.checkApiKeyStatus);
   const loadTeacherSettings = useChatStore((state) => state.loadTeacherSettings);
+  const toggleSidebar = useChatStore((state) => state.toggleSidebar);
 
   useEffect(() => {
     document.documentElement.classList.remove("light", "dark");
@@ -21,6 +22,23 @@ function App() {
     checkApiKeyStatus();
     loadTeacherSettings();
   }, [loadConversations, checkApiKeyStatus, loadTeacherSettings]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [toggleSidebar]);
 
   return <AppLayout />;
 }
