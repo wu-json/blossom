@@ -198,7 +198,7 @@ export function PetalCard({ petal }: PetalCardProps) {
           </div>
         )}
 
-        {/* Actions */}
+        {/* Actions + Date */}
         <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
           <button
             onClick={handleViewContext}
@@ -208,9 +208,16 @@ export function PetalCard({ petal }: PetalCardProps) {
             <ExternalLink size={14} />
             {t.viewContext}
           </button>
+          <span className="text-xs ml-auto" style={{ color: "var(--text-muted)" }}>
+            {new Date(petal.createdAt).toLocaleDateString(language === "ja" ? "ja-JP" : language === "zh" ? "zh-CN" : "ko-KR", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
           <button
             onClick={handleDelete}
-            className="flex items-center gap-1.5 text-xs text-red-500 transition-colors hover:opacity-80 ml-auto"
+            className="flex items-center gap-1.5 text-xs text-red-500 transition-colors hover:opacity-80"
           >
             <Trash2 size={14} />
             {t.delete}
