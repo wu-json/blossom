@@ -144,3 +144,6 @@ src/output.css
 
 # Build artifacts
 .vite-build/
+
+# Blossom Dev Data Directory
+.blossom-dev/
