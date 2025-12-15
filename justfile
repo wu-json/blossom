@@ -2,6 +2,7 @@ current_version := `jq -r '.version' package.json`
 dry_run := "true"
 
 build:
+  bun run scripts/embed-assets.ts
   GORELEASER_CURRENT_TAG=v{{current_version}} goreleaser build --clean --snapshot
   rm -f .*.bun-build
 

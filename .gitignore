@@ -141,3 +141,6 @@ vite.config.ts.timestamp-*
 # Generated CSS
 src/output.css
 *.db
+
+# Build artifacts
+.vite-build/

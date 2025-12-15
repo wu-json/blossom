@@ -31,6 +31,7 @@ import { mkdir, unlink, rm, rename } from "node:fs/promises";
 import archiver from "archiver";
 import unzipper from "unzipper";
 import { join } from "node:path";
+import { assets } from "./embedded-assets";
 
 // Ensure uploads directory exists in ~/.blossom/uploads
 const uploadsDir = join(blossomDir, "uploads");
@@ -41,8 +42,6 @@ const languageNames: Record<string, string> = {
   zh: "Chinese",
   ko: "Korean",
 };
-
-const distDir = join(import.meta.dir, "..", "dist");
 
 const server = Bun.serve({
   routes: {
@@ -736,7 +735,7 @@ For ALL other interactions (questions, conversation, requests for examples, clar
     },
   },
   async fetch(req) {
-    // Fallback: serve static files from dist/ for production
+    // Fallback: serve static files from embedded assets
     const url = new URL(req.url);
     let pathname = url.pathname;
 
@@ -745,25 +744,26 @@ For ALL other interactions (questions, conversation, requests for examples, clar
       pathname = "/index.html";
     }
 
-    // Try to serve the requested file from dist/
-    const filePath = join(distDir, pathname);
-    const file = Bun.file(filePath);
-
-    if (await file.exists()) {
-      return new Response(file);
+    // Try to serve embedded asset
+    const asset = assets[pathname];
+    if (asset) {
+      const body = asset.binary
+        ? Buffer.from(asset.content, "base64")
+        : asset.content;
+      return new Response(body, {
+        headers: { "Content-Type": asset.contentType },
+      });
     }
 
     // SPA fallback - serve index.html for client-side routing
-    const indexFile = Bun.file(join(distDir, "index.html"));
-    if (await indexFile.exists()) {
-      return new Response(indexFile);
+    const indexAsset = assets["/index.html"];
+    if (indexAsset && !pathname.startsWith("/api/")) {
+      return new Response(indexAsset.content, {
+        headers: { "Content-Type": indexAsset.contentType },
+      });
     }
 
-    // In development without dist/, tell user to use Vite
-    return new Response(
-      "Not found. For development, use http://localhost:5173 (Vite dev server)",
-      { status: 404 }
-    );
+    return new Response("Not found", { status: 404 });
   },
   development: {
     hmr: true,
