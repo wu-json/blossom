@@ -10,6 +10,7 @@ import type {
 interface TranslationCardProps {
   data: TranslationData;
   onSaveWord?: (word: WordBreakdown) => void;
+  onRemoveWord?: (word: string) => Promise<boolean>;
   savedWords?: string[];
 }
 
@@ -31,7 +32,7 @@ function getPosColor(partOfSpeech: string): string {
   return "#6B7280";
 }
 
-export function TranslationCard({ data, onSaveWord, savedWords = [] }: TranslationCardProps) {
+export function TranslationCard({ data, onSaveWord, onRemoveWord, savedWords = [] }: TranslationCardProps) {
   return (
     <div className="space-y-3">
       {/* Original Text with Subtext */}
@@ -61,6 +62,7 @@ export function TranslationCard({ data, onSaveWord, savedWords = [] }: Translati
               item={item}
               isEven={idx % 2 === 0}
               onSave={onSaveWord ? () => onSaveWord(item) : undefined}
+              onRemove={onRemoveWord ? () => onRemoveWord(item.word) : undefined}
               initialSaved={savedWords.includes(item.word)}
             />
           ))}
@@ -89,32 +91,48 @@ interface WordRowProps {
   item: WordBreakdown;
   isEven: boolean;
   onSave?: () => void;
+  onRemove?: () => Promise<boolean>;
   initialSaved?: boolean;
 }
 
-function WordRow({ item, isEven, onSave, initialSaved = false }: WordRowProps) {
+function WordRow({ item, isEven, onSave, onRemove, initialSaved = false }: WordRowProps) {
   const color = getPosColor(item.partOfSpeech);
   const [isSaved, setIsSaved] = useState(initialSaved);
   const [isHovered, setIsHovered] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [showBloom, setShowBloom] = useState(false);
+  const [showWilt, setShowWilt] = useState(false);
 
-  // If already saved (persisted), don't allow saving again
-  const canSave = onSave && !initialSaved;
+  const canInteract = onSave && onRemove;
 
   // Show tooltip after brief hover delay
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout>;
-    if (isHovered && canSave && !isSaved) {
+    if (isHovered && canInteract && !showBloom && !showWilt) {
       timeout = setTimeout(() => setShowTooltip(true), 400);
     } else {
       setShowTooltip(false);
     }
     return () => clearTimeout(timeout);
-  }, [isHovered, canSave, isSaved]);
+  }, [isHovered, canInteract, showBloom, showWilt]);
 
-  const handleClick = () => {
-    if (canSave && !isSaved) {
+  const handleClick = async () => {
+    if (!canInteract) return;
+
+    if (isSaved) {
+      // Remove the petal
+      setShowWilt(true);
+      const removed = await onRemove();
+      if (removed) {
+        setTimeout(() => {
+          setIsSaved(false);
+          setShowWilt(false);
+        }, 400);
+      } else {
+        setShowWilt(false);
+      }
+    } else {
+      // Save the petal
       onSave();
       setIsSaved(true);
       setShowBloom(true);
@@ -124,14 +142,14 @@ function WordRow({ item, isEven, onSave, initialSaved = false }: WordRowProps) {
 
   return (
     <div
-      className={`relative flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${canSave ? "cursor-pointer hover:scale-[1.01]" : ""}`}
+      className={`relative flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${canInteract ? "cursor-pointer hover:scale-[1.01]" : ""}`}
       style={{
-        backgroundColor: isHovered && canSave
+        backgroundColor: isHovered && canInteract
           ? "rgba(255, 255, 255, 0.15)"
           : isEven
             ? "rgba(255, 255, 255, 0.03)"
             : "rgba(255, 255, 255, 0.06)",
-        boxShadow: isHovered && canSave ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
+        boxShadow: isHovered && canInteract ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
       }}
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
@@ -148,7 +166,7 @@ function WordRow({ item, isEven, onSave, initialSaved = false }: WordRowProps) {
       >
         {item.partOfSpeech}
       </div>
-      {onSave && (
+      {canInteract && (
         <div className="relative flex-shrink-0">
           {/* Tooltip */}
           {showTooltip && (
@@ -162,23 +180,25 @@ function WordRow({ item, isEven, onSave, initialSaved = false }: WordRowProps) {
                 animation: "fadeIn 0.15s ease-out",
               }}
             >
-              Save to garden
+              {isSaved ? "Remove from garden" : "Save to garden"}
             </div>
           )}
-          {/* Icon with bloom effect */}
+          {/* Icon with bloom/wilt effect */}
           <div className="relative">
             <div
               className="transition-all duration-150"
               style={{
                 color: isSaved ? "#22c55e" : "var(--primary)",
-                opacity: initialSaved || isSaved || isHovered ? 1 : 0,
-                transform: showBloom ? "scale(1.4)" : "scale(1)",
+                opacity: isSaved || isHovered ? 1 : 0,
+                transform: showBloom ? "scale(1.4)" : showWilt ? "scale(0.8)" : "scale(1)",
               }}
             >
               {isSaved ? <Check size={16} /> : <Plus size={16} />}
             </div>
             {/* Petal bloom particles */}
             {showBloom && <PetalBloom />}
+            {/* Petal wilt particles */}
+            {showWilt && <PetalWilt />}
           </div>
         </div>
       )}
@@ -187,7 +207,6 @@ function WordRow({ item, isEven, onSave, initialSaved = false }: WordRowProps) {
 }
 
 function PetalBloom() {
-  // Generate petals with different angles for radial burst
   const petals = [
     { angle: 0, delay: 0 },
     { angle: 60, delay: 25 },
@@ -203,6 +222,29 @@ function PetalBloom() {
         <div
           key={i}
           className="petal-particle"
+          style={{
+            "--petal-angle": `${petal.angle}deg`,
+            "--petal-delay": `${petal.delay}ms`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PetalWilt() {
+  const petals = [
+    { angle: 30, delay: 0 },
+    { angle: 90, delay: 30 },
+    { angle: 150, delay: 60 },
+  ];
+
+  return (
+    <div className="absolute inset-0 overflow-visible pointer-events-none">
+      {petals.map((petal, i) => (
+        <div
+          key={i}
+          className="petal-wilt"
           style={{
             "--petal-angle": `${petal.angle}deg`,
             "--petal-delay": `${petal.delay}ms`,

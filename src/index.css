@@ -108,3 +108,27 @@ body {
   animation-delay: var(--petal-delay);
   pointer-events: none;
 }
+
+@keyframes petalWilt {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--petal-angle)) translateY(0) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(calc(var(--petal-angle) + 45deg)) translateY(20px) scale(0.3);
+    opacity: 0;
+  }
+}
+
+.petal-wilt {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 10px;
+  background: var(--text-muted);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  animation: petalWilt 400ms ease-in forwards;
+  animation-delay: var(--petal-delay);
+  pointer-events: none;
+}

@@ -30,6 +30,7 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
   const teacherSettings = useChatStore((state) => state.teacherSettings);
   const currentConversationId = useChatStore((state) => state.currentConversationId);
   const savePetal = useChatStore((state) => state.savePetal);
+  const removePetalFromMessage = useChatStore((state) => state.removePetalFromMessage);
   const savedPetalWords = useChatStore((state) => state.savedPetalWords);
   const savedWordsForMessage = savedPetalWords[message.id] || [];
 
@@ -37,6 +38,10 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
     if (currentConversationId && (userInput || userImages?.length)) {
       savePetal(word, currentConversationId, message.id, userInput || "", userImages);
     }
+  };
+
+  const handleRemoveWord = async (word: string) => {
+    return removePetalFromMessage(message.id, word);
   };
 
   const canSaveWords = !isUser && currentConversationId && (userInput || userImages?.length);
@@ -169,6 +174,7 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
                 <TranslationCard
                   data={parsed.data}
                   onSaveWord={canSaveWords ? handleSaveWord : undefined}
+                  onRemoveWord={canSaveWords ? handleRemoveWord : undefined}
                   savedWords={savedWordsForMessage}
                 />
               ) : (

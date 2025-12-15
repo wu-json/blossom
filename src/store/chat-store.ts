@@ -442,6 +442,35 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
+      removePetalFromMessage: async (messageId: string, word: string) => {
+        const { loadFlowers } = get();
+        try {
+          const response = await fetch(`/api/petals/message/${messageId}/word/${encodeURIComponent(word)}`, {
+            method: "DELETE",
+          });
+          if (response.ok) {
+            // Update local savedPetalWords
+            set((state) => {
+              const existing = state.savedPetalWords[messageId] || [];
+              const updated = existing.filter(w => w !== word);
+              const newSavedPetalWords = { ...state.savedPetalWords };
+              if (updated.length === 0) {
+                delete newSavedPetalWords[messageId];
+              } else {
+                newSavedPetalWords[messageId] = updated;
+              }
+              return { savedPetalWords: newSavedPetalWords };
+            });
+            await loadFlowers();
+            return true;
+          }
+          return false;
+        } catch {
+          console.error("Failed to remove petal");
+          return false;
+        }
+      },
+
       sendMessage: async (content: string, images?: string[]) => {
         const { messages, updateMessage, setTyping, createConversation, loadConversations, language } = get();
         let { currentConversationId } = get();

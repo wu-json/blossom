@@ -107,3 +107,15 @@ export function petalExists(messageId: string, word: string): boolean {
   ).get(messageId, word);
   return (result?.count ?? 0) > 0;
 }
+
+export function deletePetalByMessageAndWord(messageId: string, word: string): boolean {
+  const petal = db.query<{ id: string }, [string, string]>(
+    "SELECT id FROM petals WHERE message_id = ? AND word = ? LIMIT 1"
+  ).get(messageId, word);
+
+  if (petal) {
+    db.run("DELETE FROM petals WHERE id = ?", [petal.id]);
+    return true;
+  }
+  return false;
+}

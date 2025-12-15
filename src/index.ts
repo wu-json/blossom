@@ -21,6 +21,7 @@ import {
   getPetalsByConversationId,
   petalExists,
   deletePetal,
+  deletePetalByMessageAndWord,
   getFlowersByLanguage,
 } from "./db/petals";
 import { db, blossomDir } from "./db/database";
@@ -526,6 +527,17 @@ const server = Bun.serve({
         const conversationId = req.params.conversationId;
         const petals = getPetalsByConversationId(conversationId);
         return Response.json(petals);
+      },
+    },
+    "/api/petals/message/:messageId/word/:word": {
+      DELETE: (req) => {
+        const messageId = req.params.messageId;
+        const word = decodeURIComponent(req.params.word);
+        const deleted = deletePetalByMessageAndWord(messageId, word);
+        if (!deleted) {
+          return Response.json({ error: "Petal not found" }, { status: 404 });
+        }
+        return Response.json({ success: true });
       },
     },
     "/api/chat": {

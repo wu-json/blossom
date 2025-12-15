@@ -100,6 +100,7 @@ export interface ChatActions {
   clearSelectedFlower: () => void;
   savePetal: (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]) => Promise<void>;
   deletePetal: (id: string) => Promise<void>;
+  removePetalFromMessage: (messageId: string, word: string) => Promise<boolean>;
 }
 
 export type ChatStore = ChatState & ChatActions;
