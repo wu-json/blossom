@@ -13,10 +13,11 @@ interface PetalCardProps {
 }
 
 export function PetalCard({ petal }: PetalCardProps) {
-  const { deletePetal, selectConversation, setView, language } = useChatStore();
+  const { deletePetal, selectConversation, setView, setScrollToMessage, language } = useChatStore();
   const t = translations[language];
 
   const handleViewContext = async () => {
+    setScrollToMessage(petal.messageId);
     await selectConversation(petal.conversationId);
     setView("chat");
   };

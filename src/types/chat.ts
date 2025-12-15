@@ -68,6 +68,7 @@ export interface ChatState {
   selectedFlower: string | null;
   flowerPetals: Petal[];
   savedPetalWords: Record<string, string[]>; // messageId -> array of saved word strings
+  scrollToMessageId: string | null;
 }
 
 export interface ChatActions {
@@ -101,6 +102,7 @@ export interface ChatActions {
   savePetal: (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]) => Promise<void>;
   deletePetal: (id: string) => Promise<void>;
   removePetalFromMessage: (messageId: string, word: string) => Promise<boolean>;
+  setScrollToMessage: (messageId: string | null) => void;
 }
 
 export type ChatStore = ChatState & ChatActions;

@@ -31,9 +31,34 @@ export function MessageList() {
   const messages = useChatStore((state) => state.messages);
   const language = useChatStore((state) => state.language);
   const isTyping = useChatStore((state) => state.isTyping);
+  const scrollToMessageId = useChatStore((state) => state.scrollToMessageId);
+  const setScrollToMessage = useChatStore((state) => state.setScrollToMessage);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const didTargetedScroll = useRef(false);
 
+  // Scroll to specific message (from garden petal card)
   useEffect(() => {
+    if (scrollToMessageId && messages.length > 0) {
+      didTargetedScroll.current = true;
+      const timeout = setTimeout(() => {
+        const element = document.querySelector(`[data-message-id="${scrollToMessageId}"]`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        setScrollToMessage(null);
+      }, 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [scrollToMessageId, messages, setScrollToMessage]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    // Skip auto-scroll if we just did a targeted scroll
+    if (didTargetedScroll.current) {
+      didTargetedScroll.current = false;
+      return;
+    }
+
     // During streaming, use instant scroll with shorter delay to keep up with content growth
     // After streaming, use smooth scroll for better UX
     const timeout = setTimeout(() => {

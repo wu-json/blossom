@@ -85,7 +85,10 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
   const showAvatar = !isUser && teacherSettings?.profileImagePath;
 
   return (
-    <div className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}>
+    <div
+      className={cn("group flex w-full", isUser ? "justify-end" : "justify-start")}
+      data-message-id={message.id}
+    >
       {/* Teacher Avatar */}
       {showAvatar && (
         <div className="flex-shrink-0 mr-2.5 self-end mb-1">

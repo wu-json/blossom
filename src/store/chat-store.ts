@@ -24,6 +24,7 @@ export const useChatStore = create<ChatStore>()(
       selectedFlower: null,
       flowerPetals: [],
       savedPetalWords: {},
+      scrollToMessageId: null,
 
       addMessage: (content: string, role: MessageRole) => {
         const newMessage: Message = {
@@ -64,6 +65,10 @@ export const useChatStore = create<ChatStore>()(
 
       setView: (view: View) => {
         set({ currentView: view });
+      },
+
+      setScrollToMessage: (messageId: string | null) => {
+        set({ scrollToMessageId: messageId });
       },
 
       updateMessage: (id: string, content: string) => {
@@ -174,6 +179,7 @@ export const useChatStore = create<ChatStore>()(
           currentConversationId: null,
           messages: [],
           savedPetalWords: {},
+          scrollToMessageId: null,
           currentView: "chat" as View,
         });
       },
