@@ -386,10 +386,7 @@ export function StreamingTranslationCard({ data }: StreamingTranslationCardProps
       {data.grammarNotes !== undefined && (
         <div
           className="pt-3 border-t"
-          style={{
-            borderColor: "rgba(255, 255, 255, 0.1)",
-            animation: "fadeIn 0.2s ease-out",
-          }}
+          style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
         >
           <div className="text-xs font-medium opacity-50 mb-1">Grammar Notes</div>
           <div className="text-sm opacity-90 leading-relaxed">
