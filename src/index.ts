@@ -44,6 +44,7 @@ const languageNames: Record<string, string> = {
 };
 
 const server = Bun.serve({
+  idleTimeout: 120, // 120 seconds for streaming responses
   routes: {
     "/api/status": {
       GET: () => {
@@ -684,14 +685,22 @@ For ALL other interactions (questions, conversation, requests for examples, clar
             async start(controller) {
               try {
                 for await (const event of stream) {
+                  if (controller.desiredSize === null) {
+                    // Controller is closed, stop processing
+                    break;
+                  }
                   const data = `data: ${JSON.stringify(event)}\n\n`;
                   controller.enqueue(encoder.encode(data));
                 }
-                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-                controller.close();
+                if (controller.desiredSize !== null) {
+                  controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                  controller.close();
+                }
               } catch (error) {
                 console.error("Stream error:", error);
-                controller.error(error);
+                if (controller.desiredSize !== null) {
+                  controller.error(error);
+                }
               }
             },
           });
