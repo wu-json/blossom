@@ -1,0 +1,35 @@
+version: 2
+builds:
+  - id: "blossom"
+    builder: bun
+    binary: blossom
+    targets:
+      - linux-x64-modern
+      - linux-arm64
+      - darwin-arm64
+      - darwin-x64
+    main: "src/index.ts"
+    tool: bun
+    command: build
+    flags:
+      - --compile
+      - --minify
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - curse
+      sign:
+        certificate: "{{.Env.MACOS_SIGN_P12}}"
+        password: "{{.Env.MACOS_SIGN_PASSWORD}}"
+        entitlements: entitlements.plist
+      notarize:
+        issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
+        key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
+        key: "{{.Env.MACOS_NOTARY_KEY}}"
+        wait: true
+        timeout: 20m
+checksum:
+  algorithm: sha256
+snapshot:
+  version_template: "{{ .Version }}"
