@@ -562,6 +562,24 @@ export const useChatStore = create<ChatStore>()(
           body: JSON.stringify({ role: "user", content, images }),
         });
 
+        // Save assistant message placeholder to database to get consistent ID
+        const assistantResponse = await fetch(`/api/conversations/${currentConversationId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "assistant", content: "" }),
+        });
+        const assistantData = await assistantResponse.json();
+
+        // Update the assistant message ID to match the database
+        assistantMessage.id = assistantData.id;
+        set((state) => ({
+          messages: state.messages.map((m) =>
+            m.role === "assistant" && m.content === "" && m.timestamp === assistantMessage.timestamp
+              ? { ...m, id: assistantData.id }
+              : m
+          ),
+        }));
+
         // Check if this is the first message (for title generation later)
         const isFirstMessage = messages.length === 0;
 
@@ -621,11 +639,11 @@ export const useChatStore = create<ChatStore>()(
             }
           }
 
-          // Save assistant message to database
+          // Update assistant message content in database (message was created earlier)
           await fetch(`/api/conversations/${currentConversationId}/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ role: "assistant", content: fullContent }),
+            body: JSON.stringify({ role: "assistant", content: fullContent, messageId: assistantMessage.id }),
           });
 
           // Generate title with Haiku after first exchange
