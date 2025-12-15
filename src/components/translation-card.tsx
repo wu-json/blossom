@@ -361,7 +361,7 @@ export function StreamingTranslationCard({ data }: StreamingTranslationCardProps
       <div>
         <div className="text-xs font-medium opacity-50 mb-2">Breakdown</div>
         <div className="flex flex-col gap-1">
-          {data.breakdown && data.breakdown.length > 0 ? (
+          {data.breakdown && data.breakdown.length > 0 && (
             <>
               {data.breakdown.map((item, idx) => (
                 <StreamingWordRow
@@ -374,12 +374,6 @@ export function StreamingTranslationCard({ data }: StreamingTranslationCardProps
                   }
                 />
               ))}
-            </>
-          ) : (
-            <>
-              <BreakdownItemSkeleton />
-              <BreakdownItemSkeleton />
-              <BreakdownItemSkeleton />
             </>
           )}
         </div>
