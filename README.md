@@ -16,9 +16,7 @@ Blossom is an AI conversational language learning app, designed to help you prac
 ```bash
 brew tap wu-json/asahi
 brew install blossom
-```
 
-```bash
 # run blossom server
 blossom
 ```
