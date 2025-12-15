@@ -1,7 +1,9 @@
 import * as React from "react";
 import { MessageSquare, Settings, Plus, GraduationCap, Flower2 } from "lucide-react";
+import { useLocation } from "wouter";
 import { useChatStore } from "../../store/chat-store";
-import type { Conversation, Language, View } from "../../types/chat";
+import { useNavigation } from "../../hooks/use-navigation";
+import type { Conversation, Language } from "../../types/chat";
 import { cn } from "../../lib/utils";
 
 const translations: Record<Language, { chat: string; settings: string; teacher: string; garden: string; newChat: string; conversations: string }> = {
@@ -169,26 +171,41 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
 export function Sidebar() {
   const {
     sidebarCollapsed,
-    currentView,
-    setView,
     language,
     conversations,
     currentConversationId,
-    selectConversation,
-    startNewChat,
+    selectedFlower,
   } = useChatStore();
+  const [location] = useLocation();
+  const { navigateToChat, navigateToGarden, navigateToTeacher, navigateToSettings } = useNavigation();
   const t = translations[language];
 
-  const navItems: { icon: React.ReactNode; label: string; view: View }[] = [
-    { icon: <MessageSquare size={18} />, label: t.chat, view: "chat" },
-    { icon: <Flower2 size={18} />, label: t.garden, view: "garden" },
-    { icon: <GraduationCap size={18} />, label: t.teacher, view: "teacher" },
-    { icon: <Settings size={18} />, label: t.settings, view: "settings" },
+  // Preserve chat state when navigating back to chat
+  const handleChatClick = () => {
+    if (currentConversationId) {
+      navigateToChat(currentConversationId);
+    } else {
+      navigateToChat();
+    }
+  };
+
+  // Preserve garden state when navigating back to garden
+  const handleGardenClick = () => {
+    if (selectedFlower) {
+      navigateToGarden(selectedFlower);
+    } else {
+      navigateToGarden();
+    }
+  };
+
+  const navItems: { icon: React.ReactNode; label: string; path: string; onClick: () => void }[] = [
+    { icon: <MessageSquare size={18} />, label: t.chat, path: "/chat", onClick: handleChatClick },
+    { icon: <Flower2 size={18} />, label: t.garden, path: "/garden", onClick: handleGardenClick },
+    { icon: <GraduationCap size={18} />, label: t.teacher, path: "/teacher", onClick: () => navigateToTeacher() },
+    { icon: <Settings size={18} />, label: t.settings, path: "/settings", onClick: () => navigateToSettings() },
   ];
 
-  if (sidebarCollapsed) {
-    return null;
-  }
+  const isActivePath = (path: string) => location === path || location.startsWith(path + "/");
 
   return (
     <>
@@ -204,14 +221,6 @@ export function Sidebar() {
               transform: translateX(0);
             }
           }
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
-          }
           @keyframes expandTitle {
             from {
               opacity: 0;
@@ -225,14 +234,16 @@ export function Sidebar() {
         `}
       </style>
       <aside
-        className="flex flex-col h-full border-r"
+        className="flex flex-col h-full border-r overflow-hidden"
         style={{
-          width: "240px",
+          width: sidebarCollapsed ? "0px" : "240px",
+          opacity: sidebarCollapsed ? 0 : 1,
           backgroundColor: "var(--surface)",
-          borderColor: "var(--border)",
-          animation: "fadeIn 0.2s ease-out",
+          borderColor: sidebarCollapsed ? "transparent" : "var(--border)",
+          transition: "width 0.2s ease-out, opacity 0.15s ease-out, border-color 0.2s ease-out",
         }}
       >
+        <div style={{ minWidth: "240px" }}>
         {/* Spacer matching header height */}
         <div className="h-[53px] flex-shrink-0" />
 
@@ -240,7 +251,7 @@ export function Sidebar() {
         <div className="px-3 pt-3">
           <button
             type="button"
-            onClick={startNewChat}
+            onClick={() => navigateToChat()}
             className={cn(
               "flex items-center gap-2 w-full px-3 py-2 rounded-xl",
               "transition-all duration-200 ease-out",
@@ -261,11 +272,11 @@ export function Sidebar() {
         <nav className="px-3 pt-3 space-y-1">
           {navItems.map((item, index) => (
             <NavItem
-              key={item.view}
+              key={item.path}
               icon={item.icon}
               label={item.label}
-              isActive={currentView === item.view}
-              onClick={() => setView(item.view)}
+              isActive={isActivePath(item.path)}
+              onClick={item.onClick}
               delay={index * 50}
             />
           ))}
@@ -286,12 +297,13 @@ export function Sidebar() {
                   key={conversation.id}
                   conversation={conversation}
                   isActive={currentConversationId === conversation.id}
-                  onClick={() => selectConversation(conversation.id)}
+                  onClick={() => navigateToChat(conversation.id)}
                 />
               ))}
             </div>
           </div>
         )}
+        </div>
       </aside>
     </>
   );

@@ -167,7 +167,6 @@ export const useChatStore = create<ChatStore>()(
             currentConversationId: id,
             messages,
             savedPetalWords,
-            currentView: "chat" as View,
           });
         } catch {
           console.error("Failed to load conversation");
@@ -180,7 +179,6 @@ export const useChatStore = create<ChatStore>()(
           messages: [],
           savedPetalWords: {},
           scrollToMessageId: null,
-          currentView: "chat" as View,
         });
       },
 
@@ -393,7 +391,6 @@ export const useChatStore = create<ChatStore>()(
       viewFlowerInGarden: async (word: string) => {
         const { selectFlower } = get();
         await selectFlower(word);
-        set({ currentView: "garden" as View });
       },
 
       savePetal: async (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]) => {

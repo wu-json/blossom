@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useChatStore } from "../../store/chat-store";
+import { useQueryParams } from "../../hooks/use-query-params";
 import { PetalCard } from "./petal-card";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Language } from "../../types/chat";
@@ -14,18 +15,34 @@ const translations: Record<Language, { contexts: string }> = {
 
 export function PetalList() {
   const { selectedFlower, flowerPetals, language } = useChatStore();
+  const { params, setQueryParams } = useQueryParams();
   const t = translations[language];
-  const [currentPage, setCurrentPage] = useState(1);
 
-  // Reset to page 1 when flower changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedFlower]);
+  // Get current page from URL (default to 1)
+  const urlPage = parseInt(params.get("page") || "1", 10);
+  const currentPage = isNaN(urlPage) || urlPage < 1 ? 1 : urlPage;
 
   // Calculate pagination
   const totalPages = Math.ceil(flowerPetals.length / PETALS_PER_PAGE);
-  const startIndex = (currentPage - 1) * PETALS_PER_PAGE;
+  const validPage = Math.min(currentPage, Math.max(1, totalPages));
+  const startIndex = (validPage - 1) * PETALS_PER_PAGE;
   const paginatedPetals = flowerPetals.slice(startIndex, startIndex + PETALS_PER_PAGE);
+
+  // Reset to page 1 when flower changes
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setQueryParams({ page: undefined });
+    }
+  }, [selectedFlower]);
+
+  // Update URL when page changes
+  const goToPage = (page: number) => {
+    if (page === 1) {
+      setQueryParams({ page: undefined });
+    } else {
+      setQueryParams({ page });
+    }
+  };
 
   return (
     <div className="w-full">
@@ -46,19 +63,19 @@ export function PetalList() {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 mt-6">
           <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
+            onClick={() => goToPage(Math.max(1, validPage - 1))}
+            disabled={validPage === 1}
             className="p-2 rounded-lg transition-colors disabled:opacity-30 hover:bg-black/5 dark:hover:bg-white/10"
             style={{ color: "var(--text-muted)" }}
           >
             <ChevronLeft size={18} />
           </button>
           <span className="text-sm tabular-nums" style={{ color: "var(--text-muted)" }}>
-            {currentPage} / {totalPages}
+            {validPage} / {totalPages}
           </span>
           <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
+            onClick={() => goToPage(Math.min(totalPages, validPage + 1))}
+            disabled={validPage === totalPages}
             className="p-2 rounded-lg transition-colors disabled:opacity-30 hover:bg-black/5 dark:hover:bg-white/10"
             style={{ color: "var(--text-muted)" }}
           >

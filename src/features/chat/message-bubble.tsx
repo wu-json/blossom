@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../store/chat-store";
+import { useNavigation } from "../../hooks/use-navigation";
 import { useSmoothText } from "../../hooks/use-smooth-text";
 import { Markdown } from "../../components/markdown";
 import {
@@ -31,9 +32,9 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
   const currentConversationId = useChatStore((state) => state.currentConversationId);
   const savePetal = useChatStore((state) => state.savePetal);
   const removePetalFromMessage = useChatStore((state) => state.removePetalFromMessage);
-  const viewFlowerInGarden = useChatStore((state) => state.viewFlowerInGarden);
   const savedPetalWords = useChatStore((state) => state.savedPetalWords);
   const savedWordsForMessage = savedPetalWords[message.id] || [];
+  const { navigateToGarden } = useNavigation();
 
   const handleSaveWord = (word: WordBreakdown) => {
     if (currentConversationId && (userInput || userImages?.length)) {
@@ -46,7 +47,7 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
   };
 
   const handleViewFlower = (word: string) => {
-    viewFlowerInGarden(word);
+    navigateToGarden(word);
   };
 
   const canSaveWords = !isUser && currentConversationId && (userInput || userImages?.length);

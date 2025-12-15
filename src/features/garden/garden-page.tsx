@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { HeaderControls } from "../../components/ui/header-controls";
 import { useChatStore } from "../../store/chat-store";
+import { useNavigation } from "../../hooks/use-navigation";
 import { version } from "../../version";
 import { FlowerList } from "./flower-list";
 import { PetalList } from "./petal-list";
@@ -46,9 +47,8 @@ export function GardenPage() {
     flowers,
     selectedFlower,
     loadFlowers,
-    clearSelectedFlower,
-    setView,
   } = useChatStore();
+  const { navigateToGarden, navigateToChat } = useNavigation();
 
   const t = translations[language];
 
@@ -79,7 +79,7 @@ export function GardenPage() {
 
           {selectedFlower && (
             <button
-              onClick={clearSelectedFlower}
+              onClick={() => navigateToGarden()}
               className="ml-4 flex items-center gap-1 text-sm transition-colors hover:opacity-80"
               style={{ color: "var(--primary)" }}
             >
@@ -160,7 +160,7 @@ export function GardenPage() {
 
             {/* CTA Button */}
             <button
-              onClick={() => setView("chat")}
+              onClick={() => navigateToChat()}
               className="px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:scale-105"
               style={{
                 backgroundColor: "var(--primary)",

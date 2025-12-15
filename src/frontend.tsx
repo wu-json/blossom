@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { createRoot } from "react-dom/client";
+import { Router } from "wouter";
 import "./index.css";
 import { AppLayout } from "./components/layout";
 import { useChatStore } from "./store/chat-store";
@@ -24,4 +25,8 @@ function App() {
   return <AppLayout />;
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <Router>
+    <App />
+  </Router>
+);
