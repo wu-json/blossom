@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Flower2 } from "lucide-react";
+import { Plus, Flower2, X } from "lucide-react";
 import type {
   TranslationData,
   WordBreakdown,
@@ -11,6 +11,7 @@ interface TranslationCardProps {
   data: TranslationData;
   onSaveWord?: (word: WordBreakdown) => void;
   onRemoveWord?: (word: string) => Promise<boolean>;
+  onViewFlower?: (word: string) => void;
   savedWords?: string[];
 }
 
@@ -32,7 +33,7 @@ function getPosColor(partOfSpeech: string): string {
   return "#6B7280";
 }
 
-export function TranslationCard({ data, onSaveWord, onRemoveWord, savedWords = [] }: TranslationCardProps) {
+export function TranslationCard({ data, onSaveWord, onRemoveWord, onViewFlower, savedWords = [] }: TranslationCardProps) {
   return (
     <div className="space-y-3">
       {/* Original Text with Subtext */}
@@ -63,6 +64,7 @@ export function TranslationCard({ data, onSaveWord, onRemoveWord, savedWords = [
               isEven={idx % 2 === 0}
               onSave={onSaveWord ? () => onSaveWord(item) : undefined}
               onRemove={onRemoveWord ? () => onRemoveWord(item.word) : undefined}
+              onViewFlower={onViewFlower ? () => onViewFlower(item.word) : undefined}
               initialSaved={savedWords.includes(item.word)}
             />
           ))}
@@ -92,16 +94,18 @@ interface WordRowProps {
   isEven: boolean;
   onSave?: () => void;
   onRemove?: () => Promise<boolean>;
+  onViewFlower?: () => void;
   initialSaved?: boolean;
 }
 
-function WordRow({ item, isEven, onSave, onRemove, initialSaved = false }: WordRowProps) {
+function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = false }: WordRowProps) {
   const color = getPosColor(item.partOfSpeech);
   const [isSaved, setIsSaved] = useState(initialSaved);
   const [isHovered, setIsHovered] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [showBloom, setShowBloom] = useState(false);
   const [showWilt, setShowWilt] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   const canInteract = onSave && onRemove;
 
@@ -116,20 +120,13 @@ function WordRow({ item, isEven, onSave, onRemove, initialSaved = false }: WordR
     return () => clearTimeout(timeout);
   }, [isHovered, canInteract, showBloom, showWilt]);
 
-  const handleClick = async () => {
+  const handleClick = () => {
     if (!canInteract) return;
 
     if (isSaved) {
-      // Remove the petal
-      setShowWilt(true);
-      const removed = await onRemove();
-      if (removed) {
-        setTimeout(() => {
-          setIsSaved(false);
-          setShowWilt(false);
-        }, 400);
-      } else {
-        setShowWilt(false);
+      // Navigate to flower in garden
+      if (onViewFlower) {
+        onViewFlower();
       }
     } else {
       // Save the petal
@@ -137,6 +134,25 @@ function WordRow({ item, isEven, onSave, onRemove, initialSaved = false }: WordR
       setIsSaved(true);
       setShowBloom(true);
       setTimeout(() => setShowBloom(false), 500);
+    }
+  };
+
+  const handleRemoveClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation
+    if (!onRemove || !isSaved || isRemoving) return;
+
+    setIsRemoving(true);
+    setShowWilt(true);
+    const removed = await onRemove();
+    if (removed) {
+      setTimeout(() => {
+        setIsSaved(false);
+        setShowWilt(false);
+        setIsRemoving(false);
+      }, 400);
+    } else {
+      setShowWilt(false);
+      setIsRemoving(false);
     }
   };
 
@@ -167,7 +183,7 @@ function WordRow({ item, isEven, onSave, onRemove, initialSaved = false }: WordR
         {item.partOfSpeech}
       </div>
       {canInteract && (
-        <div className="relative flex-shrink-0">
+        <div className="relative flex-shrink-0 flex items-center gap-1">
           {/* Tooltip */}
           {showTooltip && (
             <div
@@ -180,7 +196,7 @@ function WordRow({ item, isEven, onSave, onRemove, initialSaved = false }: WordR
                 animation: "fadeIn 0.15s ease-out",
               }}
             >
-              {isSaved ? "Remove from garden" : "Save to garden"}
+              {isSaved ? "View in garden" : "Save to garden"}
             </div>
           )}
           {/* Icon with bloom/wilt effect */}
@@ -200,6 +216,20 @@ function WordRow({ item, isEven, onSave, onRemove, initialSaved = false }: WordR
             {/* Petal wilt particles */}
             {showWilt && <PetalWilt />}
           </div>
+          {/* Remove button - only visible on hover when saved */}
+          {isSaved && isHovered && (
+            <button
+              onClick={handleRemoveClick}
+              className="p-0.5 rounded transition-colors duration-150 hover:bg-white/10"
+              style={{
+                color: "var(--text-muted)",
+                opacity: isRemoving ? 0.5 : 1,
+              }}
+              title="Remove from garden"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       )}
     </div>

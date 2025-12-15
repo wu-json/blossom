@@ -390,6 +390,12 @@ export const useChatStore = create<ChatStore>()(
         set({ selectedFlower: null, flowerPetals: [] });
       },
 
+      viewFlowerInGarden: async (word: string) => {
+        const { selectFlower } = get();
+        await selectFlower(word);
+        set({ currentView: "garden" as View });
+      },
+
       savePetal: async (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]) => {
         const { language, loadFlowers } = get();
         try {
