@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -28,6 +28,7 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, isLastAssistant, userInput, userImages }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const isTyping = useChatStore((state) => state.isTyping);
+  const isStreamingTransition = useChatStore((state) => state.isStreamingTransition);
   const teacherSettings = useChatStore((state) => state.teacherSettings);
   const currentConversationId = useChatStore((state) => state.currentConversationId);
   const savePetal = useChatStore((state) => state.savePetal);
@@ -52,23 +53,9 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
   };
 
   const canSaveWords = !isUser && currentConversationId && (userInput || userImages?.length);
-  const isActuallyStreaming = !isUser && !!isLastAssistant && isTyping;
-
-  // Delay the visual transition from streaming to non-streaming
-  // This prevents layout shift from causing scroll jumps
-  const [isVisuallyStreaming, setIsVisuallyStreaming] = useState(isActuallyStreaming);
-  useEffect(() => {
-    if (isActuallyStreaming) {
-      setIsVisuallyStreaming(true);
-    } else if (isVisuallyStreaming) {
-      // Delay turning off streaming visuals to let scroll settle
-      const timeout = setTimeout(() => setIsVisuallyStreaming(false), 150);
-      return () => clearTimeout(timeout);
-    }
-  }, [isActuallyStreaming, isVisuallyStreaming]);
-
-  const isStreaming = isVisuallyStreaming;
-  const displayedContent = useSmoothText(message.content, isActuallyStreaming);
+  // Keep showing streaming UI during transition to prevent layout shift before scroll completes
+  const isStreaming = !isUser && !!isLastAssistant && (isTyping || isStreamingTransition);
+  const displayedContent = useSmoothText(message.content, isTyping && isLastAssistant);
 
   const parsed: ParsedContent = useMemo(() => {
     if (isUser) return { type: "text", data: displayedContent };

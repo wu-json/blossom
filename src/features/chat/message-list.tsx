@@ -28,6 +28,7 @@ export function MessageList() {
   const isTyping = useChatStore((state) => state.isTyping);
   const scrollToMessageId = useChatStore((state) => state.scrollToMessageId);
   const setScrollToMessage = useChatStore((state) => state.setScrollToMessage);
+  const setStreamingTransition = useChatStore((state) => state.setStreamingTransition);
   const bottomRef = useRef<HTMLDivElement>(null);
   const didTargetedScroll = useRef(false);
   const lastScrollTime = useRef(0);
@@ -53,14 +54,45 @@ export function MessageList() {
     const wasTyping = prevIsTyping.current;
     prevIsTyping.current = isTyping;
 
-    // When streaming ends, always do a final scroll
-    // (the cleanup from the previous effect cancelled any pending scroll)
+    // When streaming ends, coordinate scroll and component transition
     if (wasTyping && !isTyping) {
-      const timeout = setTimeout(() => {
+      // Keep streaming UI visible during scroll
+      setStreamingTransition(true);
+
+      const scrollContainer = document.querySelector("[data-message-list]");
+      let scrollEndTimeout: ReturnType<typeof setTimeout>;
+      let cleanupCalled = false;
+
+      const detectScrollEnd = () => {
+        // Reset the timeout on each scroll event
+        clearTimeout(scrollEndTimeout);
+        scrollEndTimeout = setTimeout(() => {
+          // Scrolling has stopped - allow component transition
+          if (!cleanupCalled) {
+            setStreamingTransition(false);
+            scrollContainer?.removeEventListener("scroll", detectScrollEnd);
+          }
+        }, 100);
+      };
+
+      // Start listening for scroll end
+      scrollContainer?.addEventListener("scroll", detectScrollEnd);
+
+      // Trigger the scroll after a short delay
+      const scrollTimeout = setTimeout(() => {
         lastScrollTime.current = Date.now();
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+
+        // Start the scroll end detection
+        detectScrollEnd();
       }, 100);
-      return () => clearTimeout(timeout);
+
+      return () => {
+        cleanupCalled = true;
+        clearTimeout(scrollTimeout);
+        clearTimeout(scrollEndTimeout);
+        scrollContainer?.removeEventListener("scroll", detectScrollEnd);
+      };
     }
 
     if (didTargetedScroll.current) {
@@ -82,7 +114,7 @@ export function MessageList() {
     }, delay);
 
     return () => clearTimeout(timeout);
-  }, [messages, isTyping]);
+  }, [messages, isTyping, setStreamingTransition]);
 
   if (messages.length === 0) {
     const { title, subtitle } = emptyStateContent[language];

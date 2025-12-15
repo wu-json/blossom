@@ -54,6 +54,7 @@ export interface Flower {
 export interface ChatState {
   messages: Message[];
   isTyping: boolean;
+  isStreamingTransition: boolean;
   theme: Theme;
   language: Language;
   sidebarCollapsed: boolean;
@@ -74,6 +75,7 @@ export interface ChatState {
 export interface ChatActions {
   addMessage: (content: string, role: MessageRole) => void;
   setTyping: (isTyping: boolean) => void;
+  setStreamingTransition: (isStreamingTransition: boolean) => void;
   toggleTheme: () => void;
   setLanguage: (language: Language) => void;
   clearMessages: () => void;

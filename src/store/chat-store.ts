@@ -10,6 +10,7 @@ export const useChatStore = create<ChatStore>()(
     (set, get) => ({
       messages: [],
       isTyping: false,
+      isStreamingTransition: false,
       theme: "light" as Theme,
       language: "ja" as Language,
       sidebarCollapsed: true,
@@ -41,6 +42,10 @@ export const useChatStore = create<ChatStore>()(
 
       setTyping: (isTyping: boolean) => {
         set({ isTyping });
+      },
+
+      setStreamingTransition: (isStreamingTransition: boolean) => {
+        set({ isStreamingTransition });
       },
 
       toggleTheme: () => {
