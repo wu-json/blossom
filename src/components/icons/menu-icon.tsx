@@ -15,16 +15,16 @@ export function MenuIcon({ isOpen, className }: MenuIconProps) {
       className={className}
       style={{ color: "var(--primary)" }}
     >
-      {/* Five petals that bloom outward when open - matches favicon shape */}
-      {[0, 72, 144, 216, 288].map((rotation, i) => (
+      {/* Six petals that bloom outward when open */}
+      {[0, 60, 120, 180, 240, 300].map((rotation, i) => (
         <ellipse
           key={i}
           cx="10"
-          cy={isOpen ? "4" : "4.5"}
+          cy={isOpen ? "4" : "5"}
           rx="2.5"
-          ry={isOpen ? "4.5" : "3.75"}
+          ry={isOpen ? "4.5" : "3.5"}
           fill="currentColor"
-          opacity={isOpen ? 0.7 : 0.5}
+          opacity={isOpen ? 0.7 + (i % 2) * 0.15 : 0.5}
           style={{
             transformOrigin: "10px 10px",
             transform: `rotate(${rotation}deg)`,
