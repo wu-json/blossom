@@ -87,19 +87,19 @@ export function GardenPage() {
         )}
       </header>
 
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 flex flex-col overflow-auto p-6">
         {selectedFlower ? (
           <PetalList />
         ) : flowers.length > 0 ? (
           <FlowerList />
         ) : (
           <div
-            className="flex flex-col items-center justify-center h-full text-center px-6"
+            className="flex-1 flex flex-col items-center justify-center gap-4 px-6"
             style={{ animation: "fadeIn 0.5s ease-out" }}
           >
             {/* Animated flower illustration */}
             <div
-              className="relative mb-8"
+              className="relative"
               style={{ animation: "float 4s ease-in-out infinite" }}
             >
               {/* Soft glow background */}
@@ -113,8 +113,8 @@ export function GardenPage() {
               />
               {/* Flower SVG */}
               <svg
-                width="80"
-                height="80"
+                width="64"
+                height="64"
                 viewBox="0 0 80 80"
                 fill="none"
                 className="relative"
@@ -138,18 +138,20 @@ export function GardenPage() {
             </div>
 
             {/* Text content */}
-            <h2
-              className="text-xl font-semibold mb-2"
-              style={{ color: "var(--text)" }}
-            >
-              {t.noFlowers}
-            </h2>
-            <p
-              className="text-sm max-w-xs leading-relaxed mb-6"
-              style={{ color: "var(--text-muted)" }}
-            >
-              {t.noFlowersHint}
-            </p>
+            <div className="text-center">
+              <h2
+                className="text-lg font-semibold mb-1"
+                style={{ color: "var(--text)" }}
+              >
+                {t.noFlowers}
+              </h2>
+              <p
+                className="text-sm"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {t.noFlowersHint}
+              </p>
+            </div>
 
             {/* CTA Button */}
             <button
