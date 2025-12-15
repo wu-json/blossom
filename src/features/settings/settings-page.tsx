@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useState, useRef } from "react";
 import { MenuIcon } from "../../components/icons/menu-icon";
+import { HeaderControls } from "../../components/ui/header-controls";
 import { useChatStore } from "../../store/chat-store";
 import { version } from "../../version";
 import type { Language } from "../../types/chat";
@@ -179,7 +180,7 @@ export function SettingsPage() {
       style={{ backgroundColor: "var(--background)" }}
     >
       <header
-        className="sticky top-0 z-10 px-4 py-3 border-b flex items-center"
+        className="sticky top-0 z-10 px-4 py-3 border-b flex items-center justify-between"
         style={{
           backgroundColor: "var(--surface)",
           borderColor: "var(--border)",
@@ -198,6 +199,8 @@ export function SettingsPage() {
             v{version}
           </span>
         </button>
+
+        <HeaderControls />
       </header>
 
       <main className="flex-1 overflow-auto p-6">

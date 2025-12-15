@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { MenuIcon } from "../../components/icons/menu-icon";
+import { HeaderControls } from "../../components/ui/header-controls";
 import { useChatStore } from "../../store/chat-store";
 import { version } from "../../version";
 import { FlowerList } from "./flower-list";
@@ -58,33 +59,37 @@ export function GardenPage() {
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: "var(--background)" }}>
       <header
-        className="sticky top-0 z-10 px-4 py-3 border-b flex items-center"
+        className="sticky top-0 z-10 px-4 py-3 border-b flex items-center justify-between"
         style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
       >
-        <button
-          onClick={toggleSidebar}
-          className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
-          aria-label="Toggle sidebar"
-        >
-          <MenuIcon isOpen={sidebarCollapsed} />
-          <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
-            blossom
-          </h1>
-          <span className="text-xs self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
-            v{version}
-          </span>
-        </button>
-
-        {selectedFlower && (
+        <div className="flex items-center">
           <button
-            onClick={clearSelectedFlower}
-            className="ml-4 flex items-center gap-1 text-sm transition-colors hover:opacity-80"
-            style={{ color: "var(--primary)" }}
+            onClick={toggleSidebar}
+            className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
+            aria-label="Toggle sidebar"
           >
-            <ArrowLeft size={16} />
-            {t.backToFlowers}
+            <MenuIcon isOpen={sidebarCollapsed} />
+            <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
+              blossom
+            </h1>
+            <span className="text-xs self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
+              v{version}
+            </span>
           </button>
-        )}
+
+          {selectedFlower && (
+            <button
+              onClick={clearSelectedFlower}
+              className="ml-4 flex items-center gap-1 text-sm transition-colors hover:opacity-80"
+              style={{ color: "var(--primary)" }}
+            >
+              <ArrowLeft size={16} />
+              {t.backToFlowers}
+            </button>
+          )}
+        </div>
+
+        <HeaderControls />
       </header>
 
       <main className="flex-1 flex flex-col overflow-auto p-6">
