@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useChatStore } from "../../store/chat-store";
+import { useNavigation } from "../../hooks/use-navigation";
 import type { Petal, Language } from "../../types/chat";
 import type { TranslationData, WordBreakdown } from "../../types/translation";
 import { Trash2, ExternalLink } from "lucide-react";
@@ -33,7 +34,8 @@ interface PetalCardProps {
 }
 
 export function PetalCard({ petal }: PetalCardProps) {
-  const { deletePetal, selectConversation, setView, setScrollToMessage, language } = useChatStore();
+  const { deletePetal, setScrollToMessage, language } = useChatStore();
+  const { navigateToChat } = useNavigation();
   const t = translations[language];
   const [translationData, setTranslationData] = useState<TranslationData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,10 +61,9 @@ export function PetalCard({ petal }: PetalCardProps) {
     fetchTranslation();
   }, [petal.conversationId, petal.messageId]);
 
-  const handleViewContext = async () => {
+  const handleViewContext = () => {
     setScrollToMessage(petal.messageId);
-    await selectConversation(petal.conversationId);
-    setView("chat");
+    navigateToChat(petal.conversationId);
   };
 
   const handleDelete = async () => {

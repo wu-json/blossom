@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useChatStore } from "../../store/chat-store";
+import { useNavigation } from "../../hooks/use-navigation";
 import { FlowerCard } from "./flower-card";
 import { Search, X } from "lucide-react";
 import type { Language } from "../../types/chat";
@@ -11,7 +12,8 @@ const translations: Record<Language, { searchPlaceholder: string; noResults: str
 };
 
 export function FlowerList() {
-  const { flowers, selectFlower, language } = useChatStore();
+  const { flowers, language } = useChatStore();
+  const { navigateToGarden } = useNavigation();
   const t = translations[language];
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -63,7 +65,7 @@ export function FlowerList() {
           <FlowerCard
             key={flower.word}
             flower={flower}
-            onClick={() => selectFlower(flower.word)}
+            onClick={() => navigateToGarden(flower.word)}
           />
         ))}
       </div>
