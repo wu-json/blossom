@@ -193,7 +193,7 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
               ) : (
                 <Markdown content={displayedContent} />
               )}
-              {isStreaming && parsed.type !== "streaming-translation" && parsed.type !== "streaming-partial" && (
+              {isStreaming && parsed.type !== "streaming-translation" && parsed.type !== "streaming-partial" && parsed.type !== "translation" && (
                 <span
                   className="inline-block w-[2px] h-[1em] ml-0.5 align-middle animate-pulse"
                   style={{ backgroundColor: "var(--assistant-bubble-text)", opacity: 0.7 }}
