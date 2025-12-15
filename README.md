@@ -1,6 +1,8 @@
 # Blossom 🌸
 
-Blossom is an AI conversational language learning app, designed to help you practice Japanese, Chinese, and Korean through natural dialogue. It compiles to a single binary and runs locally in your browser.
+Blossom is an AI conversational language learning app, designed to help you practice Japanese, Chinese, and Korean through natural dialogue. It compiles to a single binary and runs locally.
+
+<img width="1119" height="1397" alt="スクリーンショット 2025-12-14 午後7 16 21" src="https://github.com/user-attachments/assets/63f4de6c-e0d1-4f80-996e-9091523c2de4" />
 
 ## Installation
 
