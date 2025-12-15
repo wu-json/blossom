@@ -28,70 +28,62 @@ export function PetalCard({ petal }: PetalCardProps) {
 
   const hasImages = petal.userImages && petal.userImages.length > 0;
   const hasText = petal.userInput && petal.userInput.trim().length > 0;
+  const hasContext = hasImages || hasText;
+
+  // Build context tooltip
+  const contextTooltip = hasText ? `"${petal.userInput}"` : hasImages ? `${petal.userImages!.length} image(s)` : "";
 
   return (
     <div
-      className="p-4 rounded-lg border"
+      className="flex items-center gap-4 py-3 px-4 rounded-lg border transition-colors group hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
       style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
     >
-      {/* User input context */}
-      <div
-        className="mb-3 p-3 rounded-lg"
-        style={{ backgroundColor: "var(--background)" }}
-      >
-        {hasImages && (
-          <div className="flex flex-wrap gap-2 mb-2">
-            {petal.userImages!.map((url, idx) => (
-              <img
-                key={idx}
-                src={url}
-                alt={`Context ${idx + 1}`}
-                className="w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => window.open(url, "_blank")}
-              />
-            ))}
-          </div>
-        )}
-        {hasText && (
-          <span className="text-sm" style={{ color: "var(--text-muted)" }}>"{petal.userInput}"</span>
-        )}
-        {!hasImages && !hasText && (
-          <span className="text-sm italic" style={{ color: "var(--text-muted)" }}>(no context)</span>
+      {/* Context indicator */}
+      <div className="w-5 flex-shrink-0 flex justify-center">
+        {hasContext && (
+          <div
+            className="w-1.5 h-1.5 rounded-full opacity-60"
+            style={{ backgroundColor: "var(--primary)" }}
+            title={contextTooltip}
+          />
         )}
       </div>
 
-      {/* Word details */}
-      <div className="flex items-center gap-3 mb-3">
-        <div>
-          <span className="font-medium" style={{ color: "var(--text)" }}>{petal.word}</span>
-          {petal.reading && (
-            <span className="text-sm ml-2" style={{ color: "var(--text-muted)" }}>{petal.reading}</span>
-          )}
-        </div>
-        {petal.meaning && (
-          <>
-            <span className="text-sm" style={{ color: "var(--text-muted)" }}>-</span>
-            <span className="text-sm" style={{ color: "var(--text)" }}>{petal.meaning}</span>
-          </>
+      {/* Word + Reading */}
+      <div className="w-28 flex-shrink-0">
+        <span className="font-medium" style={{ color: "var(--text)" }}>{petal.word}</span>
+        {petal.reading && petal.reading !== petal.word && (
+          <span className="text-xs ml-1.5" style={{ color: "var(--text-muted)" }}>{petal.reading}</span>
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+      {/* Meaning */}
+      <div className="flex-1 min-w-0">
+        <span
+          className="text-sm truncate block"
+          style={{ color: "var(--text-muted)" }}
+          title={petal.meaning}
+        >
+          {petal.meaning}
+        </span>
+      </div>
+
+      {/* Actions - visible on hover */}
+      <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={handleViewContext}
-          className="flex items-center gap-1.5 text-xs transition-colors hover:opacity-80"
+          className="p-1.5 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/10"
           style={{ color: "var(--primary)" }}
+          title={t.viewContext}
         >
           <ExternalLink size={14} />
-          {t.viewContext}
         </button>
         <button
           onClick={handleDelete}
-          className="flex items-center gap-1.5 text-xs text-red-500 transition-colors hover:opacity-80"
+          className="p-1.5 rounded text-red-500 transition-colors hover:bg-red-500/10"
+          title={t.delete}
         >
           <Trash2 size={14} />
-          {t.delete}
         </button>
       </div>
     </div>
