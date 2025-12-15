@@ -1,0 +1,27 @@
+name: Source Quality
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  source-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install aqua
+        uses: aquaproj/aqua-installer@ea518c135a02fc11ff8024364510c181a5c6b342 # v4.0.3
+        with:
+          aqua_version: v2.43.1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Typecheck
+        run: just typecheck
+
+      - name: Build
+        run: just build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
