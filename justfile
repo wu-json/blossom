@@ -15,6 +15,9 @@ bump-and-commit-version bump_type:
   git tag -a v$new_version -m "Release v$new_version"
   git push --follow-tags
 
+fmt *args:
+  bunx oxfmt {{args}}
+
 current-version:
   #!/usr/bin/env bash
   echo {{current_version}}
