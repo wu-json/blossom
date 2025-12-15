@@ -304,6 +304,14 @@ export function Sidebar() {
           </div>
         )}
         </div>
+
+        {/* Keyboard shortcut hint */}
+        <div
+          className="mt-auto px-4 py-3 text-xs"
+          style={{ color: "var(--text-muted)", opacity: 0.6 }}
+        >
+          {navigator.platform.includes("Mac") ? "⌘" : "Ctrl+"}B to toggle
+        </div>
       </aside>
     </>
   );

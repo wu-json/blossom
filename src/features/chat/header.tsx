@@ -138,6 +138,7 @@ export function Header() {
           onClick={toggleSidebar}
           className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
           aria-label="Toggle sidebar"
+          title={`Toggle sidebar (${navigator.platform.includes("Mac") ? "⌘" : "Ctrl+"}B)`}
         >
           <MenuIcon isOpen={sidebarCollapsed} />
           <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
