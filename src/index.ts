@@ -771,4 +771,8 @@ For ALL other interactions (questions, conversation, requests for examples, clar
   },
 });
 
-console.log(`Server running at http://localhost:${server.port}`);
+const pink = "\x1b[35m";
+const reset = "\x1b[0m";
+
+console.log(`\n🌸 ${pink}Blossom${reset} - ようこそ | 欢迎 | 환영합니다`);
+console.log(`   Server running at ${pink}http://localhost:${server.port}${reset}\n`);
