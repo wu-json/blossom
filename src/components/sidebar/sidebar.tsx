@@ -174,14 +174,33 @@ export function Sidebar() {
     language,
     conversations,
     currentConversationId,
+    selectedFlower,
   } = useChatStore();
   const [location] = useLocation();
   const { navigateToChat, navigateToGarden, navigateToTeacher, navigateToSettings } = useNavigation();
   const t = translations[language];
 
+  // Preserve chat state when navigating back to chat
+  const handleChatClick = () => {
+    if (currentConversationId) {
+      navigateToChat(currentConversationId);
+    } else {
+      navigateToChat();
+    }
+  };
+
+  // Preserve garden state when navigating back to garden
+  const handleGardenClick = () => {
+    if (selectedFlower) {
+      navigateToGarden(selectedFlower);
+    } else {
+      navigateToGarden();
+    }
+  };
+
   const navItems: { icon: React.ReactNode; label: string; path: string; onClick: () => void }[] = [
-    { icon: <MessageSquare size={18} />, label: t.chat, path: "/chat", onClick: () => navigateToChat() },
-    { icon: <Flower2 size={18} />, label: t.garden, path: "/garden", onClick: () => navigateToGarden() },
+    { icon: <MessageSquare size={18} />, label: t.chat, path: "/chat", onClick: handleChatClick },
+    { icon: <Flower2 size={18} />, label: t.garden, path: "/garden", onClick: handleGardenClick },
     { icon: <GraduationCap size={18} />, label: t.teacher, path: "/teacher", onClick: () => navigateToTeacher() },
     { icon: <Settings size={18} />, label: t.settings, path: "/settings", onClick: () => navigateToSettings() },
   ];
