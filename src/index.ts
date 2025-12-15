@@ -771,7 +771,7 @@ For ALL other interactions (questions, conversation, requests for examples, clar
   },
 });
 
-const pink = "\x1b[35m";
+const pink = "\x1b[38;2;236;72;153m"; // #EC4899
 const reset = "\x1b[0m";
 
 console.log(`\n🌸 ${pink}Blossom${reset} - ようこそ | 欢迎 | 환영합니다`);
