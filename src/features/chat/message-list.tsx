@@ -2,26 +2,21 @@ import { useEffect, useRef } from "react";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { MessageBubble } from "./message-bubble";
 import { useChatStore } from "../../store/chat-store";
-import { SakuraIcon, MeiHuaIcon, MugunghwaIcon } from "../../components/icons/cultural-flowers";
 import type { Language } from "../../types/chat";
 
 const emptyStateContent: Record<Language, {
-  icon: typeof SakuraIcon;
   title: string;
   subtitle: string;
 }> = {
   ja: {
-    icon: SakuraIcon,
     title: "桜のように、会話を咲かせよう",
     subtitle: "一言から始まる物語",
   },
   zh: {
-    icon: MeiHuaIcon,
     title: "梅花香自苦寒来",
     subtitle: "让我们开始对话吧",
   },
   ko: {
-    icon: MugunghwaIcon,
     title: "무궁화처럼 피어나는 대화",
     subtitle: "첫 마디를 건네보세요",
   },
@@ -70,24 +65,65 @@ export function MessageList() {
   }, [messages, isTyping]);
 
   if (messages.length === 0) {
-    const { icon: FlowerIcon, title, subtitle } = emptyStateContent[language];
+    const { title, subtitle } = emptyStateContent[language];
 
     return (
       <div
-        className="flex-1 flex flex-col items-center justify-center gap-3"
-        style={{ color: "var(--text-muted)" }}
+        className="flex-1 flex flex-col items-center justify-center gap-4 px-6"
+        style={{ animation: "fadeIn 0.5s ease-out" }}
       >
+        {/* Animated flower illustration */}
         <div
-          className="w-14 h-14 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: "var(--primary-light)" }}
+          className="relative"
+          style={{ animation: "float 4s ease-in-out infinite" }}
         >
-          <FlowerIcon className="w-8 h-8" style={{ color: "var(--primary)" }} />
+          {/* Soft glow background */}
+          <div
+            className="absolute inset-0 rounded-full blur-2xl"
+            style={{
+              background: "var(--primary)",
+              animation: "breathe 4s ease-in-out infinite",
+              transform: "scale(1.5)",
+            }}
+          />
+          {/* Flower SVG */}
+          <svg
+            width="64"
+            height="64"
+            viewBox="0 0 80 80"
+            fill="none"
+            className="relative"
+          >
+            {/* Petals */}
+            {[0, 60, 120, 180, 240, 300].map((angle, i) => (
+              <ellipse
+                key={i}
+                cx="40"
+                cy="40"
+                rx="12"
+                ry="20"
+                fill="var(--primary)"
+                opacity={0.7 + (i % 2) * 0.15}
+                transform={`rotate(${angle} 40 40) translate(0 -16)`}
+              />
+            ))}
+            {/* Center */}
+            <circle cx="40" cy="40" r="10" fill="var(--primary-hover)" />
+          </svg>
         </div>
+
+        {/* Text content */}
         <div className="text-center">
-          <p className="text-base font-medium" style={{ color: "var(--text)" }}>
+          <h2
+            className="text-lg font-semibold mb-1"
+            style={{ color: "var(--text)" }}
+          >
             {title}
-          </p>
-          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+          </h2>
+          <p
+            className="text-sm"
+            style={{ color: "var(--text-muted)" }}
+          >
             {subtitle}
           </p>
         </div>
