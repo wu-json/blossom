@@ -19,10 +19,6 @@ blossom
 | `ANTHROPIC_API_KEY` | Your Anthropic API key (required) | - |
 | `BLOSSOM_DATA_DIR` | Directory for data storage | `~/.blossom` |
 
-## Design Philosophy
-
-Blossom focuses on immersive language practice through conversation rather than traditional drills. The AI tutor adapts to your level and provides natural corrections and explanations in context.
-
 ## Development
 
 This project uses [aqua](https://aquaproj.github.io/) for package management and [curse](https://github.com/wu-json/curse) for running local development processes.
