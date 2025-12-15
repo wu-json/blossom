@@ -7,7 +7,8 @@ import {
   updateConversationTimestamp,
   deleteConversation,
 } from "./db/conversations";
-import { createMessage, getMessagesByConversationId, updateMessageContent } from "./db/messages";
+import { createMessage, getMessagesByConversationId, updateMessageContent, getMessageById } from "./db/messages";
+import { parseTranslationContent } from "./lib/parse-translation";
 import {
   getTeacherSettings,
   updateTeacherName,
@@ -538,6 +539,20 @@ const server = Bun.serve({
           return Response.json({ error: "Petal not found" }, { status: 404 });
         }
         return Response.json({ success: true });
+      },
+    },
+    "/api/messages/:conversationId/:messageId/translation": {
+      GET: (req) => {
+        const { conversationId, messageId } = req.params;
+        const message = getMessageById(conversationId, messageId);
+        if (!message) {
+          return Response.json({ error: "Message not found" }, { status: 404 });
+        }
+        const parsed = parseTranslationContent(message.content);
+        if (parsed.type !== "translation") {
+          return Response.json({ error: "No translation data in message" }, { status: 404 });
+        }
+        return Response.json(parsed.data);
       },
     },
     "/api/chat": {
