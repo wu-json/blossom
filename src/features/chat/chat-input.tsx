@@ -131,7 +131,7 @@ export function ChatInput() {
       if (messageList) {
         messageList.scrollTo({ top: messageList.scrollHeight, behavior: "smooth" });
       }
-    }, 250);
+    }, 200);
 
     setInput("");
     setPendingImages([]);
