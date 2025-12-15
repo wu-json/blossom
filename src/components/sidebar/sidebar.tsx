@@ -207,10 +207,6 @@ export function Sidebar() {
 
   const isActivePath = (path: string) => location === path || location.startsWith(path + "/");
 
-  if (sidebarCollapsed) {
-    return null;
-  }
-
   return (
     <>
       <style>
@@ -223,14 +219,6 @@ export function Sidebar() {
             to {
               opacity: 1;
               transform: translateX(0);
-            }
-          }
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
             }
           }
           @keyframes expandTitle {
@@ -246,14 +234,16 @@ export function Sidebar() {
         `}
       </style>
       <aside
-        className="flex flex-col h-full border-r"
+        className="flex flex-col h-full border-r overflow-hidden"
         style={{
-          width: "240px",
+          width: sidebarCollapsed ? "0px" : "240px",
+          opacity: sidebarCollapsed ? 0 : 1,
           backgroundColor: "var(--surface)",
-          borderColor: "var(--border)",
-          animation: "fadeIn 0.2s ease-out",
+          borderColor: sidebarCollapsed ? "transparent" : "var(--border)",
+          transition: "width 0.2s ease-out, opacity 0.15s ease-out, border-color 0.2s ease-out",
         }}
       >
+        <div style={{ minWidth: "240px" }}>
         {/* Spacer matching header height */}
         <div className="h-[53px] flex-shrink-0" />
 
@@ -313,6 +303,7 @@ export function Sidebar() {
             </div>
           </div>
         )}
+        </div>
       </aside>
     </>
   );
