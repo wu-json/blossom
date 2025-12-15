@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { cn } from "../../lib/utils";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -52,8 +52,23 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
   };
 
   const canSaveWords = !isUser && currentConversationId && (userInput || userImages?.length);
-  const isStreaming = !isUser && !!isLastAssistant && isTyping;
-  const displayedContent = useSmoothText(message.content, isStreaming);
+  const isActuallyStreaming = !isUser && !!isLastAssistant && isTyping;
+
+  // Delay the visual transition from streaming to non-streaming
+  // This prevents layout shift from causing scroll jumps
+  const [isVisuallyStreaming, setIsVisuallyStreaming] = useState(isActuallyStreaming);
+  useEffect(() => {
+    if (isActuallyStreaming) {
+      setIsVisuallyStreaming(true);
+    } else if (isVisuallyStreaming) {
+      // Delay turning off streaming visuals to let scroll settle
+      const timeout = setTimeout(() => setIsVisuallyStreaming(false), 150);
+      return () => clearTimeout(timeout);
+    }
+  }, [isActuallyStreaming, isVisuallyStreaming]);
+
+  const isStreaming = isVisuallyStreaming;
+  const displayedContent = useSmoothText(message.content, isActuallyStreaming);
 
   const parsed: ParsedContent = useMemo(() => {
     if (isUser) return { type: "text", data: displayedContent };

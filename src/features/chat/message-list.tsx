@@ -33,6 +33,30 @@ export function MessageList() {
   const lastScrollTime = useRef(0);
   const prevIsTyping = useRef(isTyping);
 
+  // Debug: track scroll position changes
+  useEffect(() => {
+    const scrollContainer = document.querySelector("[data-message-list]");
+    if (!scrollContainer) return;
+
+    let lastScrollTop = scrollContainer.scrollTop;
+    const handleScroll = () => {
+      const delta = scrollContainer.scrollTop - lastScrollTop;
+      if (Math.abs(delta) > 5) {
+        console.log("[scroll-event]", {
+          scrollTop: scrollContainer.scrollTop,
+          delta,
+          direction: delta > 0 ? "DOWN" : "UP",
+          scrollHeight: scrollContainer.scrollHeight,
+          clientHeight: scrollContainer.clientHeight,
+        });
+      }
+      lastScrollTop = scrollContainer.scrollTop;
+    };
+
+    scrollContainer.addEventListener("scroll", handleScroll);
+    return () => scrollContainer.removeEventListener("scroll", handleScroll);
+  }, []);
+
   // Scroll to specific message (from garden petal card)
   useEffect(() => {
     if (scrollToMessageId && messages.length > 0) {
@@ -56,11 +80,16 @@ export function MessageList() {
     // When streaming ends, always do a final scroll
     // (the cleanup from the previous effect cancelled any pending scroll)
     if (wasTyping && !isTyping) {
+      console.log("[scroll] streaming ended, scheduling final scroll in 100ms");
       const timeout = setTimeout(() => {
+        console.log("[scroll] executing final scroll");
         lastScrollTime.current = Date.now();
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 100);
-      return () => clearTimeout(timeout);
+      return () => {
+        console.log("[scroll] cleanup: cancelling final scroll");
+        clearTimeout(timeout);
+      };
     }
 
     if (didTargetedScroll.current) {
@@ -76,7 +105,9 @@ export function MessageList() {
       ? Math.max(0, 150 - timeSinceLastScroll)
       : 100;
 
+    console.log("[scroll] scheduling scroll", { isTyping, delay, timeSinceLastScroll });
     const timeout = setTimeout(() => {
+      console.log("[scroll] executing throttled scroll", { isTyping });
       lastScrollTime.current = Date.now();
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, delay);
