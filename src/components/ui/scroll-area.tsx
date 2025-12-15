@@ -11,6 +11,7 @@ const ScrollArea = React.forwardRef<HTMLDivElement, ScrollAreaProps>(
       <div
         ref={ref}
         className={cn("relative overflow-auto", className)}
+        style={{ overflowAnchor: "none" }}
         {...props}
       >
         {children}
