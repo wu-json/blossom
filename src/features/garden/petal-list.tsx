@@ -29,9 +29,9 @@ export function PetalList() {
 
   return (
     <div className="w-full">
-      <h2 className="text-xl font-medium mb-4" style={{ color: "var(--text)" }}>
-        {selectedFlower}
-        <span className="text-sm font-normal ml-2" style={{ color: "var(--text-muted)" }}>
+      <h2 className="mb-4" style={{ color: "var(--text)" }}>
+        <span className="text-3xl font-bold">{selectedFlower}</span>
+        <span className="text-sm font-normal ml-3" style={{ color: "var(--text-muted)" }}>
           {flowerPetals.length} {t.contexts}
         </span>
       </h2>
