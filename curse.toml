@@ -12,5 +12,5 @@ path = "/api/status"
 
 [[process]]
 name = "vite"
-command = "bunx vite"
+command = "bun vite"
 deps = [{ name = "api", condition = "ready" }]

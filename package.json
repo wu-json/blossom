@@ -3,15 +3,6 @@
   "module": "src/index.ts",
   "type": "module",
   "private": true,
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:binary": "vite build && bun build --compile src/index.ts --public-dir=dist --outfile blossom",
-    "preview": "vite preview",
-    "start": "bun src/index.ts",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check"
-  },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
     "@types/bun": "latest",
