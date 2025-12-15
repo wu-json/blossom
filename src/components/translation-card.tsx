@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Check } from "lucide-react";
+import { Plus, Flower2 } from "lucide-react";
 import type {
   TranslationData,
   WordBreakdown,
@@ -188,12 +188,12 @@ function WordRow({ item, isEven, onSave, onRemove, initialSaved = false }: WordR
             <div
               className="transition-all duration-150"
               style={{
-                color: isSaved ? "#22c55e" : "var(--primary)",
+                color: "var(--primary)",
                 opacity: isSaved || isHovered ? 1 : 0,
                 transform: showBloom ? "scale(1.4)" : showWilt ? "scale(0.8)" : "scale(1)",
               }}
             >
-              {isSaved ? <Check size={16} /> : <Plus size={16} />}
+              {isSaved ? <Flower2 size={16} /> : <Plus size={16} />}
             </div>
             {/* Petal bloom particles */}
             {showBloom && <PetalBloom />}
