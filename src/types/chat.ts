@@ -100,7 +100,7 @@ export interface ChatActions {
   selectFlower: (word: string) => Promise<void>;
   clearSelectedFlower: () => void;
   viewFlowerInGarden: (word: string) => Promise<void>;
-  savePetal: (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]) => Promise<void>;
+  savePetal: (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]) => Promise<boolean>;
   deletePetal: (id: string) => Promise<void>;
   removePetalFromMessage: (messageId: string, word: string) => Promise<boolean>;
   setScrollToMessage: (messageId: string | null) => void;

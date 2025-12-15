@@ -9,7 +9,7 @@ import type {
 
 interface TranslationCardProps {
   data: TranslationData;
-  onSaveWord?: (word: WordBreakdown) => void;
+  onSaveWord?: (word: WordBreakdown) => Promise<boolean>;
   onRemoveWord?: (word: string) => Promise<boolean>;
   onViewFlower?: (word: string) => void;
   savedWords?: string[];
@@ -92,7 +92,7 @@ export function TranslationCard({ data, onSaveWord, onRemoveWord, onViewFlower, 
 interface WordRowProps {
   item: WordBreakdown;
   isEven: boolean;
-  onSave?: () => void;
+  onSave?: () => Promise<boolean>;
   onRemove?: () => Promise<boolean>;
   onViewFlower?: () => void;
   initialSaved?: boolean;
@@ -109,7 +109,7 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
 
   const canInteract = onSave && onRemove;
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (!canInteract) return;
 
     if (isSaved) {
@@ -118,11 +118,14 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
         onViewFlower();
       }
     } else {
-      // Save the petal
-      onSave();
-      setIsSaved(true);
-      setShowBloom(true);
-      setTimeout(() => setShowBloom(false), 500);
+      // Save the petal and wait for result
+      const success = await onSave?.();
+      if (success) {
+        setIsSaved(true);
+        setShowBloom(true);
+        setTimeout(() => setShowBloom(false), 500);
+      }
+      // On failure, isSaved stays false (no UI change)
     }
   };
 

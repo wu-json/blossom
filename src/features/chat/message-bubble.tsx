@@ -36,10 +36,11 @@ export function MessageBubble({ message, isLastAssistant, userInput, userImages 
   const savedWordsForMessage = savedPetalWords[message.id] || [];
   const { navigateToGarden } = useNavigation();
 
-  const handleSaveWord = (word: WordBreakdown) => {
+  const handleSaveWord = async (word: WordBreakdown): Promise<boolean> => {
     if (currentConversationId && (userInput || userImages?.length)) {
-      savePetal(word, currentConversationId, message.id, userInput || "", userImages);
+      return savePetal(word, currentConversationId, message.id, userInput || "", userImages);
     }
+    return false;
   };
 
   const handleRemoveWord = async (word: string) => {

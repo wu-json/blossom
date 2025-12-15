@@ -393,7 +393,7 @@ export const useChatStore = create<ChatStore>()(
         await selectFlower(word);
       },
 
-      savePetal: async (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]) => {
+      savePetal: async (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]): Promise<boolean> => {
         const { language, loadFlowers } = get();
         try {
           const response = await fetch("/api/petals", {
@@ -423,17 +423,40 @@ export const useChatStore = create<ChatStore>()(
                 },
               };
             });
+            await loadFlowers();
+            return true;
           }
-          await loadFlowers();
+          return false;
         } catch {
           console.error("Failed to save petal");
+          return false;
         }
       },
 
       deletePetal: async (id: string) => {
-        const { selectedFlower, selectFlower, loadFlowers } = get();
+        const { selectedFlower, selectFlower, loadFlowers, flowerPetals } = get();
+
+        // Find petal details before deletion for savedPetalWords sync
+        const petalToDelete = flowerPetals.find(p => p.id === id);
+
         try {
           await fetch(`/api/petals/${id}`, { method: "DELETE" });
+
+          // Sync savedPetalWords if we know the petal details
+          if (petalToDelete) {
+            set((state) => {
+              const existing = state.savedPetalWords[petalToDelete.messageId] || [];
+              const updated = existing.filter(w => w !== petalToDelete.word);
+              const newSavedPetalWords = { ...state.savedPetalWords };
+              if (updated.length === 0) {
+                delete newSavedPetalWords[petalToDelete.messageId];
+              } else {
+                newSavedPetalWords[petalToDelete.messageId] = updated;
+              }
+              return { savedPetalWords: newSavedPetalWords };
+            });
+          }
+
           await loadFlowers();
           // Refresh current flower view if one is selected
           if (selectedFlower) {
@@ -452,7 +475,7 @@ export const useChatStore = create<ChatStore>()(
       },
 
       removePetalFromMessage: async (messageId: string, word: string) => {
-        const { loadFlowers } = get();
+        const { loadFlowers, selectedFlower, selectFlower } = get();
         try {
           const response = await fetch(`/api/petals/message/${messageId}/word/${encodeURIComponent(word)}`, {
             method: "DELETE",
@@ -471,6 +494,18 @@ export const useChatStore = create<ChatStore>()(
               return { savedPetalWords: newSavedPetalWords };
             });
             await loadFlowers();
+
+            // Sync flowerPetals if the removed word's flower is selected
+            if (selectedFlower === word) {
+              const { flowers } = get();
+              const flowerStillExists = flowers.some(f => f.word === word);
+              if (flowerStillExists) {
+                await selectFlower(word);
+              } else {
+                set({ selectedFlower: null, flowerPetals: [] });
+              }
+            }
+
             return true;
           }
           return false;
