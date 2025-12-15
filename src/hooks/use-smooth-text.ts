@@ -5,7 +5,7 @@ const FRAME_INTERVAL = 16; // ~60fps
 
 export function useSmoothText(targetText: string, enabled: boolean): string {
   const [displayedText, setDisplayedText] = useState(targetText);
-  const animationRef = useRef<number | null>(null);
+  const animationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentIndexRef = useRef(0);
 
   useEffect(() => {

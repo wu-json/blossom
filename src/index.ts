@@ -136,7 +136,7 @@ const server = Bun.serve({
         const transformedMessages = await Promise.all(
           filteredMessages.map(async (m) => {
             if (!m.images || m.images.length === 0) {
-              return { role: m.role, content: m.content || "" };
+              return { role: m.role as "user" | "assistant", content: m.content || "" };
             }
 
             const contentBlocks: Array<
@@ -169,7 +169,7 @@ const server = Bun.serve({
               contentBlocks.push({ type: "text", text: m.content });
             }
 
-            return { role: m.role, content: contentBlocks.length > 0 ? contentBlocks : "" };
+            return { role: m.role as "user" | "assistant", content: contentBlocks.length > 0 ? contentBlocks : "" };
           })
         );
 
@@ -384,15 +384,15 @@ const server = Bun.serve({
     "/api/data/export": {
       GET: async () => {
         const archive = archiver("zip", { zlib: { level: 9 } });
-        const chunks: Uint8Array[] = [];
+        const chunks: Buffer[] = [];
 
-        archive.on("data", (chunk: Uint8Array) => chunks.push(chunk));
+        archive.on("data", (chunk: Buffer) => chunks.push(chunk));
 
         // Add the entire ~/.blossom directory to the archive
         archive.directory(blossomDir, "blossom");
         await archive.finalize();
 
-        const blob = new Blob(chunks, { type: "application/zip" });
+        const blob = new Blob([Buffer.concat(chunks)], { type: "application/zip" });
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 
         return new Response(blob, {

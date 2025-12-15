@@ -23,7 +23,7 @@ interface TextBlock {
 type ContentBlock = ImageBlock | TextBlock;
 
 export interface TransformedMessage {
-  role: string;
+  role: "user" | "assistant";
   content: string | ContentBlock[];
 }
 
@@ -94,6 +94,7 @@ export function compactMessages(
 
     for (let i = 0; i < imageDropThreshold && i < workingMessages.length; i++) {
       const msg = workingMessages[i];
+      if (!msg) continue;
       if (Array.isArray(msg.content)) {
         const imageBlocks = msg.content.filter(
           (b): b is ImageBlock => b.type === "image"

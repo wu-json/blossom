@@ -22,7 +22,7 @@ export function createConversation(title: string = "New Conversation"): Conversa
 }
 
 export function getConversations(limit: number = 10): ConversationRow[] {
-  return db.query<ConversationRow, []>(
+  return db.query<ConversationRow, [number]>(
     "SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC LIMIT ?"
   ).all(limit) as ConversationRow[];
 }

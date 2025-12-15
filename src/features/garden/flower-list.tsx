@@ -23,7 +23,7 @@ export function FlowerList() {
 
   // Local state for immediate input feedback
   const [inputValue, setInputValue] = useState(urlQuery);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Sync local state when URL changes (e.g., back/forward navigation)
   useEffect(() => {

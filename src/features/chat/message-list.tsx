@@ -137,10 +137,11 @@ export function MessageList() {
   const getUserContextForAssistant = (index: number): { content: string; images?: string[] } | undefined => {
     // Look backwards for the most recent user message before this assistant message
     for (let i = index - 1; i >= 0; i--) {
-      if (messages[i].role === "user") {
+      const msg = messages[i];
+      if (msg?.role === "user") {
         return {
-          content: messages[i].content || "",
-          images: messages[i].images,
+          content: msg.content || "",
+          images: msg.images,
         };
       }
     }

@@ -22,7 +22,7 @@ export function useQueryParams() {
       }
 
       const queryString = urlParams.toString();
-      const basePath = location.split("?")[0];
+      const basePath = location.split("?")[0] ?? location;
       const newPath = queryString ? `${basePath}?${queryString}` : basePath;
 
       setLocation(newPath, { replace: true });
