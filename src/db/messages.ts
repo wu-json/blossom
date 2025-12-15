@@ -41,3 +41,9 @@ export function updateMessageContent(id: string, content: string): void {
     [content, id]
   );
 }
+
+export function getMessageById(conversationId: string, messageId: string): MessageRow | null {
+  return db.query<MessageRow, [string, string]>(
+    "SELECT id, conversation_id, role, content, timestamp, images FROM messages WHERE conversation_id = ? AND id = ?"
+  ).get(conversationId, messageId) as MessageRow | null;
+}
