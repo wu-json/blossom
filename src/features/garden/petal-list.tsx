@@ -28,7 +28,7 @@ export function PetalList() {
   const paginatedPetals = flowerPetals.slice(startIndex, startIndex + PETALS_PER_PAGE);
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="w-full">
       <h2 className="text-xl font-medium mb-4" style={{ color: "var(--text)" }}>
         {selectedFlower}
         <span className="text-sm font-normal ml-2" style={{ color: "var(--text-muted)" }}>

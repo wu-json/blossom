@@ -26,7 +26,7 @@ export function FlowerList() {
   }, [flowers, searchQuery]);
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="w-full">
       {/* Search input */}
       <div className="relative mb-4">
         <Search
