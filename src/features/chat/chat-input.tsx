@@ -125,6 +125,14 @@ export function ChatInput() {
     // Send message with images
     sendMessage(trimmed, uploadedUrls.length > 0 ? uploadedUrls : undefined);
 
+    // Scroll to show the loading indicator after a short delay
+    setTimeout(() => {
+      const messageList = document.querySelector("[data-message-list]");
+      if (messageList) {
+        messageList.scrollTo({ top: messageList.scrollHeight, behavior: "smooth" });
+      }
+    }, 250);
+
     setInput("");
     setPendingImages([]);
     if (textareaRef.current) {

@@ -68,16 +68,10 @@ export function MessageList() {
       return;
     }
 
-    // Skip scroll during the typing→not-typing transition
-    // (handled above with a single final scroll)
-    if (!isTyping && wasTyping === undefined) {
-      return;
-    }
-
     const now = Date.now();
     const timeSinceLastScroll = now - lastScrollTime.current;
 
-    // During streaming: throttle to every 150ms with smooth scroll
+    // During streaming: throttle to 150ms
     const delay = isTyping
       ? Math.max(0, 150 - timeSinceLastScroll)
       : 100;
@@ -175,7 +169,7 @@ export function MessageList() {
   };
 
   return (
-    <ScrollArea className="flex-1 p-4">
+    <ScrollArea className="flex-1 p-4" data-message-list>
       <div className="flex flex-col gap-3 max-w-2xl mx-auto">
         {messages.map((message, index) => {
           const userContext = message.role === "assistant" ? getUserContextForAssistant(index) : undefined;
