@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Plus, Flower2, X } from "lucide-react";
+import { useState } from "react";
+import { Plus, Flower2, X, Check } from "lucide-react";
 import type {
   TranslationData,
   WordBreakdown,
@@ -102,23 +102,12 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
   const color = getPosColor(item.partOfSpeech);
   const [isSaved, setIsSaved] = useState(initialSaved);
   const [isHovered, setIsHovered] = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
   const [showBloom, setShowBloom] = useState(false);
   const [showWilt, setShowWilt] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   const canInteract = onSave && onRemove;
-
-  // Show tooltip after brief hover delay
-  useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
-    if (isHovered && canInteract && !showBloom && !showWilt) {
-      timeout = setTimeout(() => setShowTooltip(true), 400);
-    } else {
-      setShowTooltip(false);
-    }
-    return () => clearTimeout(timeout);
-  }, [isHovered, canInteract, showBloom, showWilt]);
 
   const handleClick = () => {
     if (!canInteract) return;
@@ -141,6 +130,12 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
     e.stopPropagation(); // Prevent navigation
     if (!onRemove || !isSaved || isRemoving) return;
 
+    // First click: confirm, second click: remove
+    if (!confirmingRemove) {
+      setConfirmingRemove(true);
+      return;
+    }
+
     setIsRemoving(true);
     setShowWilt(true);
     const removed = await onRemove();
@@ -149,11 +144,18 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
         setIsSaved(false);
         setShowWilt(false);
         setIsRemoving(false);
+        setConfirmingRemove(false);
       }, 400);
     } else {
       setShowWilt(false);
       setIsRemoving(false);
+      setConfirmingRemove(false);
     }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setConfirmingRemove(false);
   };
 
   return (
@@ -169,7 +171,7 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
       }}
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={handleMouseLeave}
     >
       <div className="w-[90px] flex-shrink-0">
         <div className="font-medium leading-tight">{item.word}</div>
@@ -184,21 +186,6 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
       </div>
       {canInteract && (
         <div className="relative flex-shrink-0 flex items-center gap-1">
-          {/* Tooltip */}
-          {showTooltip && (
-            <div
-              className="absolute bottom-full right-0 mb-2 px-2 py-1 text-[10px] font-medium rounded whitespace-nowrap z-10"
-              style={{
-                backgroundColor: "var(--surface)",
-                color: "var(--text-muted)",
-                border: "1px solid var(--border)",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                animation: "fadeIn 0.15s ease-out",
-              }}
-            >
-              {isSaved ? "View in garden" : "Save to garden"}
-            </div>
-          )}
           {/* Icon with bloom/wilt effect */}
           <div className="relative">
             <div
@@ -220,14 +207,15 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
           {isSaved && isHovered && (
             <button
               onClick={handleRemoveClick}
-              className="p-0.5 rounded transition-colors duration-150 hover:bg-white/10"
+              className="p-0.5 rounded transition-all duration-150"
               style={{
-                color: "var(--text-muted)",
+                color: confirmingRemove ? "var(--primary)" : "var(--text-muted)",
+                backgroundColor: confirmingRemove ? "rgba(255, 255, 255, 0.15)" : "transparent",
                 opacity: isRemoving ? 0.5 : 1,
               }}
-              title="Remove from garden"
+              title={confirmingRemove ? "Click to confirm" : "Remove from garden"}
             >
-              <X size={14} />
+              {confirmingRemove ? <Check size={14} /> : <X size={14} />}
             </button>
           )}
         </div>
