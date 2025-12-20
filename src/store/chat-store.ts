@@ -5,6 +5,12 @@ import type { WordBreakdown } from "../types/translation";
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
 
+const newConversationTitle: Record<Language, string> = {
+  ja: "新しい会話",
+  zh: "新对话",
+  ko: "새 대화",
+};
+
 export const useChatStore = create<ChatStore>()(
   persist(
     (set, get) => ({
@@ -116,10 +122,11 @@ export const useChatStore = create<ChatStore>()(
 
       createConversation: async () => {
         try {
+          const { language } = get();
           const response = await fetch("/api/conversations", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: "New Conversation" }),
+            body: JSON.stringify({ title: newConversationTitle[language] }),
           });
           const data = await response.json();
           const conversation: Conversation = {
@@ -393,7 +400,7 @@ export const useChatStore = create<ChatStore>()(
         set({ selectedFlower: null, flowerPetals: [] });
       },
 
-      viewFlowerInGarden: async (word: string) => {
+      viewFlowerInMeadow: async (word: string) => {
         const { selectFlower } = get();
         await selectFlower(word);
       },

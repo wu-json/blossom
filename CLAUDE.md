@@ -1,105 +1,106 @@
-Default to using Bun instead of Node.js.
+# Blossom
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+AI-powered conversational language learning app for Japanese, Chinese, and Korean. Users practice through natural dialogue with an AI tutor (Claude), with automatic word-by-word translation breakdowns and vocabulary collection.
 
-## APIs
+## Tech Stack
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+- **Runtime:** Bun (use `bun` instead of `node`, `bun install` instead of `npm`)
+- **Backend:** `Bun.serve()` with `bun:sqlite` for SQLite
+- **Frontend:** React 19 + Vite + Tailwind CSS
+- **State:** Zustand (persisted to localStorage)
+- **AI:** Anthropic SDK (Claude claude-sonnet-4-20250514)
+- **Routing:** Wouter
 
-## Testing
+## Project Structure
 
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
+```
+src/
+├── index.ts              # Bun server entry point, all API routes
+├── frontend.tsx          # React app bootstrap
+├── router.tsx            # Frontend routing
+├── components/           # Reusable UI components
+│   ├── layout/           # App shell
+│   ├── sidebar/          # Navigation
+│   └── ui/               # Primitives (Button, Input, etc.)
+├── features/             # Page modules
+│   ├── chat/             # Chat interface
+│   ├── meadow/           # Vocabulary review (flowers & petals)
+│   ├── teacher/          # AI teacher customization
+│   └── settings/         # App settings
+├── db/                   # SQLite database layer
+│   ├── database.ts       # Schema & initialization
+│   ├── conversations.ts  # Conversation CRUD
+│   ├── messages.ts       # Message CRUD
+│   ├── petals.ts         # Vocabulary CRUD
+│   └── teacher.ts        # Teacher settings
+├── store/                # Zustand state
+├── hooks/                # Custom React hooks
+├── lib/                  # Utilities
+└── types/                # TypeScript types
 ```
 
-## Frontend
+## Development
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
+```bash
+bun install              # Install dependencies
+curse                    # Start dev (API + Vite) - preferred
+bun --hot ./src/index.ts # API server only (port 3000)
+bun vite                 # Frontend dev server only
 ```
 
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
+## Build & Release
 
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
+```bash
+just build               # Embed assets + build binaries
+just typecheck           # Run TypeScript checks
+just version 0.0.5       # Update version
 ```
 
-With the following `frontend.tsx`:
+## Database
 
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
+SQLite stored in `~/.blossom/`. Tables:
+- **conversations** - Chat sessions
+- **messages** - Chat messages (with images)
+- **teacher_settings** - AI teacher config (singleton)
+- **petals** - Saved vocabulary words linked to messages
 
-// import .css files directly and it works
-import './index.css';
+## Key Patterns
 
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
+### Translation Response Format
+AI responses return structured JSON between markers:
+```
+<<<TRANSLATION_START>>>
+{ "originalText", "subtext", "translation", "breakdown": [...], "grammarNotes" }
+<<<TRANSLATION_END>>>
 ```
 
-Then, run index.ts
+### Message Compaction
+Large conversations are compacted before API calls (keeps last 10 messages, removes oldest images first) to stay within limits.
 
-```sh
-bun --hot ./index.ts
-```
+### Prompt Caching
+Last assistant message and system prompt use `cache_control: { type: "ephemeral" }` for cost reduction.
 
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+### Vocabulary (Meadow)
+- **Flowers** = unique words grouped by word + language
+- **Petals** = individual occurrences with context (reading, meaning, part of speech)
+
+## API Routes
+
+Main endpoints in `src/index.ts`:
+- `POST /api/chat` - Stream chat response (SSE)
+- `GET/POST/DELETE /api/conversations` - Conversation management
+- `GET/PUT /api/teacher` - Teacher settings
+- `POST/GET/DELETE /api/petals` - Vocabulary management
+- `GET /api/data/export` - Export all data as ZIP
+
+## Environment
+
+- `ANTHROPIC_API_KEY` - Required for AI functionality
+- `BLOSSOM_DATA_DIR` - Optional custom data directory (default: `~/.blossom`)
+
+## Conventions
+
+- Use Bun APIs over Node.js equivalents (`Bun.file`, `bun:sqlite`, etc.)
+- Don't use express, better-sqlite3, or dotenv
+- Frontend uses Vite for dev, but production builds embed assets into binary
+- Format with `bunx oxfmt`
