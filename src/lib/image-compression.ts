@@ -182,10 +182,6 @@ export async function getImageForApi(
 
   await Bun.write(cachedPath, compressedBuffer);
 
-  console.log(
-    `Image compressed: ${(originalSize / 1024 / 1024).toFixed(2)}MB -> ${(compressedBuffer.length / 1024 / 1024).toFixed(2)}MB`
-  );
-
   return {
     base64: compressedBuffer.toString("base64"),
     mediaType: format,
