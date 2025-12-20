@@ -114,7 +114,7 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
     if (!canInteract) return;
 
     if (isSaved) {
-      // Navigate to flower in garden
+      // Navigate to flower in meadow
       if (onViewFlower) {
         onViewFlower();
       }
@@ -218,7 +218,7 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
                 opacity: isRemoving ? 0.5 : 1,
                 transform: confirmingRemove ? "scale(1.1)" : "scale(1)",
               }}
-              title={confirmingRemove ? "Click again to remove" : "Remove from garden"}
+              title={confirmingRemove ? "Click again to remove" : "Remove from meadow"}
             >
               <X size={14} />
             </button>

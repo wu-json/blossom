@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useParams } from "wouter";
 import { useChatStore } from "../../store/chat-store";
-import { GardenPage } from "./garden-page";
+import { MeadowPage } from "./meadow-page";
 
-export function GardenRoute() {
+export function MeadowRoute() {
   const params = useParams<{ word?: string }>();
   const selectedFlower = useChatStore((state) => state.selectedFlower);
   const selectFlower = useChatStore((state) => state.selectFlower);
@@ -28,5 +28,5 @@ export function GardenRoute() {
     }
   }, [params.word, selectedFlower, selectFlower, clearSelectedFlower]);
 
-  return <GardenPage />;
+  return <MeadowPage />;
 }

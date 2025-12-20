@@ -14,7 +14,7 @@ const translations: Record<Language, { searchPlaceholder: string; noResults: str
 
 export function FlowerList() {
   const { flowers, language } = useChatStore();
-  const { navigateToGarden } = useNavigation();
+  const { navigateToMeadow } = useNavigation();
   const { params, setQueryParams } = useQueryParams();
   const t = translations[language];
 
@@ -112,7 +112,7 @@ export function FlowerList() {
           <FlowerCard
             key={flower.word}
             flower={flower}
-            onClick={() => navigateToGarden(flower.word)}
+            onClick={() => navigateToMeadow(flower.word)}
           />
         ))}
       </div>

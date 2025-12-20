@@ -6,10 +6,10 @@ import { useNavigation } from "../../hooks/use-navigation";
 import type { Conversation, Language } from "../../types/chat";
 import { cn } from "../../lib/utils";
 
-const translations: Record<Language, { chat: string; settings: string; teacher: string; garden: string; newChat: string; conversations: string }> = {
-  ja: { chat: "チャット", settings: "設定", teacher: "先生", garden: "花園", newChat: "新しいチャット", conversations: "履歴" },
-  zh: { chat: "聊天", settings: "设置", teacher: "老师", garden: "花园", newChat: "新聊天", conversations: "历史" },
-  ko: { chat: "채팅", settings: "설정", teacher: "선생님", garden: "정원", newChat: "새 채팅", conversations: "기록" },
+const translations: Record<Language, { chat: string; settings: string; teacher: string; meadow: string; newChat: string; conversations: string }> = {
+  ja: { chat: "チャット", settings: "設定", teacher: "先生", meadow: "花畑", newChat: "新しいチャット", conversations: "履歴" },
+  zh: { chat: "聊天", settings: "设置", teacher: "老师", meadow: "花田", newChat: "新聊天", conversations: "历史" },
+  ko: { chat: "채팅", settings: "설정", teacher: "선생님", meadow: "꽃밭", newChat: "새 채팅", conversations: "기록" },
 };
 
 interface NavItemProps {
@@ -177,7 +177,7 @@ export function Sidebar() {
     selectedFlower,
   } = useChatStore();
   const [location] = useLocation();
-  const { navigateToChat, navigateToGarden, navigateToTeacher, navigateToSettings } = useNavigation();
+  const { navigateToChat, navigateToMeadow, navigateToTeacher, navigateToSettings } = useNavigation();
   const t = translations[language];
 
   // Preserve chat state when navigating back to chat
@@ -189,18 +189,18 @@ export function Sidebar() {
     }
   };
 
-  // Preserve garden state when navigating back to garden
-  const handleGardenClick = () => {
+  // Preserve meadow state when navigating back to meadow
+  const handleMeadowClick = () => {
     if (selectedFlower) {
-      navigateToGarden(selectedFlower);
+      navigateToMeadow(selectedFlower);
     } else {
-      navigateToGarden();
+      navigateToMeadow();
     }
   };
 
   const navItems: { icon: React.ReactNode; label: string; path: string; onClick: () => void }[] = [
     { icon: <MessageSquare size={18} />, label: t.chat, path: "/chat", onClick: handleChatClick },
-    { icon: <Flower2 size={18} />, label: t.garden, path: "/garden", onClick: handleGardenClick },
+    { icon: <Flower2 size={18} />, label: t.meadow, path: "/meadow", onClick: handleMeadowClick },
     { icon: <GraduationCap size={18} />, label: t.teacher, path: "/teacher", onClick: () => navigateToTeacher() },
     { icon: <Settings size={18} />, label: t.settings, path: "/settings", onClick: () => navigateToSettings() },
   ];

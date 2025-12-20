@@ -54,7 +54,7 @@ db.run(`
   )
 `);
 
-// Create petals table for Garden feature
+// Create petals table for Meadow feature
 db.run(`
   CREATE TABLE IF NOT EXISTS petals (
     id TEXT PRIMARY KEY,

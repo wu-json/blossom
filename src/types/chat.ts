@@ -22,7 +22,7 @@ export type Theme = "light" | "dark";
 
 export type Language = "ja" | "zh" | "ko";
 
-export type View = "chat" | "settings" | "teacher" | "garden";
+export type View = "chat" | "settings" | "teacher" | "meadow";
 
 export interface TeacherSettings {
   name: string;
@@ -101,7 +101,7 @@ export interface ChatActions {
   loadFlowers: () => Promise<void>;
   selectFlower: (word: string) => Promise<void>;
   clearSelectedFlower: () => void;
-  viewFlowerInGarden: (word: string) => Promise<void>;
+  viewFlowerInMeadow: (word: string) => Promise<void>;
   savePetal: (word: WordBreakdown, conversationId: string, messageId: string, userInput: string, userImages?: string[]) => Promise<boolean>;
   deletePetal: (id: string) => Promise<void>;
   removePetalFromMessage: (messageId: string, word: string) => Promise<boolean>;

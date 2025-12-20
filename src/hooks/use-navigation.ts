@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 
-interface GardenQueryParams {
+interface MeadowQueryParams {
   q?: string;
   page?: number;
 }
@@ -12,8 +12,8 @@ export function useNavigation() {
     navigateToChat: (id?: string) => {
       setLocation(id ? `/chat/${id}` : "/chat");
     },
-    navigateToGarden: (word?: string, query?: GardenQueryParams) => {
-      let path = word ? `/garden/${encodeURIComponent(word)}` : "/garden";
+    navigateToMeadow: (word?: string, query?: MeadowQueryParams) => {
+      let path = word ? `/meadow/${encodeURIComponent(word)}` : "/meadow";
 
       const params = new URLSearchParams();
       if (query?.q) {

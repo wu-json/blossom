@@ -10,36 +10,36 @@ import { ArrowLeft } from "lucide-react";
 import type { Language } from "../../types/chat";
 
 const translations: Record<Language, {
-  garden: string;
+  meadow: string;
   noFlowers: string;
   noFlowersHint: string;
   backToFlowers: string;
   startChat: string;
 }> = {
   ja: {
-    garden: "花園",
-    noFlowers: "あなたの花園",
+    meadow: "花畑",
+    noFlowers: "あなたの花畑",
     noFlowersHint: "会話の中で出会った言葉を保存して、ここで振り返りましょう",
     backToFlowers: "戻る",
     startChat: "会話を始める",
   },
   zh: {
-    garden: "花园",
-    noFlowers: "你的花园",
+    meadow: "花田",
+    noFlowers: "你的花田",
     noFlowersHint: "保存对话中遇到的词汇，在这里复习",
     backToFlowers: "返回",
     startChat: "开始对话",
   },
   ko: {
-    garden: "정원",
-    noFlowers: "나의 정원",
+    meadow: "꽃밭",
+    noFlowers: "나의 꽃밭",
     noFlowersHint: "대화에서 만난 단어를 저장하고 여기서 복습하세요",
     backToFlowers: "돌아가기",
     startChat: "대화 시작",
   },
 };
 
-export function GardenPage() {
+export function MeadowPage() {
   const {
     toggleSidebar,
     sidebarCollapsed,
@@ -48,7 +48,7 @@ export function GardenPage() {
     selectedFlower,
     loadFlowers,
   } = useChatStore();
-  const { navigateToGarden, navigateToChat } = useNavigation();
+  const { navigateToMeadow, navigateToChat } = useNavigation();
 
   const t = translations[language];
 
@@ -79,7 +79,7 @@ export function GardenPage() {
 
           {selectedFlower && (
             <button
-              onClick={() => navigateToGarden()}
+              onClick={() => navigateToMeadow()}
               className="ml-4 flex items-center gap-1 text-sm transition-colors hover:opacity-80"
               style={{ color: "var(--primary)" }}
             >

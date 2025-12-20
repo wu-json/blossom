@@ -1,6 +1,6 @@
 import { Switch, Route, Redirect } from "wouter";
 import { ChatRoute } from "./features/chat/chat-route";
-import { GardenRoute } from "./features/garden/garden-route";
+import { MeadowRoute } from "./features/meadow/meadow-route";
 import { TeacherPage } from "./features/teacher";
 import { SettingsPage } from "./features/settings";
 
@@ -9,8 +9,8 @@ export function AppRouter() {
     <Switch>
       <Route path="/chat/:id" component={ChatRoute} />
       <Route path="/chat" component={ChatRoute} />
-      <Route path="/garden/:word" component={GardenRoute} />
-      <Route path="/garden" component={GardenRoute} />
+      <Route path="/meadow/:word" component={MeadowRoute} />
+      <Route path="/meadow" component={MeadowRoute} />
       <Route path="/teacher" component={TeacherPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/">

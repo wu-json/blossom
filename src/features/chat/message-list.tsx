@@ -34,7 +34,7 @@ export function MessageList() {
   const lastScrollTime = useRef(0);
   const prevIsTyping = useRef(isTyping);
 
-  // Scroll to specific message (from garden petal card)
+  // Scroll to specific message (from meadow petal card)
   useEffect(() => {
     if (scrollToMessageId && messages.length > 0) {
       didTargetedScroll.current = true;
