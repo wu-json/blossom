@@ -92,6 +92,8 @@ export function MessageList() {
         clearTimeout(scrollTimeout);
         clearTimeout(scrollEndTimeout);
         scrollContainer?.removeEventListener("scroll", detectScrollEnd);
+        // Ensure streaming transition ends even if cleanup runs early
+        setStreamingTransition(false);
       };
     }
 

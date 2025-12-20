@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Flower2, X } from "lucide-react";
 import { useSmoothText } from "../hooks/use-smooth-text";
 import type {
@@ -103,6 +103,11 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
   const color = getPosColor(item.partOfSpeech);
   const [isSaved, setIsSaved] = useState(initialSaved);
   const [isHovered, setIsHovered] = useState(false);
+
+  // Sync local state when initialSaved prop changes (e.g., after new translation)
+  useEffect(() => {
+    setIsSaved(initialSaved);
+  }, [initialSaved]);
   const [showBloom, setShowBloom] = useState(false);
   const [showWilt, setShowWilt] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
