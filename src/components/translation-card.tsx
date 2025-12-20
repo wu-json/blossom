@@ -48,7 +48,7 @@ export function TranslationCard({ data, onSaveWord, onRemoveWord, onViewFlower, 
       {/* Translation */}
       <div
         className="px-3 py-2 rounded-lg"
-        style={{ backgroundColor: "rgba(255, 255, 255, 0.08)" }}
+        style={{ backgroundColor: "var(--card-overlay)" }}
       >
         <div className="text-xs font-medium opacity-50 mb-1">Translation</div>
         <div>{data.translation}</div>
@@ -76,7 +76,7 @@ export function TranslationCard({ data, onSaveWord, onRemoveWord, onViewFlower, 
       {data.grammarNotes && (
         <div
           className="pt-3 border-t"
-          style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
+          style={{ borderColor: "var(--card-border)" }}
         >
           <div className="text-xs font-medium opacity-50 mb-1">
             Grammar Notes
@@ -172,10 +172,10 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
       className={`relative flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${canInteract ? "cursor-pointer hover:scale-[1.01]" : ""}`}
       style={{
         backgroundColor: isHovered && canInteract
-          ? "rgba(255, 255, 255, 0.15)"
+          ? "var(--card-overlay-hover)"
           : isEven
-            ? "rgba(255, 255, 255, 0.03)"
-            : "rgba(255, 255, 255, 0.06)",
+            ? "var(--card-overlay)"
+            : "transparent",
         boxShadow: isHovered && canInteract ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
       }}
       onClick={handleClick}
@@ -289,23 +289,23 @@ export function TranslationSkeleton() {
       <div>
         <div
           className="h-5 w-40 rounded"
-          style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+          style={{ backgroundColor: "var(--skeleton-bg)" }}
         />
         <div
           className="h-4 w-28 mt-1.5 rounded"
-          style={{ backgroundColor: "rgba(255, 255, 255, 0.08)" }}
+          style={{ backgroundColor: "var(--skeleton-bg)" }}
         />
       </div>
       <div
         className="h-14 rounded-lg"
-        style={{ backgroundColor: "rgba(255, 255, 255, 0.06)" }}
+        style={{ backgroundColor: "var(--card-overlay)" }}
       />
       <div className="flex flex-col gap-1.5">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
             className="h-10 rounded-lg"
-            style={{ backgroundColor: "rgba(255, 255, 255, 0.06)" }}
+            style={{ backgroundColor: "var(--card-overlay)" }}
           />
         ))}
       </div>
@@ -353,7 +353,7 @@ export function StreamingTranslationCard({ data }: StreamingTranslationCardProps
       {/* Translation */}
       <div
         className="px-3 py-2 rounded-lg"
-        style={{ backgroundColor: "rgba(255, 255, 255, 0.08)" }}
+        style={{ backgroundColor: "var(--card-overlay)" }}
       >
         <div className="text-xs font-medium opacity-50 mb-1">Translation</div>
         {data.translation !== undefined ? (
@@ -392,7 +392,7 @@ export function StreamingTranslationCard({ data }: StreamingTranslationCardProps
       {data.grammarNotes !== undefined && (
         <div
           className="pt-3 border-t"
-          style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
+          style={{ borderColor: "var(--card-border)" }}
         >
           <div className="text-xs font-medium opacity-50 mb-1">Grammar Notes</div>
           <div className="text-sm opacity-90 leading-relaxed">
@@ -431,8 +431,8 @@ function StreamingWordRow({ item, isEven, isStreaming }: StreamingWordRowProps) 
       className="flex items-center gap-3 px-3 py-2 rounded-md"
       style={{
         backgroundColor: isEven
-          ? "rgba(255, 255, 255, 0.03)"
-          : "rgba(255, 255, 255, 0.06)",
+          ? "var(--card-overlay)"
+          : "transparent",
       }}
     >
       <div className="w-[90px] flex-shrink-0">
@@ -474,7 +474,7 @@ function StreamingWordRow({ item, isEven, isStreaming }: StreamingWordRowProps) 
       ) : (
         <div
           className="w-[60px] h-5 rounded-full animate-pulse"
-          style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+          style={{ backgroundColor: "var(--skeleton-bg)" }}
         />
       )}
       {/* Spacer to match WordRow icon area */}
@@ -504,7 +504,7 @@ function FieldSkeleton({
   return (
     <div
       className={`${width} ${height} rounded animate-pulse ${className}`}
-      style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+      style={{ backgroundColor: "var(--skeleton-bg)" }}
     />
   );
 }
@@ -513,7 +513,7 @@ function BreakdownItemSkeleton() {
   return (
     <div
       className="h-10 rounded-lg animate-pulse"
-      style={{ backgroundColor: "rgba(255, 255, 255, 0.06)" }}
+      style={{ backgroundColor: "var(--card-overlay)" }}
     />
   );
 }

@@ -10,11 +10,15 @@
   --text-muted: #71717A;
   --text-subtle: #A1A1AA;
   --border: #E4E4E7;
-  --user-bubble: #27272A;
-  --user-bubble-text: #FAFAFA;
-  --assistant-bubble: #3F3F46;
-  --assistant-bubble-text: #FAFAFA;
+  --user-bubble: #F472B6;
+  --user-bubble-text: #FFFFFF;
+  --assistant-bubble: #F4F4F5;
+  --assistant-bubble-text: #18181B;
   --input-bg: #FFFFFF;
+  --card-overlay: rgba(0, 0, 0, 0.04);
+  --card-overlay-hover: rgba(0, 0, 0, 0.08);
+  --card-border: rgba(0, 0, 0, 0.08);
+  --skeleton-bg: rgba(0, 0, 0, 0.08);
 }
 
 .dark {
@@ -32,6 +36,10 @@
   --assistant-bubble: #0F0F11;
   --assistant-bubble-text: #FAFAFA;
   --input-bg: #27272A;
+  --card-overlay: rgba(255, 255, 255, 0.08);
+  --card-overlay-hover: rgba(255, 255, 255, 0.15);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --skeleton-bg: rgba(255, 255, 255, 0.1);
 }
 
 * {
