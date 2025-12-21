@@ -1021,7 +1021,7 @@ export function YouTubeViewer() {
               </div>
             )}
 
-            {(isTranslating || timelineActiveTranslation?.translationData) && (
+            {(isTranslating || timelineActiveTranslation?.translationData) ? (
               <div
                 className="flex-1 overflow-auto px-4 pt-4 pb-16 lg:pt-4 lg:border-l"
                 style={{ borderColor: "var(--border)" }}
@@ -1045,6 +1045,19 @@ export function YouTubeViewer() {
                     />
                   ) : null}
                 </div>
+              </div>
+            ) : (
+              <div
+                className="hidden lg:flex flex-1 flex-col items-center justify-center lg:border-l"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <Languages size={32} style={{ color: "var(--text-muted)", opacity: 0.5 }} />
+                <p
+                  className="mt-3 text-sm text-center px-4"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {translations[language].translate} (⌘↵)
+                </p>
               </div>
             )}
           </div>
