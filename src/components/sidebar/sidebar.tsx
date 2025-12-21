@@ -170,6 +170,7 @@ export function Sidebar() {
     conversations,
     currentConversationId,
     selectedFlower,
+    startNewChat,
   } = useChatStore();
   const [location] = useLocation();
   const { navigateToChat, navigateToMeadow, navigateToTeacher, navigateToSettings, navigateToYouTube } = useNavigation();
@@ -235,7 +236,10 @@ export function Sidebar() {
         <div className="px-3 pt-3">
           <button
             type="button"
-            onClick={() => navigateToChat()}
+            onClick={() => {
+              startNewChat();
+              navigateToChat();
+            }}
             className={cn(
               "flex items-center gap-2 w-full px-3 py-2.5 rounded-xl",
               "transition-all duration-200 ease-out",
