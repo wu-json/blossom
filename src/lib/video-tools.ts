@@ -77,30 +77,28 @@ export async function ensureVideoTools(): Promise<ToolPaths> {
       throw new Error(`Unsupported platform: ${platform}-${arch}`);
     }
 
-    console.log("Downloading video tools...");
-
     // Download yt-dlp using curl for reliable redirect handling
-    console.log("  yt-dlp...");
     const ytdlpProc = Bun.spawn(["curl", "-fsSL", "-o", ytdlpPath, urls.ytdlp], {
-      stdout: "inherit",
-      stderr: "inherit",
+      stdout: "pipe",
+      stderr: "pipe",
     });
     const ytdlpExit = await ytdlpProc.exited;
     if (ytdlpExit !== 0) {
-      throw new Error(`Failed to download yt-dlp (exit code ${ytdlpExit})`);
+      const stderr = await new Response(ytdlpProc.stderr).text();
+      throw new Error(`Failed to download yt-dlp: ${stderr || `exit code ${ytdlpExit}`}`);
     }
     await chmod(ytdlpPath, 0o755);
 
     // Download ffmpeg using curl and decompress
-    console.log("  ffmpeg...");
     const ffmpegGzPath = `${ffmpegPath}.gz`;
     const ffmpegProc = Bun.spawn(["curl", "-fsSL", "-o", ffmpegGzPath, urls.ffmpeg], {
-      stdout: "inherit",
-      stderr: "inherit",
+      stdout: "pipe",
+      stderr: "pipe",
     });
     const ffmpegExit = await ffmpegProc.exited;
     if (ffmpegExit !== 0) {
-      throw new Error(`Failed to download ffmpeg (exit code ${ffmpegExit})`);
+      const stderr = await new Response(ffmpegProc.stderr).text();
+      throw new Error(`Failed to download ffmpeg: ${stderr || `exit code ${ffmpegExit}`}`);
     }
 
     // Decompress ffmpeg
@@ -112,8 +110,6 @@ export async function ensureVideoTools(): Promise<ToolPaths> {
 
     // Write version manifest
     await Bun.write(manifestPath, JSON.stringify(TOOL_VERSIONS));
-
-    console.log("  Done\n");
   }
 
   return { ytdlp: ytdlpPath, ffmpeg: ffmpegPath };
