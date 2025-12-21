@@ -357,6 +357,14 @@ export function YouTubeViewer() {
         }
       }
 
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        // Translate current frame
+        if (playerReady && !isExtracting && !isTranslating) {
+          handleTranslateFrame();
+        }
+      }
+
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault();
         const currentTime = playerRef.current?.getCurrentTime() ?? 0;
@@ -396,7 +404,7 @@ export function YouTubeViewer() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playerReady, videoTranslations]);
+  }, [playerReady, videoTranslations, isExtracting, isTranslating]);
 
   const handleLoadVideo = () => {
     const id = parseYouTubeUrl(inputUrl);
@@ -870,6 +878,15 @@ export function YouTubeViewer() {
                             <>
                               <Languages size={14} />
                               {translations[language].translate}
+                              <kbd
+                                className="ml-1 px-1.5 py-0.5 rounded text-xs"
+                                style={{
+                                  backgroundColor: "rgba(255,255,255,0.2)",
+                                  fontFamily: "inherit",
+                                }}
+                              >
+                                ⌘↵
+                              </kbd>
                             </>
                           )}
                         </button>
