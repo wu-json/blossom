@@ -397,7 +397,7 @@ export function YouTubeViewer() {
         }
       }
 
-      if (e.key === "[") {
+      if (e.key === "]") {
         e.preventDefault();
         toggleTranslationBarCollapsed();
       }
@@ -1186,7 +1186,7 @@ export function YouTubeViewer() {
                   width: "24px",
                   borderLeft: "1px solid var(--border)",
                 }}
-                title="Expand sidebar ([)"
+                title="Expand sidebar (])"
               >
                 <PanelRightOpen size={14} style={{ color: "var(--text-muted)" }} />
               </button>
@@ -1211,7 +1211,7 @@ export function YouTubeViewer() {
                     <button
                       onClick={toggleTranslationBarCollapsed}
                       className="flex items-center gap-1.5 p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                      title="Collapse sidebar ([)"
+                      title="Collapse sidebar (])"
                     >
                       <PanelRightClose size={14} style={{ color: "var(--text-muted)" }} />
                       <kbd
@@ -1222,7 +1222,7 @@ export function YouTubeViewer() {
                           border: "1px solid var(--border)",
                         }}
                       >
-                        [
+                        ]
                       </kbd>
                     </button>
                   </div>
@@ -1265,7 +1265,7 @@ export function YouTubeViewer() {
                     <button
                       onClick={toggleTranslationBarCollapsed}
                       className="flex items-center gap-1.5 p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                      title="Collapse sidebar ([)"
+                      title="Collapse sidebar (])"
                     >
                       <PanelRightClose size={14} style={{ color: "var(--text-muted)" }} />
                       <kbd
@@ -1276,7 +1276,7 @@ export function YouTubeViewer() {
                           border: "1px solid var(--border)",
                         }}
                       >
-                        [
+                        ]
                       </kbd>
                     </button>
                   </div>
