@@ -169,7 +169,7 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
 
   return (
     <div
-      className={`relative flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${canInteract ? "cursor-pointer hover:scale-[1.01]" : ""}`}
+      className={`relative flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 min-w-0 ${canInteract ? "cursor-pointer hover:scale-[1.01]" : ""}`}
       style={{
         backgroundColor: isHovered && canInteract
           ? "var(--card-overlay-hover)"
@@ -186,7 +186,7 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
         <div className="font-medium leading-tight">{item.word}</div>
         <div className="text-[11px] opacity-50 leading-tight">{item.reading}</div>
       </div>
-      <div className="flex-1 text-sm opacity-85">{item.meaning}</div>
+      <div className="flex-1 min-w-0 text-sm opacity-85">{item.meaning}</div>
       <div
         className="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap min-w-[60px] text-center"
         style={{ backgroundColor: `${color}20`, color }}
@@ -428,7 +428,7 @@ function StreamingWordRow({ item, isEven, isStreaming }: StreamingWordRowProps) 
 
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2 rounded-md"
+      className="flex items-center gap-3 px-3 py-2 rounded-md min-w-0"
       style={{
         backgroundColor: isEven
           ? "var(--card-overlay)"
@@ -453,7 +453,7 @@ function StreamingWordRow({ item, isEven, isStreaming }: StreamingWordRowProps) 
           <FieldSkeleton width="w-10" height="h-3" className="mt-0.5" />
         )}
       </div>
-      <div className="flex-1 text-sm opacity-85">
+      <div className="flex-1 min-w-0 text-sm opacity-85">
         {displayedMeaning ? (
           <>
             {displayedMeaning}
