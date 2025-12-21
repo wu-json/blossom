@@ -12,8 +12,8 @@ Add a paginated infinite scroll section showing recently translated videos on th
 1. User navigates to the YouTube tab with no video loaded
 2. At the top, the blossom header bar with the URL input field
 3. Below the input, an infinite scroll grid of recently translated video thumbnails
-4. Each thumbnail shows the video title, thumbnail from the first translated frame, and translation count
-5. Clicking a video navigates to `/youtube?v={videoId}` to load that video
+4. Each thumbnail shows the video title, thumbnail from the most recent translation, and translation count
+5. Clicking a video navigates to `/youtube?v={videoId}&t={timestamp}` and jumps to the most recent translation timestamp
 6. Scrolling down loads more videos (paginated)
 
 ## UI Layout
@@ -27,21 +27,23 @@ Add a paginated infinite scroll section showing recently translated videos on th
 |                                                  |
 |  Recently Translated                             |
 |                                                  |
-|  +----------------+  +----------------+          |
-|  | [frame thumb]  |  | [frame thumb]  |          |
-|  | Video Title    |  | Video Title    |          |
-|  | 5 translations |  | 3 translations |          |
-|  +----------------+  +----------------+          |
+|  +-------------+  +-------------+  +-------------+
+|  |[frame thumb]|  |[frame thumb]|  |[frame thumb]|
+|  | Video Title |  | Video Title |  | Video Title |
+|  | 5 translations | 3 translations | 2 translations
+|  +-------------+  +-------------+  +-------------+
 |                                                  |
-|  +----------------+  +----------------+          |
-|  | [frame thumb]  |  | [frame thumb]  |          |
-|  | Video Title    |  | Video Title    |          |
-|  | 8 translations |  | 2 translations |          |
-|  +----------------+  +----------------+          |
+|  +-------------+  +-------------+  +-------------+
+|  |[frame thumb]|  |[frame thumb]|  |[frame thumb]|
+|  | Video Title |  | Video Title |  | Video Title |
+|  | 8 translations | 1 translation  | 4 translations
+|  +-------------+  +-------------+  +-------------+
 |                                                  |
 |              [Loading more...]                   |
 |                                                  |
 +--------------------------------------------------+
+
+Responsive: 1 column on mobile, 2 on tablet, 3 on desktop
 ```
 
 ## Data Model
@@ -57,7 +59,8 @@ export interface RecentlyTranslatedVideo {
   video_id: string;
   video_title: string | null;
   translation_count: number;
-  first_frame_image: string | null;
+  latest_frame_image: string | null;
+  latest_timestamp_seconds: number;
   latest_created_at: number;
 }
 
@@ -75,9 +78,16 @@ export function getRecentlyTranslatedVideos(
         FROM youtube_translations t2
         WHERE t2.video_id = youtube_translations.video_id
           AND t2.frame_image IS NOT NULL
-        ORDER BY t2.timestamp_seconds ASC
+        ORDER BY t2.created_at DESC
         LIMIT 1
-      ) as first_frame_image,
+      ) as latest_frame_image,
+      (
+        SELECT timestamp_seconds
+        FROM youtube_translations t3
+        WHERE t3.video_id = youtube_translations.video_id
+        ORDER BY t3.created_at DESC
+        LIMIT 1
+      ) as latest_timestamp_seconds,
       MAX(created_at) as latest_created_at
     FROM youtube_translations
     WHERE translation_data IS NOT NULL
@@ -139,12 +149,13 @@ interface RecentVideo {
   videoId: string;
   videoTitle: string | null;
   translationCount: number;
-  firstFrameImage: string | null;
+  latestFrameImage: string | null;
+  latestTimestampSeconds: number;
   latestCreatedAt: number;
 }
 
 interface RecentVideosGridProps {
-  onVideoSelect: (videoId: string) => void;
+  onVideoSelect: (videoId: string, timestamp: number) => void;
 }
 
 export function RecentVideosGrid({ onVideoSelect }: RecentVideosGridProps) {
@@ -168,7 +179,8 @@ export function RecentVideosGrid({ onVideoSelect }: RecentVideosGridProps) {
         videoId: v.video_id,
         videoTitle: v.video_title,
         translationCount: v.translation_count,
-        firstFrameImage: v.first_frame_image,
+        latestFrameImage: v.latest_frame_image,
+        latestTimestampSeconds: v.latest_timestamp_seconds,
         latestCreatedAt: v.latest_created_at,
       }));
 
@@ -209,7 +221,7 @@ export function RecentVideosGrid({ onVideoSelect }: RecentVideosGridProps) {
   }
 
   return (
-    <div className="mt-8 w-full max-w-2xl">
+    <div className="mt-8 w-full max-w-3xl">
       <h3
         className="text-sm font-medium mb-4"
         style={{ color: "var(--text-muted)" }}
@@ -217,12 +229,13 @@ export function RecentVideosGrid({ onVideoSelect }: RecentVideosGridProps) {
         Recently Translated
       </h3>
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* Responsive grid: 1 col on mobile, 2 on sm, 3 on lg */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {videos.map((video) => (
           <VideoCard
             key={video.videoId}
             video={video}
-            onClick={() => onVideoSelect(video.videoId)}
+            onClick={() => onVideoSelect(video.videoId, video.latestTimestampSeconds)}
           />
         ))}
       </div>
@@ -262,13 +275,13 @@ function VideoCard({ video, onClick }: VideoCardProps) {
       <div
         className="aspect-video bg-cover bg-center"
         style={{
-          backgroundImage: video.firstFrameImage
-            ? `url(/api/youtube/frames/${video.firstFrameImage})`
+          backgroundImage: video.latestFrameImage
+            ? `url(/api/youtube/frames/${video.latestFrameImage})`
             : undefined,
           backgroundColor: "var(--border)",
         }}
       >
-        {!video.firstFrameImage && (
+        {!video.latestFrameImage && (
           <div className="w-full h-full flex items-center justify-center">
             <Youtube size={32} style={{ color: "var(--text-muted)" }} />
           </div>
@@ -322,13 +335,14 @@ Modify the "no video loaded" state in `youtube-viewer.tsx`:
 
         {/* Recently translated videos - infinite scroll */}
         <RecentVideosGrid
-          onVideoSelect={(videoId) => {
+          onVideoSelect={(videoId, timestamp) => {
             setVideo(
               `https://www.youtube.com/watch?v=${videoId}`,
               videoId,
               null
             );
-            setLocation(`/youtube?v=${videoId}`);
+            setCurrentTimestamp(timestamp);
+            setLocation(`/youtube?v=${videoId}&t=${Math.floor(timestamp)}`);
           }}
         />
       </div>
@@ -380,7 +394,7 @@ const translations: Record<Language, {
 ## Edge Cases
 
 1. **No translations yet**: Don't show the "Recently Translated" section if no videos have translations
-2. **Missing thumbnails**: Show YouTube icon placeholder if `first_frame_image` is null
+2. **Missing thumbnails**: Show YouTube icon placeholder if `latest_frame_image` is null
 3. **Missing titles**: Display "Untitled Video" if `video_title` is null
 4. **Deleted videos**: Videos may be unavailable on YouTube - clicking still navigates, and the viewer handles unavailability with cached frames
 
