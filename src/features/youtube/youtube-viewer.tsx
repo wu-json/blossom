@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearch } from "wouter";
-import { Loader2, Camera, AlertCircle, ExternalLink, X } from "lucide-react";
+import { Loader2, Languages, AlertCircle, ExternalLink, X } from "lucide-react";
 import { useYouTubeStore } from "../../store/youtube-store";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -9,24 +9,33 @@ import { parseTranslationContent, hasTranslationMarkers, parseStreamingTranslati
 import type { TranslationData, WordBreakdown, PartialTranslationData } from "../../types/translation";
 import type { Language } from "../../types/chat";
 
-const translations: Record<Language, { title: string; description: string; placeholder: string; load: string }> = {
+const translations: Record<Language, { title: string; description: string; placeholder: string; load: string; translate: string; extracting: string; translating: string }> = {
   ja: {
     title: "YouTube翻訳",
     description: "YouTube動画のフレームからテキストを翻訳",
     placeholder: "YouTube URLを貼り付け...",
     load: "読込",
+    translate: "翻訳",
+    extracting: "抽出中...",
+    translating: "翻訳中...",
   },
   zh: {
     title: "YouTube翻译",
     description: "翻译YouTube视频帧中的文字",
     placeholder: "粘贴YouTube链接...",
     load: "加载",
+    translate: "翻译",
+    extracting: "提取中...",
+    translating: "翻译中...",
   },
   ko: {
     title: "YouTube 번역",
     description: "YouTube 동영상 프레임에서 텍스트 번역",
     placeholder: "YouTube URL 붙여넣기...",
     load: "로드",
+    translate: "번역",
+    extracting: "추출 중...",
+    translating: "번역 중...",
   },
 };
 
@@ -61,6 +70,8 @@ declare global {
         element: HTMLElement | string,
         config: {
           videoId: string;
+          width?: string | number;
+          height?: string | number;
           playerVars?: Record<string, number | string>;
           events?: {
             onReady?: (event: { target: YTPlayer }) => void;
@@ -208,6 +219,8 @@ export function YouTubeViewer() {
 
       playerRef.current = new window.YT.Player(playerDiv, {
         videoId,
+        width: "100%",
+        height: "100%",
         playerVars: {
           enablejsapi: 1,
           origin: window.location.origin,
@@ -570,17 +583,17 @@ export function YouTubeViewer() {
                         {isExtracting ? (
                           <>
                             <Loader2 size={14} className="animate-spin" />
-                            Extracting...
+                            {translations[language].extracting}
                           </>
                         ) : isTranslating ? (
                           <>
                             <Loader2 size={14} className="animate-spin" />
-                            Translating...
+                            {translations[language].translating}
                           </>
                         ) : (
                           <>
-                            <Camera size={14} />
-                            Translate
+                            <Languages size={14} />
+                            {translations[language].translate}
                           </>
                         )}
                       </button>
