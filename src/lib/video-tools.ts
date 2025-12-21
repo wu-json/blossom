@@ -1,33 +1,33 @@
-import { mkdir, chmod } from "node:fs/promises";
+import { mkdir, chmod, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { blossomDir } from "../db/database";
 
 const TOOL_VERSIONS = {
   ytdlp: "2024.12.13",
-  ffmpeg: "7.1",
+  ffmpeg: "6.1.1",
 } as const;
 
 const DOWNLOAD_URLS: Record<string, Record<string, { ytdlp: string; ffmpeg: string }>> = {
   darwin: {
     arm64: {
       ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp_macos`,
-      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/darwin-arm64.gz`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/ffmpeg-darwin-arm64.gz`,
     },
     x64: {
       ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp_macos`,
-      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/darwin-x64.gz`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/ffmpeg-darwin-x64.gz`,
     },
   },
   linux: {
     x64: {
       ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp_linux`,
-      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/linux-x64.gz`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/ffmpeg-linux-x64.gz`,
     },
   },
   win32: {
     x64: {
       ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp.exe`,
-      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/win32-x64.gz`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/ffmpeg-win32-x64.gz`,
     },
   },
 };
@@ -79,25 +79,36 @@ export async function ensureVideoTools(): Promise<ToolPaths> {
 
     console.log("Downloading video tools...");
 
-    // Download yt-dlp
+    // Download yt-dlp using curl for reliable redirect handling
     console.log("  yt-dlp...");
-    const ytdlpResponse = await fetch(urls.ytdlp);
-    if (!ytdlpResponse.ok) {
-      throw new Error(`Failed to download yt-dlp: ${ytdlpResponse.status}`);
+    const ytdlpProc = Bun.spawn(["curl", "-fsSL", "-o", ytdlpPath, urls.ytdlp], {
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const ytdlpExit = await ytdlpProc.exited;
+    if (ytdlpExit !== 0) {
+      throw new Error(`Failed to download yt-dlp (exit code ${ytdlpExit})`);
     }
-    await Bun.write(ytdlpPath, ytdlpResponse);
     await chmod(ytdlpPath, 0o755);
 
-    // Download and decompress ffmpeg (gzipped)
+    // Download ffmpeg using curl and decompress
     console.log("  ffmpeg...");
-    const ffmpegResponse = await fetch(urls.ffmpeg);
-    if (!ffmpegResponse.ok) {
-      throw new Error(`Failed to download ffmpeg: ${ffmpegResponse.status}`);
+    const ffmpegGzPath = `${ffmpegPath}.gz`;
+    const ffmpegProc = Bun.spawn(["curl", "-fsSL", "-o", ffmpegGzPath, urls.ffmpeg], {
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const ffmpegExit = await ffmpegProc.exited;
+    if (ffmpegExit !== 0) {
+      throw new Error(`Failed to download ffmpeg (exit code ${ffmpegExit})`);
     }
-    const ffmpegGz = await ffmpegResponse.arrayBuffer();
+
+    // Decompress ffmpeg
+    const ffmpegGz = await Bun.file(ffmpegGzPath).arrayBuffer();
     const ffmpegBinary = Bun.gunzipSync(new Uint8Array(ffmpegGz));
     await Bun.write(ffmpegPath, ffmpegBinary);
     await chmod(ffmpegPath, 0o755);
+    await unlink(ffmpegGzPath);
 
     // Write version manifest
     await Bun.write(manifestPath, JSON.stringify(TOOL_VERSIONS));

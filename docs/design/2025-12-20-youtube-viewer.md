@@ -136,30 +136,30 @@ yt-dlp and ffmpeg binaries are downloaded on server startup to `~/.blossom/bin/`
 
 const TOOL_VERSIONS = {
   ytdlp: "2024.12.13",
-  ffmpeg: "7.1",
+  ffmpeg: "6.1.1",
 } as const;
 
 const DOWNLOAD_URLS: Record<string, Record<string, { ytdlp: string; ffmpeg: string }>> = {
   darwin: {
     arm64: {
       ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp_macos`,
-      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/darwin-arm64.gz`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/ffmpeg-darwin-arm64.gz`,
     },
     x64: {
       ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp_macos`,
-      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/darwin-x64.gz`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/ffmpeg-darwin-x64.gz`,
     },
   },
   linux: {
     x64: {
       ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp_linux`,
-      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/linux-x64.gz`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/ffmpeg-linux-x64.gz`,
     },
   },
   win32: {
     x64: {
       ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp.exe`,
-      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/win32-x64.gz`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/ffmpeg-win32-x64.gz`,
     },
   },
 };
