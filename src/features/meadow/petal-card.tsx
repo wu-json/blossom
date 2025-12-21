@@ -39,6 +39,8 @@ export function PetalCard({ petal }: PetalCardProps) {
   const t = translations[language];
   const [translationData, setTranslationData] = useState<TranslationData | null>(null);
   const [frameImage, setFrameImage] = useState<string | null>(null);
+  const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
+  const [youtubeTimestamp, setYoutubeTimestamp] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -57,6 +59,12 @@ export function PetalCard({ petal }: PetalCardProps) {
             }
             if (data.frame_image) {
               setFrameImage(data.frame_image);
+            }
+            if (data.video_id) {
+              setYoutubeVideoId(data.video_id);
+            }
+            if (data.timestamp_seconds !== undefined) {
+              setYoutubeTimestamp(data.timestamp_seconds);
             }
           }
         } else {
@@ -80,8 +88,8 @@ export function PetalCard({ petal }: PetalCardProps) {
   }, [petal.conversationId, petal.messageId, petal.youtubeTranslationId, isYouTube]);
 
   const handleViewContext = () => {
-    if (isYouTube && petal.youtubeTranslationId) {
-      navigateToYouTube({ translationId: petal.youtubeTranslationId });
+    if (isYouTube && youtubeVideoId) {
+      navigateToYouTube({ videoId: youtubeVideoId, timestamp: youtubeTimestamp });
     } else {
       setScrollToMessage(petal.messageId);
       navigateToChat(petal.conversationId);
