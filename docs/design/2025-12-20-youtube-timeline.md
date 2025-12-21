@@ -367,7 +367,7 @@ function YouTubeViewer() {
   const [videoDuration, setVideoDuration] = useState(0);
   const playerRef = useRef<YT.Player | null>(null);
 
-  const { translations, addTranslation } = useVideoTranslations(videoId);
+  const { translations, addTranslation, updateDuration } = useVideoTranslations(videoId);
 
   const activeTranslation = useActiveTranslation(translations, currentTime);
 
@@ -386,11 +386,17 @@ function YouTubeViewer() {
   const handleMarkerClick = (translation: YouTubeTranslation) => {
     // Seek player to translation timestamp
     playerRef.current?.seekTo(translation.timestampSeconds, true);
-    // Translation card will update automatically via activeTranslation
+  };
+
+  const handleSeek = (seconds: number) => {
+    playerRef.current?.seekTo(seconds, true);
+  };
+
+  const handleDurationChange = (translationId: string, durationSeconds: number) => {
+    updateDuration(translationId, durationSeconds);
   };
 
   const handleTranslationCreated = (translation: YouTubeTranslation) => {
-    // Add new translation to local state
     addTranslation(translation);
   };
 
@@ -417,6 +423,8 @@ function YouTubeViewer() {
               translations={translations}
               activeTranslationId={activeTranslation?.id ?? null}
               onMarkerClick={handleMarkerClick}
+              onDurationChange={handleDurationChange}
+              onSeek={handleSeek}
             />
           )}
 
@@ -449,14 +457,14 @@ function YouTubeViewer() {
 |           (16:9 aspect ratio)            |
 |                                          |
 +------------------------------------------+
-| [●]--[●]--------[●]----[●]--[●]-------→ |  <- Timeline with markers
+| [●══]  [●═══════]   [●══]  [●═══]-----→ |  <- Timeline with range segments
 | 0:00                              12:34  |
 +------------------------------------------+
 |        [ Translate Frame ]               |
 +------------------------------------------+
 |                                          |
 |    Active Translation Card               |
-|    (auto-updates as video plays)         |
+|    (shows when playback is in range)     |
 |                                          |
 +------------------------------------------+
 ```
@@ -698,16 +706,21 @@ When user clicks "Translate Frame":
 
 ## Implementation Steps
 
-1. Create `TranslationTimeline` and `TimelineMarker` components
-2. Add `useVideoTranslations` hook for fetching translations
-3. Add `useActiveTranslation` hook for nearest detection
-4. Add `GET /api/youtube/translations` endpoint
-5. Add `getYouTubeTranslationsByVideoId` database function
-6. Add database index on `video_id`
-7. Integrate timeline into `YouTubeViewer`
-8. Add polling for current playback time
-9. Style timeline components
-10. Test with videos that have multiple translations
+1. Add `duration_seconds` column to `youtube_translations` table
+2. Create `TranslationTimeline` and `TimelineMarker` components
+3. Add `useVideoTranslations` hook for fetching/updating translations
+4. Add `useActiveTranslation` hook for range-based detection
+5. Add `GET /api/youtube/translations` endpoint
+6. Add `PATCH /api/youtube/translations/:id/duration` endpoint
+7. Add `getYouTubeTranslationsByVideoId` database function
+8. Add `updateYouTubeTranslationDuration` database function
+9. Add database index on `video_id`
+10. Integrate timeline into `YouTubeViewer`
+11. Implement drag-to-resize for duration adjustment
+12. Add click-to-seek on timeline track
+13. Add polling for current playback time
+14. Style timeline components
+15. Test with videos that have multiple translations
 
 ## Dependencies
 
@@ -722,4 +735,3 @@ No new dependencies required. Uses:
 2. **Keyboard navigation**: Left/right arrows to jump between translations
 3. **Minimap thumbnails**: Show frame thumbnails on marker hover
 4. **Export timeline**: Export all translations for a video as subtitles (SRT/VTT)
-5. **Auto-translate mode**: Automatically translate frame every N seconds
