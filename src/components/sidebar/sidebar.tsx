@@ -7,9 +7,9 @@ import type { Conversation, Language } from "../../types/chat";
 import { cn } from "../../lib/utils";
 
 const translations: Record<Language, { chat: string; settings: string; teacher: string; meadow: string; youtube: string; newChat: string; conversations: string }> = {
-  ja: { chat: "チャット", settings: "設定", teacher: "先生", meadow: "花畑", youtube: "YouTube", newChat: "新しいチャット", conversations: "履歴" },
-  zh: { chat: "聊天", settings: "设置", teacher: "老师", meadow: "花田", youtube: "YouTube", newChat: "新聊天", conversations: "历史" },
-  ko: { chat: "채팅", settings: "설정", teacher: "선생님", meadow: "꽃밭", youtube: "YouTube", newChat: "새 채팅", conversations: "기록" },
+  ja: { chat: "チャット", settings: "設定", teacher: "先生", meadow: "花畑", youtube: "ユーチューブ", newChat: "新しいチャット", conversations: "履歴" },
+  zh: { chat: "聊天", settings: "设置", teacher: "老师", meadow: "花田", youtube: "油管", newChat: "新聊天", conversations: "历史" },
+  ko: { chat: "채팅", settings: "설정", teacher: "선생님", meadow: "꽃밭", youtube: "유튜브", newChat: "새 채팅", conversations: "기록" },
 };
 
 interface NavItemProps {
