@@ -3,7 +3,7 @@ version = 0
 [[process]]
 name = "api"
 command = "bun --hot ./src/index.ts"
-env = { BLOSSOM_DATA_DIR = ".blossom-dev" }
+env = { BLOSSOM_DIR = ".blossom-dev" }
 
 [process.readiness_probe]
 type = "http"
@@ -14,5 +14,5 @@ path = "/api/status"
 [[process]]
 name = "vite"
 command = "bun vite"
-env = { BLOSSOM_DATA_DIR = ".blossom-dev" }
+env = { BLOSSOM_DIR = ".blossom-dev" }
 deps = [{ name = "api", condition = "ready" }]

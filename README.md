@@ -19,7 +19,7 @@ blossom
 | Environment Variable | Description | Default |
 |----------|-------------|---------|
 | `ANTHROPIC_API_KEY` | Your Anthropic API key (required) | - |
-| `BLOSSOM_DATA_DIR` | Directory for data storage | `~/.blossom` |
+| `BLOSSOM_DIR` | Directory for data storage | `~/.blossom` |
 
 ## Development
 

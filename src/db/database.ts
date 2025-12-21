@@ -3,8 +3,8 @@ import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
-// Get data directory from BLOSSOM_DATA_DIR env var, default to ~/.blossom
-const envDataDir = Bun.env.BLOSSOM_DATA_DIR;
+// Get directory from BLOSSOM_DIR env var, default to ~/.blossom
+const envDataDir = Bun.env.BLOSSOM_DIR;
 const blossomDir = envDataDir
   ? (isAbsolute(envDataDir) ? envDataDir : resolve(envDataDir))
   : join(homedir(), ".blossom");
