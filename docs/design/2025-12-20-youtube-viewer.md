@@ -126,7 +126,7 @@ Due to cross-origin restrictions, we cannot directly capture pixels from a YouTu
 2. User clicks "Translate Frame" button
 3. Browser prompts user to select screen/window to share
 4. Once permission granted, we capture a single frame and immediately stop the stream
-5. Frame is cropped to the video player region (if possible) or sent as-is
+5. Frame is cropped to the video player region using stored element bounds
 6. Image is compressed and sent to Claude API for translation
 
 ```typescript
@@ -137,7 +137,17 @@ interface CaptureResult {
   timestamp: number;
 }
 
-async function captureFrame(currentTimestamp: number): Promise<CaptureResult> {
+interface PlayerBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+async function captureFrame(
+  currentTimestamp: number,
+  playerBounds: PlayerBounds
+): Promise<CaptureResult> {
   // Request screen capture permission
   const stream = await navigator.mediaDevices.getDisplayMedia({
     video: {
@@ -152,12 +162,28 @@ async function captureFrame(currentTimestamp: number): Promise<CaptureResult> {
     const imageCapture = new ImageCapture(track);
     const bitmap = await imageCapture.grabFrame();
 
-    // Convert to blob
+    // Create canvas and crop to player region
     const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = playerBounds.width;
+    canvas.height = playerBounds.height;
     const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(bitmap, 0, 0);
+
+    // Calculate scale factor (screen capture may be at different resolution)
+    const scaleX = bitmap.width / window.innerWidth;
+    const scaleY = bitmap.height / window.innerHeight;
+
+    // Draw only the player region
+    ctx.drawImage(
+      bitmap,
+      playerBounds.x * scaleX,      // source x
+      playerBounds.y * scaleY,      // source y
+      playerBounds.width * scaleX,  // source width
+      playerBounds.height * scaleY, // source height
+      0,                            // dest x
+      0,                            // dest y
+      playerBounds.width,           // dest width
+      playerBounds.height           // dest height
+    );
 
     const blob = await new Promise<Blob>((resolve) => {
       canvas.toBlob((b) => resolve(b!), "image/png");
@@ -172,6 +198,17 @@ async function captureFrame(currentTimestamp: number): Promise<CaptureResult> {
     stream.getTracks().forEach((track) => track.stop());
   }
 }
+
+// Get player element bounds before capture
+function getPlayerBounds(playerElement: HTMLElement): PlayerBounds {
+  const rect = playerElement.getBoundingClientRect();
+  return {
+    x: rect.left,
+    y: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
 ```
 
 #### UX Considerations
@@ -185,7 +222,14 @@ async function captureFrame(currentTimestamp: number): Promise<CaptureResult> {
 async function handleTranslateClick() {
   try {
     setIsCapturing(true);
-    const { imageBlob, timestamp } = await captureFrame(player.getCurrentTime());
+
+    // Get player bounds before capture
+    const playerBounds = getPlayerBounds(playerContainerRef.current);
+    const { imageBlob, timestamp } = await captureFrame(
+      player.getCurrentTime(),
+      playerBounds
+    );
+
     await translateFrame(imageBlob, timestamp);
   } catch (error) {
     if (error.name === "NotAllowedError") {
@@ -368,11 +412,12 @@ const petal = {
   partOfSpeech: selectedWord.partOfSpeech,
   language: targetLanguage,
   context: `From YouTube video: ${videoTitle}`,
-  sourceType: "youtube", // New field
-  sourceId: videoId,
-  timestamp: captureTimestamp,
+  source_type: "youtube",
+  youtube_translation_id: translationId, // References youtube_translations table
 };
 ```
+
+The `youtube_translation_id` links to the `youtube_translations` record which contains the video ID, timestamp, and cached frame image. This avoids duplicating data and ensures the petal can navigate back to the exact source.
 
 ### Database Schema Extension
 
@@ -409,11 +454,8 @@ When a user clicks on a petal in the Meadow to view its source context, the navi
 // In petal card component (e.g., src/features/meadow/petal-card.tsx)
 function handleSourceClick(petal: Petal) {
   if (petal.sourceType === "youtube" && petal.youtubeTranslationId) {
-    // Fetch the youtube translation to get video ID and timestamp
-    const translation = await fetchYouTubeTranslation(petal.youtubeTranslationId);
-
-    // Navigate to YouTube viewer with video loaded at timestamp
-    navigate(`/youtube?v=${translation.videoId}&t=${translation.timestampSeconds}`);
+    // Navigate with translation ID - viewer will fetch video details and handle unavailability
+    navigate(`/youtube?tid=${petal.youtubeTranslationId}`);
   } else {
     // Existing chat navigation behavior
     navigate(`/chat/${petal.conversationId}?message=${petal.messageId}`);
@@ -421,25 +463,36 @@ function handleSourceClick(petal: Petal) {
 }
 ```
 
-The YouTube viewer should handle URL parameters on mount (using Wouter's `useSearch`):
+The YouTube viewer should handle URL parameters on mount (using Wouter's `useSearch`).
 
 ```typescript
 // In youtube-viewer.tsx
 function YouTubeViewer() {
   const searchString = useSearch();
   const params = new URLSearchParams(searchString);
-  const videoId = params.get("v");
-  const timestamp = params.get("t");
+  const translationId = params.get("tid"); // From petal navigation
+  const directVideoId = params.get("v");   // Direct video link
+
+  const [translation, setTranslation] = useState<YouTubeTranslation | null>(null);
 
   useEffect(() => {
-    if (videoId) {
-      loadVideo(videoId);
-      if (timestamp) {
-        // Seek to timestamp once player is ready
-        playerRef.current?.seekTo(parseFloat(timestamp));
-      }
+    if (translationId) {
+      // Fetch translation record to get video ID, timestamp, and cached data
+      fetchYouTubeTranslation(translationId).then((t) => {
+        setTranslation(t);
+        loadVideo(t.videoId);
+      });
+    } else if (directVideoId) {
+      loadVideo(directVideoId);
     }
-  }, [videoId, timestamp]);
+  }, [translationId, directVideoId]);
+
+  // Seek to timestamp once player is ready
+  useEffect(() => {
+    if (translation && playerRef.current) {
+      playerRef.current.seekTo(translation.timestampSeconds);
+    }
+  }, [translation, playerReady]);
 }
 ```
 
@@ -473,22 +526,15 @@ const player = new YT.Player(container, {
 
 #### Fallback UI
 
-When navigating to an unavailable video from a petal:
+When navigating to an unavailable video from a petal, we already have the translation data from the `tid` parameter fetch:
 
 ```typescript
 function YouTubeViewer() {
   const [videoUnavailable, setVideoUnavailable] = useState(false);
-  const [cachedTranslation, setCachedTranslation] = useState<YouTubeTranslation | null>(null);
+  // translation state is already set from the URL param handling above
 
-  // If we have a translation ID from navigation, fetch it
-  useEffect(() => {
-    if (translationId) {
-      fetchYouTubeTranslation(translationId).then(setCachedTranslation);
-    }
-  }, [translationId]);
-
-  if (videoUnavailable && cachedTranslation) {
-    return <VideoUnavailableFallback translation={cachedTranslation} />;
+  if (videoUnavailable && translation) {
+    return <VideoUnavailableFallback translation={translation} />;
   }
   // ... normal player UI
 }
@@ -580,7 +626,7 @@ Unsupported browsers will see a "browser not supported" message.
 
 1. **Translation history persistence**: Yes, persist to database. This is required so that petals can reference their source YouTube translation and users can navigate back to the exact video frame.
 
-2. **Petal source navigation**: Clicking a petal from YouTube navigates to `/youtube?v={videoId}&t={timestamp}` instead of chat, loading the video at the saved timestamp.
+2. **Petal source navigation**: Clicking a petal from YouTube navigates to `/youtube?tid={translationId}` instead of chat. The viewer fetches the translation record to get video ID, timestamp, and cached frame (for unavailability fallback).
 
 3. **Frame capture method**: Use Screen Capture API (`getDisplayMedia`) instead of server-side yt-dlp/ffmpeg. This eliminates external dependencies and works entirely in the browser. Unsupported browsers show a "browser not supported" message.
 
