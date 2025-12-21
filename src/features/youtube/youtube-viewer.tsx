@@ -326,6 +326,57 @@ export function YouTubeViewer() {
     return () => clearInterval(interval);
   }, [playerReady]);
 
+  // Keyboard navigation for timeline
+  useEffect(() => {
+    if (!playerReady || videoTranslations.length === 0) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't handle if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        const currentTime = playerRef.current?.getCurrentTime() ?? 0;
+
+        if (e.key === "ArrowRight") {
+          // Find next translation after current time
+          const nextTranslation = videoTranslations.find(
+            (t) => t.timestampSeconds > currentTime + 0.5 // Small buffer to avoid staying on same
+          );
+          if (nextTranslation) {
+            playerRef.current?.seekTo(nextTranslation.timestampSeconds, true);
+          }
+        } else {
+          // Find previous translation before current time
+          // If we're past the start of current translation by more than 2 seconds, go to its start
+          // Otherwise go to the previous one
+          let targetTranslation: typeof videoTranslations[number] | null = null;
+          for (let i = videoTranslations.length - 1; i >= 0; i--) {
+            const t = videoTranslations[i];
+            if (t && t.timestampSeconds < currentTime - 2) {
+              targetTranslation = t;
+              break;
+            }
+          }
+          if (targetTranslation) {
+            playerRef.current?.seekTo(targetTranslation.timestampSeconds, true);
+          } else {
+            // Go to first translation
+            const first = videoTranslations[0];
+            if (first) {
+              playerRef.current?.seekTo(first.timestampSeconds, true);
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [playerReady, videoTranslations]);
+
   const handleLoadVideo = () => {
     const id = parseYouTubeUrl(inputUrl);
     if (id) {
