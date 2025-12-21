@@ -795,7 +795,7 @@ export function YouTubeViewer() {
         )}
 
         {videoId && (
-          <div className="flex flex-col lg:flex-row h-full">
+          <div className="flex flex-col lg:flex-row h-full overflow-hidden">
             {videoUnavailable && currentFrameImage ? (
               <div className="max-w-3xl mx-auto px-6 py-4 space-y-4">
                 <div
@@ -845,7 +845,7 @@ export function YouTubeViewer() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col lg:w-[60%] 2xl:w-[70%] lg:flex-shrink-0">
+              <div className="flex flex-col min-w-0 lg:w-[60%] 2xl:w-[70%] lg:flex-shrink-0">
                 {!videoUnavailable && (
                   <div
                     className="flex items-center gap-3 px-4 py-2 border-b flex-shrink-0"
@@ -1068,7 +1068,7 @@ export function YouTubeViewer() {
 
             {(isTranslating || timelineActiveTranslation?.translationData) ? (
               <div
-                className="flex-1 overflow-auto px-4 pt-4 pb-16 lg:pt-4 lg:border-l"
+                className="flex-1 min-w-0 overflow-auto px-4 pt-4 pb-16 lg:pt-4 lg:border-l"
                 style={{ borderColor: "var(--border)" }}
               >
                 <div
