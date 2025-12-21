@@ -1072,7 +1072,7 @@ export function YouTubeViewer() {
                 style={{ borderColor: "var(--border)" }}
               >
                 <div
-                  className="max-w-3xl mx-auto rounded-xl px-4 py-4"
+                  className="rounded-xl px-4 py-4"
                   style={{
                     backgroundColor: "var(--assistant-bubble)",
                     color: "var(--assistant-bubble-text)",
