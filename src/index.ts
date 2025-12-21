@@ -31,6 +31,7 @@ import {
   getYouTubeTranslationById,
   getYouTubeTranslationsByVideoId,
   updateYouTubeTranslation,
+  updateYouTubeTranslationTimestamp,
 } from "./db/youtube-translations";
 import { extractAndSaveFrame, compressFrameForApi, framesDir, ensureVideoTools, precacheStreamUrl } from "./lib/video-tools";
 import { db, blossomDir } from "./db/database";
@@ -717,7 +718,19 @@ const server = Bun.serve({
       },
       PUT: async (req) => {
         const id = req.params.id;
-        const { translationData, frameImage } = await req.json();
+        const { translationData, frameImage, timestampSeconds } = await req.json();
+
+        // Handle timestamp update if provided
+        if (timestampSeconds !== undefined) {
+          const timestampSuccess = updateYouTubeTranslationTimestamp(id, timestampSeconds);
+          if (!timestampSuccess) {
+            return Response.json({ error: "Translation not found" }, { status: 404 });
+          }
+          // If only updating timestamp, return early
+          if (translationData === undefined && frameImage === undefined) {
+            return Response.json({ success: true });
+          }
+        }
 
         const success = updateYouTubeTranslation(
           id,

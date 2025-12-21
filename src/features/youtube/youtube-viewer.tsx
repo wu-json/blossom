@@ -181,7 +181,12 @@ export function YouTubeViewer() {
   const apiLoadedRef = useRef(false);
 
   // Timeline hooks
-  const { translations: videoTranslations, addTranslation, refetch: refetchTranslations } = useVideoTranslations(videoId);
+  const {
+    translations: videoTranslations,
+    addTranslation,
+    updateTranslationTimestamp,
+    refetch: refetchTranslations,
+  } = useVideoTranslations(videoId);
   const timelineActiveTranslation = useActiveTranslation(videoTranslations, currentPlaybackTime);
 
   // Load YouTube IFrame API
@@ -1032,6 +1037,7 @@ export function YouTubeViewer() {
                         activeTranslationId={timelineActiveTranslation?.id ?? null}
                         onMarkerClick={handleTimelineMarkerClick}
                         onSeek={handleTimelineSeek}
+                        onMarkerDrag={updateTranslationTimestamp}
                       />
                     ) : (
                       /* Simple progress bar when no translations */

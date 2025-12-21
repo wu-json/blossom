@@ -15,6 +15,7 @@ interface UseVideoTranslationsResult {
   translations: YouTubeTranslation[];
   isLoading: boolean;
   addTranslation: (translation: YouTubeTranslation) => void;
+  updateTranslationTimestamp: (id: string, newTimestamp: number) => void;
   refetch: () => Promise<void>;
 }
 
@@ -50,10 +51,34 @@ export function useVideoTranslations(videoId: string | null): UseVideoTranslatio
     );
   }, []);
 
+  const updateTranslationTimestamp = useCallback(
+    (id: string, newTimestamp: number) => {
+      // Optimistic update - update local state immediately and re-sort
+      setTranslations((prev) =>
+        prev
+          .map((t) => (t.id === id ? { ...t, timestampSeconds: newTimestamp } : t))
+          .sort((a, b) => a.timestampSeconds - b.timestampSeconds)
+      );
+
+      // Persist to database
+      fetch(`/api/youtube/translations/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timestampSeconds: newTimestamp }),
+      }).catch((error) => {
+        console.error("Failed to update translation timestamp:", error);
+        // Rollback on failure
+        fetchTranslations();
+      });
+    },
+    [fetchTranslations]
+  );
+
   return {
     translations,
     isLoading,
     addTranslation,
+    updateTranslationTimestamp,
     refetch: fetchTranslations,
   };
 }

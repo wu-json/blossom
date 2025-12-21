@@ -77,6 +77,17 @@ export function updateYouTubeTranslation(
   }
 }
 
+export function updateYouTubeTranslationTimestamp(
+  id: string,
+  timestampSeconds: number
+): boolean {
+  const stmt = db.prepare(`
+    UPDATE youtube_translations SET timestamp_seconds = ? WHERE id = ?
+  `);
+  const result = stmt.run(timestampSeconds, id);
+  return result.changes > 0;
+}
+
 export function deleteYouTubeTranslation(id: string): boolean {
   const stmt = db.prepare(`DELETE FROM youtube_translations WHERE id = ?`);
   const result = stmt.run(id);

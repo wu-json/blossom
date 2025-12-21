@@ -9,6 +9,7 @@ interface TranslationTimelineProps {
   activeTranslationId: string | null;
   onMarkerClick: (translation: YouTubeTranslation) => void;
   onSeek: (seconds: number) => void;
+  onMarkerDrag: (id: string, newTimestamp: number) => void;
 }
 
 export function TranslationTimeline({
@@ -18,6 +19,7 @@ export function TranslationTimeline({
   activeTranslationId,
   onMarkerClick,
   onSeek,
+  onMarkerDrag,
 }: TranslationTimelineProps) {
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -42,24 +44,26 @@ export function TranslationTimeline({
         onClick={handleTrackClick}
         style={{
           position: "relative",
-          height: "24px",
+          height: "44px",
           backgroundColor: "var(--border)",
-          borderRadius: "4px",
+          borderRadius: "8px",
           cursor: "pointer",
+          boxShadow: "inset 0 1px 2px rgba(0,0,0,0.05)",
         }}
       >
-        {/* Progress indicator */}
+        {/* Progress indicator - thin centered line */}
         <div
           className="timeline-progress"
           style={{
             position: "absolute",
             left: 0,
-            top: 0,
-            height: "100%",
+            top: "50%",
+            transform: "translateY(-50%)",
+            height: "4px",
             width: `${(currentTime / videoDuration) * 100}%`,
             backgroundColor: "var(--primary)",
-            opacity: 0.3,
-            borderRadius: "4px",
+            opacity: 0.6,
+            borderRadius: "2px",
             pointerEvents: "none",
           }}
         />
@@ -74,7 +78,10 @@ export function TranslationTimeline({
               translation={t}
               position={position}
               isActive={t.id === activeTranslationId}
-              onClick={() => onMarkerClick(t)}
+              trackRef={trackRef}
+              videoDuration={videoDuration}
+              onNavigate={() => onMarkerClick(t)}
+              onDragEnd={(newTimestamp) => onMarkerDrag(t.id, newTimestamp)}
             />
           );
         })}
