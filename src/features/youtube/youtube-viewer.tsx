@@ -288,8 +288,10 @@ export function YouTubeViewer() {
     setCurrentTranslation(null);
     setSavedWords([]);
 
+    let frameFilename: string | null = null;
+
     try {
-      // Extract frame
+      // Extract high-quality frame and save to disk
       const extractResponse = await fetch("/api/youtube/extract-frame", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -301,16 +303,16 @@ export function YouTubeViewer() {
         throw new Error(data.error || "Failed to extract frame");
       }
 
-      const { imageBase64 } = await extractResponse.json();
-      setCurrentFrameImage(`data:image/png;base64,${imageBase64}`);
+      const extractData = await extractResponse.json();
+      frameFilename = extractData.filename;
       setExtracting(false);
       setTranslating(true);
 
-      // Translate frame
+      // Translate frame (API compresses internally)
       const translateResponse = await fetch("/api/youtube/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64, language }),
+        body: JSON.stringify({ filename: frameFilename, language }),
       });
 
       if (!translateResponse.ok) {
@@ -355,7 +357,7 @@ export function YouTubeViewer() {
       if (parsedContent.type === "translation") {
         setCurrentTranslation(parsedContent.data);
 
-        // Save translation to database
+        // Save translation to database with frame filename
         const saveResponse = await fetch("/api/youtube/translations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -363,7 +365,7 @@ export function YouTubeViewer() {
             videoId,
             videoTitle,
             timestampSeconds: timestamp,
-            frameImage: `data:image/png;base64,${imageBase64}`,
+            frameFilename,
             translationData: parsedContent.data,
           }),
         });

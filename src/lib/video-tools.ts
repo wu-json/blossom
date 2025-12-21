@@ -123,17 +123,26 @@ export async function ensureVideoTools(): Promise<ToolPaths> {
 const streamUrlCache = new Map<string, { url: string; expires: number }>();
 const CACHE_TTL = 3 * 60 * 60 * 1000; // 3 hours
 
-async function getStreamUrl(videoId: string, ytdlp: string): Promise<string> {
-  const cached = streamUrlCache.get(videoId);
+// Frames directory
+export const framesDir = join(blossomDir, "frames");
+
+async function getStreamUrl(videoId: string, ytdlp: string, highQuality: boolean = false): Promise<string> {
+  const cacheKey = `${videoId}-${highQuality ? "hq" : "lq"}`;
+  const cached = streamUrlCache.get(cacheKey);
   if (cached && cached.expires > Date.now()) {
     return cached.url;
   }
 
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  // High quality: best video stream (up to 1080p), Low quality: capped at 720p for API
+  const format = highQuality
+    ? "bestvideo[height<=1080]/bestvideo/best"
+    : "best[height<=720]/best";
+
   const streamUrlProc = Bun.spawn([
     ytdlp,
     "-g",
-    "-f", "best[height<=720]/best",
+    "-f", format,
     "--no-warnings",
     videoUrl
   ], {
@@ -151,28 +160,107 @@ async function getStreamUrl(videoId: string, ytdlp: string): Promise<string> {
     throw new Error(`Failed to get video stream URL: ${stderr || "Unknown error"}`);
   }
 
-  streamUrlCache.set(videoId, { url: streamUrl, expires: Date.now() + CACHE_TTL });
+  streamUrlCache.set(cacheKey, { url: streamUrl, expires: Date.now() + CACHE_TTL });
   return streamUrl;
 }
 
-async function extractFrameWithUrl(ffmpeg: string, streamUrl: string, timestampSeconds: number): Promise<{ buffer: Buffer | null; error: string }> {
+interface ExtractOptions {
+  format: "png" | "jpeg";
+  jpegQuality?: number; // 1-31, lower is better
+}
+
+async function extractFrameWithUrl(
+  ffmpeg: string,
+  streamUrl: string,
+  timestampSeconds: number,
+  options: ExtractOptions = { format: "jpeg", jpegQuality: 2 }
+): Promise<{ buffer: Buffer | null; error: string }> {
+  const args = [
+    ffmpeg,
+    "-hide_banner",
+    "-nostdin",
+    "-ss",
+    String(timestampSeconds),
+    "-i",
+    streamUrl,
+    "-frames:v",
+    "1",
+    "-f",
+    "image2pipe",
+  ];
+
+  if (options.format === "png") {
+    args.push("-vcodec", "png");
+  } else {
+    args.push("-vcodec", "mjpeg", "-q:v", String(options.jpegQuality || 2));
+  }
+
+  args.push("-");
+
+  const ffmpegProc = Bun.spawn(args, {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const frameBuffer = await new Response(ffmpegProc.stdout).arrayBuffer();
+  const ffmpegExitCode = await ffmpegProc.exited;
+
+  if (ffmpegExitCode !== 0 || frameBuffer.byteLength === 0) {
+    const stderr = await new Response(ffmpegProc.stderr).text();
+    return { buffer: null, error: stderr };
+  }
+
+  return { buffer: Buffer.from(frameBuffer), error: "" };
+}
+
+// Extract high-quality frame (PNG, up to 1080p) and save to disk, return the filename
+export async function extractAndSaveFrame(videoId: string, timestampSeconds: number): Promise<string> {
+  const { ytdlp, ffmpeg } = await ensureVideoTools();
+  await mkdir(framesDir, { recursive: true });
+
+  // Get high-quality stream URL (up to 1080p)
+  let streamUrl = await getStreamUrl(videoId, ytdlp, true);
+  let result = await extractFrameWithUrl(ffmpeg, streamUrl, timestampSeconds, { format: "png" });
+
+  // If failed (possibly expired URL), clear cache and retry once
+  if (!result.buffer && result.error.includes("403")) {
+    streamUrlCache.delete(`${videoId}-hq`);
+    streamUrl = await getStreamUrl(videoId, ytdlp, true);
+    result = await extractFrameWithUrl(ffmpeg, streamUrl, timestampSeconds, { format: "png" });
+  }
+
+  if (!result.buffer) {
+    throw new Error(`Failed to extract frame: ${result.error || "Unknown error"}`);
+  }
+
+  // Save to disk with unique filename
+  const filename = `${videoId}-${Math.round(timestampSeconds * 1000)}-${Date.now()}.png`;
+  const filepath = join(framesDir, filename);
+  await Bun.write(filepath, result.buffer);
+
+  return filename;
+}
+
+// Compress an image for API calls (resize to 720p max, lower quality)
+export async function compressFrameForApi(filename: string): Promise<Buffer> {
+  const { ffmpeg } = await ensureVideoTools();
+  const filepath = join(framesDir, filename);
+
   const ffmpegProc = Bun.spawn(
     [
       ffmpeg,
       "-hide_banner",
       "-nostdin",
-      "-ss",
-      String(timestampSeconds),
       "-i",
-      streamUrl,
-      "-frames:v",
-      "1",
+      filepath,
+      "-vf",
+      "scale='min(1280,iw)':'min(720,ih)':force_original_aspect_ratio=decrease",
       "-f",
       "image2pipe",
       "-vcodec",
       "mjpeg",
       "-q:v",
-      "2",
+      "8", // Lower quality for API (still good enough for OCR)
       "-",
     ],
     {
@@ -186,24 +274,23 @@ async function extractFrameWithUrl(ffmpeg: string, streamUrl: string, timestampS
 
   if (ffmpegExitCode !== 0 || frameBuffer.byteLength === 0) {
     const stderr = await new Response(ffmpegProc.stderr).text();
-    return { buffer: null, error: stderr };
+    throw new Error(`Failed to compress frame: ${stderr || "Unknown error"}`);
   }
 
-  return { buffer: Buffer.from(frameBuffer), error: "" };
+  return Buffer.from(frameBuffer);
 }
 
+// Legacy function for backward compatibility
 export async function extractFrame(videoId: string, timestampSeconds: number): Promise<Buffer> {
   const { ytdlp, ffmpeg } = await ensureVideoTools();
 
-  // Get cached or fresh stream URL
-  let streamUrl = await getStreamUrl(videoId, ytdlp);
-  let result = await extractFrameWithUrl(ffmpeg, streamUrl, timestampSeconds);
+  let streamUrl = await getStreamUrl(videoId, ytdlp, false);
+  let result = await extractFrameWithUrl(ffmpeg, streamUrl, timestampSeconds, { format: "jpeg", jpegQuality: 2 });
 
-  // If failed (possibly expired URL), clear cache and retry once
   if (!result.buffer && result.error.includes("403")) {
-    streamUrlCache.delete(videoId);
-    streamUrl = await getStreamUrl(videoId, ytdlp);
-    result = await extractFrameWithUrl(ffmpeg, streamUrl, timestampSeconds);
+    streamUrlCache.delete(`${videoId}-lq`);
+    streamUrl = await getStreamUrl(videoId, ytdlp, false);
+    result = await extractFrameWithUrl(ffmpeg, streamUrl, timestampSeconds, { format: "jpeg", jpegQuality: 2 });
   }
 
   if (!result.buffer) {

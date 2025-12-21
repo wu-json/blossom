@@ -31,7 +31,7 @@ import {
   getYouTubeTranslationById,
   updateYouTubeTranslation,
 } from "./db/youtube-translations";
-import { extractFrame, ensureVideoTools } from "./lib/video-tools";
+import { extractAndSaveFrame, compressFrameForApi, framesDir, ensureVideoTools } from "./lib/video-tools";
 import { db, blossomDir } from "./db/database";
 import { compactMessages } from "./lib/message-compaction";
 import { getImageForApi, type ImageMediaType } from "./lib/image-compression";
@@ -600,10 +600,10 @@ const server = Bun.serve({
             return Response.json({ error: "Missing videoId or timestamp" }, { status: 400 });
           }
 
-          const frameBuffer = await extractFrame(videoId, timestamp);
-          const imageBase64 = frameBuffer.toString("base64");
+          // Extract high-quality frame and save to disk
+          const filename = await extractAndSaveFrame(videoId, timestamp);
 
-          return Response.json({ imageBase64 });
+          return Response.json({ filename });
         } catch (error) {
           console.error("Frame extraction error:", error);
           const message = error instanceof Error ? error.message : "Failed to extract frame";
@@ -611,10 +611,26 @@ const server = Bun.serve({
         }
       },
     },
+    "/api/youtube/frames/:filename": {
+      GET: async (req) => {
+        const filename = req.params.filename;
+        const filepath = `${framesDir}/${filename}`;
+        const file = Bun.file(filepath);
+
+        if (!(await file.exists())) {
+          return Response.json({ error: "Frame not found" }, { status: 404 });
+        }
+
+        const contentType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
+        return new Response(file, {
+          headers: { "Content-Type": contentType },
+        });
+      },
+    },
     "/api/youtube/translations": {
       POST: async (req) => {
         try {
-          const { videoId, videoTitle, timestampSeconds, frameImage, translationData } = await req.json();
+          const { videoId, videoTitle, timestampSeconds, frameFilename, translationData } = await req.json();
 
           if (!videoId || typeof timestampSeconds !== "number") {
             return Response.json({ error: "Missing required fields" }, { status: 400 });
@@ -624,7 +640,7 @@ const server = Bun.serve({
             videoId,
             videoTitle || null,
             timestampSeconds,
-            frameImage || null,
+            frameFilename || null,
             translationData ? JSON.stringify(translationData) : null
           );
 
@@ -644,8 +660,14 @@ const server = Bun.serve({
           return Response.json({ error: "Translation not found" }, { status: 404 });
         }
 
+        // Convert filename to URL for client
+        const frameUrl = translation.frame_image
+          ? `/api/youtube/frames/${translation.frame_image}`
+          : null;
+
         return Response.json({
           ...translation,
+          frame_image: frameUrl,
           translation_data: translation.translation_data
             ? JSON.parse(translation.translation_data)
             : null,
@@ -675,11 +697,15 @@ const server = Bun.serve({
           return Response.json({ error: "API key not configured" }, { status: 401 });
         }
 
-        const { imageBase64, language } = await req.json();
+        const { filename, language } = await req.json();
 
-        if (!imageBase64) {
-          return Response.json({ error: "Missing image data" }, { status: 400 });
+        if (!filename) {
+          return Response.json({ error: "Missing filename" }, { status: 400 });
         }
+
+        // Compress the frame for API (smaller file = faster + cheaper)
+        const compressedBuffer = await compressFrameForApi(filename);
+        const imageBase64 = compressedBuffer.toString("base64");
 
         const languageName = languageNames[language] || "Japanese";
         const subtextName = language === "ja" ? "kana (hiragana/katakana readings)" : language === "zh" ? "pinyin" : "romanization";
