@@ -283,11 +283,11 @@ export function YouTubeViewer() {
           enablejsapi: 1,
           origin: window.location.origin,
           rel: 0,
-          controls: 0,        // Hide player controls
-          disablekb: 1,       // Disable YouTube keyboard controls (we have our own)
-          fs: 0,              // Hide fullscreen button
-          iv_load_policy: 3,  // Hide video annotations
-          modestbranding: 1,  // Minimal YouTube branding
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          iv_load_policy: 3,
+          modestbranding: 1,
         },
         events: {
           onReady: (event) => {
