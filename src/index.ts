@@ -32,6 +32,8 @@ import {
   getYouTubeTranslationsByVideoId,
   updateYouTubeTranslation,
   updateYouTubeTranslationTimestamp,
+  getRecentlyTranslatedVideos,
+  getRecentlyTranslatedVideosCount,
 } from "./db/youtube-translations";
 import { extractAndSaveFrame, compressFrameForApi, framesDir, ensureVideoTools, precacheStreamUrl } from "./lib/video-tools";
 import { db, blossomDir } from "./db/database";
@@ -43,7 +45,6 @@ import unzipper from "unzipper";
 import { join } from "node:path";
 import { assets } from "./generated/embedded-assets";
 
-// Add cache_control to the last assistant message for prompt caching
 function addCacheControlToMessages(messages: MessageParam[]): MessageParam[] {
   if (messages.length === 0) return messages;
 
@@ -75,11 +76,9 @@ function addCacheControlToMessages(messages: MessageParam[]): MessageParam[] {
   });
 }
 
-// Ensure uploads directory exists in ~/.blossom/uploads
 const uploadsDir = join(blossomDir, "uploads");
 await mkdir(uploadsDir, { recursive: true });
 
-// Download video tools (yt-dlp + ffmpeg) on startup
 await ensureVideoTools();
 
 const languageNames: Record<string, string> = {
@@ -146,14 +145,11 @@ const server = Bun.serve({
           return Response.json({ error: "Conversation not found" }, { status: 404 });
         }
 
-        // Parse language from request body
         let language = "ja";
         try {
           const body = await req.json();
           if (body.language) language = body.language;
-        } catch {
-          // No body or invalid JSON, use default
-        }
+        } catch {}
 
         const languageNames: Record<string, string> = {
           ja: "Japanese",
@@ -323,17 +319,13 @@ const server = Bun.serve({
           return Response.json({ error: "Invalid image type" }, { status: 400 });
         }
 
-        // Delete old image if exists
         const currentSettings = getTeacherSettings();
         if (currentSettings.profile_image_path) {
           try {
-            // Extract filename from URL path and build full file path
             const oldFilename = currentSettings.profile_image_path.replace("/api/uploads/", "");
             const oldFilePath = join(uploadsDir, oldFilename);
             await unlink(oldFilePath);
-          } catch {
-            // Ignore if file doesn't exist
-          }
+          } catch {}
         }
 
         // Generate unique filename
@@ -352,13 +344,10 @@ const server = Bun.serve({
         const settings = getTeacherSettings();
         if (settings.profile_image_path) {
           try {
-            // Extract filename from URL path and build full file path
             const filename = settings.profile_image_path.replace("/api/uploads/", "");
             const filePath = join(uploadsDir, filename);
             await unlink(filePath);
-          } catch {
-            // Ignore if file doesn't exist
-          }
+          } catch {}
         }
         updateTeacherProfileImage(null);
         return Response.json({ success: true });
@@ -399,7 +388,6 @@ const server = Bun.serve({
     "/api/uploads/:filename": {
       GET: async (req) => {
         const filename = req.params.filename;
-        // Prevent path traversal
         if (filename.includes("..") || filename.includes("/")) {
           return new Response("Not found", { status: 404 });
         }
@@ -644,6 +632,22 @@ const server = Bun.serve({
         const contentType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
         return new Response(file, {
           headers: { "Content-Type": contentType },
+        });
+      },
+    },
+    "/api/youtube/recent-videos": {
+      GET: (req) => {
+        const url = new URL(req.url);
+        const limit = parseInt(url.searchParams.get("limit") || "10", 10);
+        const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+
+        const videos = getRecentlyTranslatedVideos(Math.min(limit, 50), offset);
+        const total = getRecentlyTranslatedVideosCount();
+
+        return Response.json({
+          videos,
+          total,
+          hasMore: offset + videos.length < total,
         });
       },
     },

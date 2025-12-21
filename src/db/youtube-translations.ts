@@ -93,3 +93,58 @@ export function deleteYouTubeTranslation(id: string): boolean {
   const result = stmt.run(id);
   return result.changes > 0;
 }
+
+export interface RecentlyTranslatedVideo {
+  video_id: string;
+  video_title: string | null;
+  translation_count: number;
+  latest_frame_image: string | null;
+  latest_timestamp_seconds: number;
+  latest_created_at: number;
+}
+
+export function getRecentlyTranslatedVideos(
+  limit: number,
+  offset: number
+): RecentlyTranslatedVideo[] {
+  const stmt = db.prepare(`
+    SELECT
+      video_id,
+      video_title,
+      COUNT(*) as translation_count,
+      (
+        SELECT frame_image
+        FROM youtube_translations t2
+        WHERE t2.video_id = youtube_translations.video_id
+          AND t2.frame_image IS NOT NULL
+        ORDER BY t2.created_at DESC
+        LIMIT 1
+      ) as latest_frame_image,
+      (
+        SELECT timestamp_seconds
+        FROM youtube_translations t3
+        WHERE t3.video_id = youtube_translations.video_id
+        ORDER BY t3.created_at DESC
+        LIMIT 1
+      ) as latest_timestamp_seconds,
+      MAX(created_at) as latest_created_at
+    FROM youtube_translations
+    WHERE translation_data IS NOT NULL
+    GROUP BY video_id
+    ORDER BY latest_created_at DESC
+    LIMIT ? OFFSET ?
+  `);
+
+  return stmt.all(limit, offset) as RecentlyTranslatedVideo[];
+}
+
+export function getRecentlyTranslatedVideosCount(): number {
+  const stmt = db.prepare(`
+    SELECT COUNT(DISTINCT video_id) as count
+    FROM youtube_translations
+    WHERE translation_data IS NOT NULL
+  `);
+
+  const result = stmt.get() as { count: number };
+  return result.count;
+}

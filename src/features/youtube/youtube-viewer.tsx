@@ -12,6 +12,7 @@ import { useActiveTranslation } from "./hooks/use-active-translation";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { HeaderControls } from "../../components/ui/header-controls";
 import { version } from "../../generated/version";
+import { RecentVideosGrid } from "./recent-videos-grid";
 import type { TranslationData, WordBreakdown, PartialTranslationData } from "../../types/translation";
 import type { Language } from "../../types/chat";
 
@@ -282,11 +283,11 @@ export function YouTubeViewer() {
           enablejsapi: 1,
           origin: window.location.origin,
           rel: 0,
-          controls: 0,        // Hide player controls
-          disablekb: 1,       // Disable YouTube keyboard controls (we have our own)
-          fs: 0,              // Hide fullscreen button
-          iv_load_policy: 3,  // Hide video annotations
-          modestbranding: 1,  // Minimal YouTube branding
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          iv_load_policy: 3,
+          modestbranding: 1,
         },
         events: {
           onReady: (event) => {
@@ -1049,63 +1050,73 @@ export function YouTubeViewer() {
         {!videoId && (
           <div className="flex flex-col h-full">
             <header
-              className="sticky top-0 z-10 px-4 py-3 border-b flex items-center justify-between"
+              className="sticky top-0 z-10 border-b"
               style={{
                 backgroundColor: "var(--surface)",
                 borderColor: "var(--border)",
               }}
             >
-              <button
-                onClick={toggleSidebar}
-                className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
-                aria-label="Toggle sidebar"
-              >
-                <MenuIcon isOpen={sidebarCollapsed} />
-                <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
-                  blossom
-                </h1>
-                <span className="text-xs self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
-                  v{version}
-                </span>
-              </button>
+              <div className="px-4 py-3 flex items-center justify-between">
+                <button
+                  onClick={toggleSidebar}
+                  className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
+                  aria-label="Toggle sidebar"
+                >
+                  <MenuIcon isOpen={sidebarCollapsed} />
+                  <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
+                    blossom
+                  </h1>
+                  <span className="text-xs self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
+                    v{version}
+                  </span>
+                </button>
 
-              <HeaderControls />
+                <HeaderControls />
+              </div>
+
+              <div className="px-4 pb-3">
+                <div className="flex gap-2 w-full">
+                  <input
+                    type="text"
+                    value={inputUrl}
+                    onChange={(e) => setInputUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLoadVideo()}
+                    placeholder={translations[language].placeholder}
+                    className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+                    style={{
+                      backgroundColor: "var(--input-bg)",
+                      color: "var(--text)",
+                      border: "1px solid var(--border)",
+                    }}
+                  />
+                  <button
+                    onClick={handleLoadVideo}
+                    className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                    style={{
+                      backgroundColor: "var(--primary)",
+                      color: "white",
+                    }}
+                  >
+                    {translations[language].load}
+                  </button>
+                </div>
+              </div>
             </header>
 
-            <div
-              className="flex-1 flex flex-col items-center justify-center text-center px-6 pb-10"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <h3 className="font-medium mb-1" style={{ color: "var(--text)" }}>
-                {translations[language].title}
-              </h3>
-              <p className="text-sm mb-6 max-w-sm">
-                {translations[language].description}
-              </p>
-              <div className="flex gap-2 w-full max-w-md">
-                <input
-                  type="text"
-                  value={inputUrl}
-                  onChange={(e) => setInputUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleLoadVideo()}
-                  placeholder={translations[language].placeholder}
-                  className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
-                  style={{
-                    backgroundColor: "var(--input-bg)",
-                    color: "var(--text)",
-                    border: "1px solid var(--border)",
+            <div className="flex-1 overflow-auto">
+              <div className="px-4 py-6">
+                <RecentVideosGrid
+                  language={language}
+                  onVideoSelect={(videoId, timestamp) => {
+                    setVideo(
+                      `https://www.youtube.com/watch?v=${videoId}`,
+                      videoId,
+                      null
+                    );
+                    setCurrentTimestamp(timestamp);
+                    setLocation(`/youtube?v=${videoId}&t=${Math.floor(timestamp)}`);
                   }}
                 />
-                <button
-                  onClick={handleLoadVideo}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
-                  style={{
-                    backgroundColor: "var(--primary)",
-                    color: "white",
-                  }}
-                >
-                  {translations[language].load}
-                </button>
               </div>
             </div>
           </div>
