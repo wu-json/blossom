@@ -970,14 +970,11 @@ export function YouTubeViewer() {
                       {/* Play/Pause */}
                       <button
                         onClick={togglePlayPause}
-                        className="p-2 rounded-lg transition-all hover:opacity-80"
-                        style={{
-                          backgroundColor: "var(--primary)",
-                          color: "white",
-                        }}
+                        className="p-1.5 rounded-lg transition-all hover:opacity-80"
+                        style={{ color: "var(--text-muted)" }}
                         title={isPlaying ? "Pause (Space)" : "Play (Space)"}
                       >
-                        {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                        {isPlaying ? <Pause size={20} /> : <Play size={20} />}
                       </button>
 
                       {/* Current Time / Duration */}
