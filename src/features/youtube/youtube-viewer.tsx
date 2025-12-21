@@ -216,14 +216,20 @@ export function YouTubeViewer() {
       setCurrentFrameImage(null);
       setError(null);
       setSavedWords([]);
-      // Set timestamp if provided (will be used in onReady)
-      if (urlTimestamp) {
-        setCurrentTimestamp(parseFloat(urlTimestamp));
-      } else {
-        setCurrentTimestamp(0);
+    }
+  }, [urlVideoId, translationId]);
+
+  // Handle timestamp from URL - seek if player is ready, otherwise it will be handled in onReady
+  useEffect(() => {
+    if (urlVideoId && !translationId && urlTimestamp) {
+      const timestamp = parseFloat(urlTimestamp);
+      setCurrentTimestamp(timestamp);
+      // If player is already ready, seek immediately
+      if (playerReady && playerRef.current) {
+        playerRef.current.seekTo(timestamp, true);
       }
     }
-  }, [urlVideoId, urlTimestamp, translationId]);
+  }, [urlVideoId, urlTimestamp, translationId, playerReady]);
 
   const fetchTranslationRecord = async (id: string) => {
     try {
