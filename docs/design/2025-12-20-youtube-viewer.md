@@ -78,7 +78,7 @@ Use the YouTube IFrame Player API for programmatic control:
 ```typescript
 interface YouTubePlayerProps {
   videoId: string;
-  onReady: (player: YT.Player) => void;
+  onReady: (player: YT.Player, videoData: YT.VideoData) => void;
 }
 
 function YouTubePlayer({ videoId, onReady }: YouTubePlayerProps) {
@@ -98,7 +98,13 @@ function YouTubePlayer({ videoId, onReady }: YouTubePlayerProps) {
           origin: window.location.origin,
         },
         events: {
-          onReady: () => onReady(player),
+          onReady: () => {
+            // Get video metadata including title
+            const videoData = player.getVideoData();
+            // videoData.title contains the video title
+            // videoData.author contains the channel name
+            onReady(player, videoData);
+          },
         },
       });
     };
@@ -107,6 +113,8 @@ function YouTubePlayer({ videoId, onReady }: YouTubePlayerProps) {
   return <div ref={containerRef} />;
 }
 ```
+
+The `getVideoData()` method returns video metadata which we store in `youtube_translations.video_title` for display when the video becomes unavailable.
 
 ### Frame Capture Strategy
 
@@ -225,13 +233,15 @@ Create new endpoint that reuses existing translation logic:
 // POST /api/youtube/translate
 interface TranslateFrameRequest {
   imageBase64: string;
-  language: Language; // Target language (ja, zh, ko)
+  language: Language; // Learning language (ja, zh, ko) - the language visible in the video
 }
 
 interface TranslateFrameResponse {
   // SSE stream, same format as /api/chat
 }
 ```
+
+The `language` parameter indicates which language the user is learning (and expects to see in the video). This is used to configure the translation prompt appropriately.
 
 The system prompt should be adapted for video frame context:
 
@@ -267,31 +277,24 @@ Compression parameters (same as chat):
 
 ### State Management
 
-Create YouTube-specific store or extend chat store:
+Create YouTube-specific store:
 
 ```typescript
 // src/store/youtube-store.ts
 interface YouTubeState {
   videoUrl: string | null;
   videoId: string | null;
+  videoTitle: string | null;
   isLoading: boolean;
   currentTranslation: TranslationData | null;
-  translationHistory: TranslationHistoryItem[];
 
-  setVideoUrl: (url: string) => void;
-  captureAndTranslate: (timestamp: number) => Promise<void>;
-  clearTranslation: () => void;
-}
-
-interface TranslationHistoryItem {
-  id: string;
-  videoId: string;
-  timestamp: number;
-  thumbnailUrl: string;
-  translation: TranslationData;
-  createdAt: Date;
+  setVideo: (url: string, id: string, title: string) => void;
+  setCurrentTranslation: (data: TranslationData | null) => void;
+  clearVideo: () => void;
 }
 ```
+
+Translation history is persisted to the database (`youtube_translations` table) but not loaded into the store. Users browse saved vocabulary through the Meadow, which links back to the YouTube viewer when clicked.
 
 ### URL Parsing
 
@@ -418,14 +421,15 @@ function handleSourceClick(petal: Petal) {
 }
 ```
 
-The YouTube viewer should handle URL parameters on mount:
+The YouTube viewer should handle URL parameters on mount (using Wouter's `useSearch`):
 
 ```typescript
 // In youtube-viewer.tsx
 function YouTubeViewer() {
-  const [searchParams] = useSearchParams();
-  const videoId = searchParams.get("v");
-  const timestamp = searchParams.get("t");
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const videoId = params.get("v");
+  const timestamp = params.get("t");
 
   useEffect(() => {
     if (videoId) {
@@ -541,9 +545,8 @@ Unsupported browsers will see a "browser not supported" message.
 ## Security Considerations
 
 1. **URL Validation**: Only accept valid YouTube URLs
-2. **Rate Limiting**: Limit capture requests to prevent abuse
-3. **Content Size**: Apply same image size limits as chat (20MB max)
-4. **CORS**: YouTube iframe has cross-origin restrictions; use postMessage API
+2. **Content Size**: Apply same image size limits as chat (20MB max)
+3. **CORS**: YouTube iframe has cross-origin restrictions; handled via Screen Capture API
 
 ## Future Enhancements
 
@@ -556,19 +559,21 @@ Unsupported browsers will see a "browser not supported" message.
 ## Implementation Phases
 
 ### Phase 1: Core Functionality
-- Sidebar navigation
+- Sidebar navigation and routing
 - YouTube URL input and player embed
-- Manual screenshot upload for translation
+- Screen Capture API frame capture
 - Translation display using existing card component
-
-### Phase 2: Automated Capture
-- Server-side frame capture with yt-dlp/ffmpeg
-- One-click "Translate Frame" button
 - Image compression pipeline
 
-### Phase 3: History & Integration
+### Phase 2: History & Integration
+- Database schema for youtube_translations
 - Translation history storage
 - Petal integration for vocabulary saving
+- Petal source navigation to YouTube viewer
+
+### Phase 3: Polish
+- Video unavailability fallback UI
+- First-time user guidance for screen capture flow
 - Video bookmarking
 
 ## Design Decisions
