@@ -238,6 +238,13 @@ export function YouTubeViewer() {
             if (currentTimestamp > 0) {
               event.target.seekTo(currentTimestamp, true);
             }
+
+            // Pre-cache the stream URL in the background
+            fetch("/api/youtube/precache-stream", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ videoId }),
+            }).catch(() => {});
           },
           onError: (event) => {
             // Error codes: 100 = not found, 101/150 = embedding disabled

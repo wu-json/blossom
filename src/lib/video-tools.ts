@@ -280,6 +280,13 @@ export async function compressFrameForApi(filename: string): Promise<Buffer> {
   return Buffer.from(frameBuffer);
 }
 
+// Pre-cache the stream URL for a video (call when video loads)
+export async function precacheStreamUrl(videoId: string): Promise<void> {
+  const { ytdlp } = await ensureVideoTools();
+  // Pre-cache high-quality stream URL in the background
+  await getStreamUrl(videoId, ytdlp, true);
+}
+
 // Legacy function for backward compatibility
 export async function extractFrame(videoId: string, timestampSeconds: number): Promise<Buffer> {
   const { ytdlp, ffmpeg } = await ensureVideoTools();

@@ -31,7 +31,7 @@ import {
   getYouTubeTranslationById,
   updateYouTubeTranslation,
 } from "./db/youtube-translations";
-import { extractAndSaveFrame, compressFrameForApi, framesDir, ensureVideoTools } from "./lib/video-tools";
+import { extractAndSaveFrame, compressFrameForApi, framesDir, ensureVideoTools, precacheStreamUrl } from "./lib/video-tools";
 import { db, blossomDir } from "./db/database";
 import { compactMessages } from "./lib/message-compaction";
 import { getImageForApi, type ImageMediaType } from "./lib/image-compression";
@@ -607,6 +607,24 @@ const server = Bun.serve({
         } catch (error) {
           console.error("Frame extraction error:", error);
           const message = error instanceof Error ? error.message : "Failed to extract frame";
+          return Response.json({ error: message }, { status: 500 });
+        }
+      },
+    },
+    "/api/youtube/precache-stream": {
+      POST: async (req) => {
+        try {
+          const { videoId } = await req.json();
+          if (!videoId) {
+            return Response.json({ error: "Missing videoId" }, { status: 400 });
+          }
+          // Fire and forget - don't wait for completion
+          precacheStreamUrl(videoId).catch((err) => {
+            console.error("Failed to precache stream:", err);
+          });
+          return Response.json({ status: "caching" });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unknown error";
           return Response.json({ error: message }, { status: 500 });
         }
       },
