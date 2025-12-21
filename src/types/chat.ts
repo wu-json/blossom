@@ -22,7 +22,7 @@ export type Theme = "light" | "dark";
 
 export type Language = "ja" | "zh" | "ko";
 
-export type View = "chat" | "settings" | "teacher" | "meadow";
+export type View = "chat" | "settings" | "teacher" | "meadow" | "youtube";
 
 export interface TeacherSettings {
   name: string;

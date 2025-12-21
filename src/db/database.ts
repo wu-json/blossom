@@ -84,6 +84,22 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_petals_language ON petals(language)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_petals_word ON petals(word)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_petals_word_language ON petals(word, language)`);
 
+// Create youtube_translations table for YouTube feature
+db.run(`
+  CREATE TABLE IF NOT EXISTS youtube_translations (
+    id TEXT PRIMARY KEY,
+    video_id TEXT NOT NULL,
+    video_title TEXT,
+    timestamp_seconds REAL NOT NULL,
+    frame_image TEXT,
+    translation_data TEXT,
+    created_at INTEGER NOT NULL
+  )
+`);
+
+// Create index for youtube_translations queries
+db.run(`CREATE INDEX IF NOT EXISTS idx_youtube_translations_video_id ON youtube_translations(video_id)`);
+
 // Migration: Add personality column if it doesn't exist (for existing databases)
 try {
   db.run(`ALTER TABLE teacher_settings ADD COLUMN personality TEXT`);
@@ -94,6 +110,20 @@ try {
 // Migration: Add images column to messages table (for existing databases)
 try {
   db.run(`ALTER TABLE messages ADD COLUMN images TEXT DEFAULT NULL`);
+} catch {
+  // Column already exists, ignore
+}
+
+// Migration: Add source_type column to petals table for YouTube support
+try {
+  db.run(`ALTER TABLE petals ADD COLUMN source_type TEXT DEFAULT 'chat'`);
+} catch {
+  // Column already exists, ignore
+}
+
+// Migration: Add youtube_translation_id column to petals table
+try {
+  db.run(`ALTER TABLE petals ADD COLUMN youtube_translation_id TEXT`);
 } catch {
   // Column already exists, ignore
 }

@@ -129,7 +129,7 @@ We use server-side frame extraction with yt-dlp and ffmpeg. This provides clean 
 
 #### Video Tools Setup
 
-yt-dlp and ffmpeg binaries are downloaded on first use to `~/.blossom/bin/`. Versions are pinned for compatibility.
+yt-dlp and ffmpeg binaries are downloaded on server startup to `~/.blossom/bin/`. Versions are pinned for compatibility.
 
 ```typescript
 // src/lib/video-tools.ts
@@ -605,8 +605,8 @@ To support this fallback, we should store a thumbnail of the captured frame in `
 ### Required
 
 - YouTube IFrame Player API (loaded dynamically)
-- yt-dlp (downloaded on first use, pinned version)
-- ffmpeg (downloaded on first use, pinned version)
+- yt-dlp (downloaded on server startup, pinned version)
+- ffmpeg (downloaded on server startup, pinned version)
 
 ### Binary Management
 
@@ -707,7 +707,7 @@ console.log(`   Server running at http://localhost:${server.port}\n`);
 
 2. **Petal source navigation**: Clicking a petal from YouTube navigates to `/youtube?tid={translationId}` instead of chat. The viewer fetches the translation record to get video ID, timestamp, and cached frame (for unavailability fallback).
 
-3. **Frame capture method**: Use server-side yt-dlp + ffmpeg for frame extraction. This provides clean frames without YouTube player UI overlay, and avoids browser permission prompts. Binaries are downloaded on first use with pinned versions for compatibility.
+3. **Frame capture method**: Use server-side yt-dlp + ffmpeg for frame extraction. This provides clean frames without YouTube player UI overlay, and avoids browser permission prompts. Binaries are downloaded on server startup with pinned versions for compatibility.
 
 4. **Video unavailability**: Store captured frame thumbnails in the database. When a video becomes unavailable, show the cached frame image along with the translation data so users can still review their saved vocabulary in context.
 
