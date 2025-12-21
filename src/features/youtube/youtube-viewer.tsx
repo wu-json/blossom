@@ -1248,20 +1248,21 @@ export function YouTubeViewer() {
               </div>
             </div>
 
-            {/* Expand button when collapsed */}
-            {translationBarCollapsed && (
-              <button
-                onClick={toggleTranslationBarCollapsed}
-                className="hidden lg:flex items-center justify-center flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                style={{
-                  width: "24px",
-                  borderLeft: "1px solid var(--border)",
-                }}
-                title="Expand sidebar (])"
-              >
-                <PanelRightOpen size={14} style={{ color: "var(--text-muted)" }} />
-              </button>
-            )}
+            {/* Expand button - always rendered, animated */}
+            <button
+              onClick={toggleTranslationBarCollapsed}
+              className="hidden lg:flex items-center justify-center flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              style={{
+                width: translationBarCollapsed ? "24px" : "0px",
+                opacity: translationBarCollapsed ? 1 : 0,
+                borderLeft: translationBarCollapsed ? "1px solid var(--border)" : "none",
+                transition: "width 0.2s ease-out, opacity 0.15s ease-out, border 0.2s ease-out",
+                overflow: "hidden",
+              }}
+              title="Expand sidebar (])"
+            >
+              <PanelRightOpen size={14} style={{ color: "var(--text-muted)" }} />
+            </button>
 
             {/* Mobile translation view - always full width on small screens */}
             {(isTranslating || timelineActiveTranslation?.translationData) && (
