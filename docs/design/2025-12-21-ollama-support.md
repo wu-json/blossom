@@ -769,6 +769,70 @@ Gemma 3 supports vision, so image-based translation (YouTube frames) works. The 
 }
 ```
 
+### Ollama Timeout and Warm-up
+
+Ollama can be slow on first request while loading the model into VRAM. Handle this with:
+
+1. **Longer timeout for Ollama** - 5 minutes vs 2 minutes for Anthropic
+2. **Pre-warm on server startup** - If Ollama is selected, send a minimal request to load the model
+
+```typescript
+// In OllamaProvider
+async *stream(options: LLMStreamOptions): AsyncIterable<string> {
+  const response = await fetch(`${this.baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: options.model,
+      messages: this.convertMessages(options.messages, options.system),
+      stream: true,
+    }),
+    signal: AbortSignal.timeout(5 * 60 * 1000), // 5 minute timeout for Ollama
+  });
+  // ...
+}
+```
+
+```typescript
+// In src/index.ts, on server startup
+
+async function warmOllamaIfNeeded() {
+  const settings = getLLMSettings();
+  if (settings.provider !== "ollama") return;
+
+  console.log("Warming Ollama model...");
+  try {
+    const provider = new OllamaProvider(settings.ollamaUrl);
+
+    // Send minimal request to load chatModel into memory
+    await provider.complete({
+      model: settings.chatModel,
+      messages: [{ role: "user", content: "hi" }],
+      system: "",
+      maxTokens: 1,
+    });
+
+    // Also warm titleModel if different
+    if (settings.titleModel !== settings.chatModel) {
+      await provider.complete({
+        model: settings.titleModel,
+        messages: [{ role: "user", content: "hi" }],
+        system: "",
+        maxTokens: 1,
+      });
+    }
+
+    console.log("Ollama models ready");
+  } catch (error) {
+    console.warn("Failed to warm Ollama:", error.message);
+    // Non-fatal - user will see error on first real request
+  }
+}
+
+// Call before server starts listening
+await warmOllamaIfNeeded();
+```
+
 ### Error Handling
 
 Handle provider-specific errors gracefully:
@@ -907,6 +971,8 @@ Features preserved in the abstraction:
 3. **Streaming** - Both providers expose async iterables, hiding protocol differences.
 
 4. **Model-per-task configuration** - Both providers support separate models for chat/translation vs title generation. Users can configure this in Settings.
+
+5. **Message compaction** - Existing logic (keep last 10 messages, remove old images first) works for both providers. Claude has 200K context, Gemma 3 has 128K - both plenty for typical conversations.
 
 Features lost or simplified:
 
