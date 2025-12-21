@@ -834,9 +834,9 @@ export function YouTubeViewer() {
               </>
             )}
 
-            {/* Translation Result - show streaming/manual translation OR timeline active translation */}
-            {(isTranslating || currentTranslation || timelineActiveTranslation?.translationData) && (
-              <div className="flex-1 overflow-auto px-4 py-4">
+            {/* Translation Result - show streaming OR timeline active translation */}
+            {(isTranslating || timelineActiveTranslation?.translationData) && (
+              <div className="flex-1 overflow-auto px-4 pt-4 pb-16">
                 <div
                   className="max-w-3xl mx-auto rounded-xl px-4 py-4"
                   style={{
@@ -844,8 +844,8 @@ export function YouTubeViewer() {
                     color: "var(--assistant-bubble-text)",
                   }}
                 >
-                  {/* Priority: streaming > manual translation > timeline active */}
-                  {isTranslating || currentTranslation ? (
+                  {/* Priority: streaming > timeline active */}
+                  {isTranslating ? (
                     renderTranslationContent()
                   ) : timelineActiveTranslation?.translationData ? (
                     <TranslationCard
