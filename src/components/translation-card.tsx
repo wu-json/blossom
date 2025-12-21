@@ -193,46 +193,43 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
       >
         {item.partOfSpeech}
       </div>
-      {/* Always reserve space for icon area to prevent layout shift */}
-      <div className="relative flex-shrink-0 flex items-center gap-1 w-4">
-        {canInteract && (
-          <>
-            {/* Icon with bloom/wilt effect */}
-            <div className="relative">
-              <div
-                className="transition-all duration-150"
-                style={{
-                  color: "var(--primary)",
-                  opacity: isSaved || isHovered ? 1 : 0,
-                  transform: showBloom ? "scale(1.4)" : showWilt ? "scale(0.8)" : "scale(1)",
-                }}
-              >
-                {isSaved ? <Flower2 size={16} /> : <Plus size={16} />}
-              </div>
-              {/* Petal bloom particles */}
-              {showBloom && <PetalBloom />}
-              {/* Petal wilt particles */}
-              {showWilt && <PetalWilt />}
+      {canInteract && (
+        <div className="relative flex-shrink-0 flex items-center gap-1">
+          {/* Icon with bloom/wilt effect */}
+          <div className="relative">
+            <div
+              className="transition-all duration-150"
+              style={{
+                color: "var(--primary)",
+                opacity: isSaved || isHovered ? 1 : 0,
+                transform: showBloom ? "scale(1.4)" : showWilt ? "scale(0.8)" : "scale(1)",
+              }}
+            >
+              {isSaved ? <Flower2 size={16} /> : <Plus size={16} />}
             </div>
-            {/* Remove button - only visible on hover when saved */}
-            {isSaved && isHovered && (
-              <button
-                onClick={handleRemoveClick}
-                className={`p-1 rounded-full transition-all duration-150 ${confirmingRemove ? "animate-pulse" : ""}`}
-                style={{
-                  color: confirmingRemove ? "#fff" : "var(--text-muted)",
-                  backgroundColor: confirmingRemove ? "rgba(239, 68, 68, 0.9)" : "transparent",
-                  opacity: isRemoving ? 0.5 : 1,
-                  transform: confirmingRemove ? "scale(1.1)" : "scale(1)",
-                }}
-                title={confirmingRemove ? "Click again to remove" : "Remove from meadow"}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </>
-        )}
-      </div>
+            {/* Petal bloom particles */}
+            {showBloom && <PetalBloom />}
+            {/* Petal wilt particles */}
+            {showWilt && <PetalWilt />}
+          </div>
+          {/* Remove button - only visible on hover when saved */}
+          {isSaved && isHovered && (
+            <button
+              onClick={handleRemoveClick}
+              className={`p-1 rounded-full transition-all duration-150 ${confirmingRemove ? "animate-pulse" : ""}`}
+              style={{
+                color: confirmingRemove ? "#fff" : "var(--text-muted)",
+                backgroundColor: confirmingRemove ? "rgba(239, 68, 68, 0.9)" : "transparent",
+                opacity: isRemoving ? 0.5 : 1,
+                transform: confirmingRemove ? "scale(1.1)" : "scale(1)",
+              }}
+              title={confirmingRemove ? "Click again to remove" : "Remove from meadow"}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
