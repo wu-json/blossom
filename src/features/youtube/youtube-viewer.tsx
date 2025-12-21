@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearch, useLocation } from "wouter";
-import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check, Play, Pause, Volume2, VolumeX, Maximize } from "lucide-react";
+import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check, Play, Pause, Volume2, VolumeX, Maximize, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useYouTubeStore } from "../../store/youtube-store";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -151,6 +151,8 @@ export function YouTubeViewer() {
     currentTimestamp,
     videoUnavailable,
     error,
+    translationBarWidth,
+    translationBarCollapsed,
     setVideoUrl,
     setVideo,
     setExtracting,
@@ -161,6 +163,8 @@ export function YouTubeViewer() {
     setVideoUnavailable,
     setError,
     clearVideo,
+    setTranslationBarWidth,
+    toggleTranslationBarCollapsed,
   } = useYouTubeStore();
 
   const language = useChatStore((state) => state.language);
@@ -183,6 +187,9 @@ export function YouTubeViewer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const apiLoadedRef = useRef(false);
+  const layoutContainerRef = useRef<HTMLDivElement>(null);
+  const isResizingRef = useRef(false);
+  const [isResizing, setIsResizing] = useState(false);
 
   const {
     translations: videoTranslations,
@@ -385,11 +392,16 @@ export function YouTubeViewer() {
           playerRef.current?.seekTo(Math.max(0, currentTime - seekAmount), true);
         }
       }
+
+      if (e.key === "[") {
+        e.preventDefault();
+        toggleTranslationBarCollapsed();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playerReady, isExtracting, isTranslating]);
+  }, [playerReady, isExtracting, isTranslating, toggleTranslationBarCollapsed]);
 
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return;
@@ -430,6 +442,31 @@ export function YouTubeViewer() {
       iframe.requestFullscreen();
     }
   }, []);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    setIsResizing(true);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isResizingRef.current || !layoutContainerRef.current) return;
+
+      const containerRect = layoutContainerRef.current.getBoundingClientRect();
+      const newWidth = ((containerRect.right - moveEvent.clientX) / containerRect.width) * 100;
+      const clampedWidth = Math.max(20, Math.min(50, newWidth));
+      setTranslationBarWidth(clampedWidth);
+    };
+
+    const handleMouseUp = () => {
+      isResizingRef.current = false;
+      setIsResizing(false);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, [setTranslationBarWidth]);
 
   const handleLoadVideo = () => {
     const id = parseYouTubeUrl(inputUrl);
@@ -776,7 +813,7 @@ export function YouTubeViewer() {
         )}
 
         {videoId && (
-          <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+          <div ref={layoutContainerRef} className="flex flex-col lg:flex-row h-full overflow-hidden">
             {videoUnavailable && currentFrameImage ? (
               <div className="max-w-3xl mx-auto px-6 py-4 space-y-4">
                 <div
@@ -826,7 +863,13 @@ export function YouTubeViewer() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col min-w-0 lg:w-[60%] 2xl:w-[70%] lg:flex-shrink-0">
+              <div
+                className="flex flex-col min-w-0 lg:flex-shrink-0 transition-all duration-200"
+                style={{
+                  width: translationBarCollapsed ? "100%" : undefined,
+                  flex: translationBarCollapsed ? undefined : `0 0 ${100 - translationBarWidth}%`,
+                }}
+              >
                 {!videoUnavailable && (
                   <div
                     className="flex items-center gap-3 px-4 py-2 border-b flex-shrink-0"
@@ -1047,11 +1090,145 @@ export function YouTubeViewer() {
               </div>
             )}
 
-            {(isTranslating || timelineActiveTranslation?.translationData) ? (
+            {/* Resize handle - only visible on large screens when not collapsed */}
+            {!translationBarCollapsed && (
               <div
-                className="flex-1 min-w-0 overflow-auto px-4 pt-4 pb-8 lg:pt-4 lg:border-l"
-                style={{ borderColor: "var(--border)" }}
+                className="hidden lg:flex items-center justify-center flex-shrink-0 group"
+                style={{
+                  width: "6px",
+                  cursor: "col-resize",
+                  backgroundColor: isResizing ? "var(--primary)" : "transparent",
+                  transition: isResizing ? "none" : "background-color 0.15s",
+                }}
+                onMouseDown={handleResizeStart}
               >
+                <div
+                  className="w-[2px] h-8 rounded-full transition-colors group-hover:opacity-100"
+                  style={{
+                    backgroundColor: isResizing ? "var(--primary)" : "var(--border)",
+                    opacity: isResizing ? 1 : 0.5,
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Collapse/expand button when sidebar is collapsed */}
+            {translationBarCollapsed && (
+              <button
+                onClick={toggleTranslationBarCollapsed}
+                className="hidden lg:flex items-center justify-center flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{
+                  width: "24px",
+                  borderLeft: "1px solid var(--border)",
+                }}
+                title="Expand sidebar ([)"
+              >
+                <PanelRightOpen size={14} style={{ color: "var(--text-muted)" }} />
+              </button>
+            )}
+
+            {/* Translation bar content */}
+            {!translationBarCollapsed && (
+              (isTranslating || timelineActiveTranslation?.translationData) ? (
+                <div
+                  className="hidden lg:flex flex-col min-w-0 overflow-auto transition-all duration-200"
+                  style={{
+                    flex: `0 0 ${translationBarWidth}%`,
+                    borderLeft: "1px solid var(--border)",
+                  }}
+                >
+                  {/* Collapse button header */}
+                  <div
+                    className="flex items-center justify-between px-3 py-2 flex-shrink-0"
+                    style={{ borderBottom: "1px solid var(--border)" }}
+                  >
+                    <button
+                      onClick={toggleTranslationBarCollapsed}
+                      className="flex items-center gap-1.5 p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                      title="Collapse sidebar ([)"
+                    >
+                      <PanelRightClose size={14} style={{ color: "var(--text-muted)" }} />
+                      <kbd
+                        className="text-[10px] px-1 py-0.5 rounded"
+                        style={{
+                          backgroundColor: "var(--surface)",
+                          color: "var(--text-muted)",
+                          border: "1px solid var(--border)",
+                        }}
+                      >
+                        [
+                      </kbd>
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-auto px-4 pt-4 pb-8">
+                    <div
+                      className="rounded-xl px-4 py-4"
+                      style={{
+                        backgroundColor: "var(--assistant-bubble)",
+                        color: "var(--assistant-bubble-text)",
+                      }}
+                    >
+                      {isTranslating ? (
+                        renderTranslationContent()
+                      ) : timelineActiveTranslation?.translationData ? (
+                        <TranslationCard
+                          data={timelineActiveTranslation.translationData}
+                          onSaveWord={(word) => handleTimelineSaveWord(timelineActiveTranslation.id, word)}
+                          onRemoveWord={(word) => handleTimelineRemoveWord(timelineActiveTranslation.id, word)}
+                          onViewFlower={handleViewFlower}
+                          savedWords={timelineSavedWords[timelineActiveTranslation.id] || []}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="hidden lg:flex flex-col min-w-0 transition-all duration-200"
+                  style={{
+                    flex: `0 0 ${translationBarWidth}%`,
+                    borderLeft: "1px solid var(--border)",
+                  }}
+                >
+                  {/* Collapse button header */}
+                  <div
+                    className="flex items-center justify-between px-3 py-2 flex-shrink-0"
+                    style={{ borderBottom: "1px solid var(--border)" }}
+                  >
+                    <button
+                      onClick={toggleTranslationBarCollapsed}
+                      className="flex items-center gap-1.5 p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                      title="Collapse sidebar ([)"
+                    >
+                      <PanelRightClose size={14} style={{ color: "var(--text-muted)" }} />
+                      <kbd
+                        className="text-[10px] px-1 py-0.5 rounded"
+                        style={{
+                          backgroundColor: "var(--surface)",
+                          color: "var(--text-muted)",
+                          border: "1px solid var(--border)",
+                        }}
+                      >
+                        [
+                      </kbd>
+                    </button>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center justify-center">
+                    <Languages size={32} style={{ color: "var(--text-muted)", opacity: 0.5 }} />
+                    <p
+                      className="mt-3 text-sm text-center px-4"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {translations[language].translate} (⌘↵)
+                    </p>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* Mobile translation view - always full width on small screens */}
+            {(isTranslating || timelineActiveTranslation?.translationData) && (
+              <div className="lg:hidden flex-1 min-w-0 overflow-auto px-4 pt-4 pb-8">
                 <div
                   className="rounded-xl px-4 py-4"
                   style={{
@@ -1071,19 +1248,6 @@ export function YouTubeViewer() {
                     />
                   ) : null}
                 </div>
-              </div>
-            ) : (
-              <div
-                className="hidden lg:flex flex-1 flex-col items-center justify-center lg:border-l"
-                style={{ borderColor: "var(--border)" }}
-              >
-                <Languages size={32} style={{ color: "var(--text-muted)", opacity: 0.5 }} />
-                <p
-                  className="mt-3 text-sm text-center px-4"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {translations[language].translate} (⌘↵)
-                </p>
               </div>
             )}
           </div>

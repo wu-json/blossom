@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { TranslationData } from "../types/translation";
 
 export interface YouTubeTranslation {
@@ -24,6 +25,9 @@ interface YouTubeState {
   currentTimestamp: number;
   videoUnavailable: boolean;
   error: string | null;
+  // UI preferences (persisted)
+  translationBarWidth: number;
+  translationBarCollapsed: boolean;
 }
 
 interface YouTubeActions {
@@ -39,6 +43,9 @@ interface YouTubeActions {
   setError: (error: string | null) => void;
   clearVideo: () => void;
   reset: () => void;
+  // UI preferences
+  setTranslationBarWidth: (width: number) => void;
+  toggleTranslationBarCollapsed: () => void;
 }
 
 export type YouTubeStore = YouTubeState & YouTubeActions;
@@ -56,54 +63,74 @@ const initialState: YouTubeState = {
   currentTimestamp: 0,
   videoUnavailable: false,
   error: null,
+  // UI preferences (persisted)
+  translationBarWidth: 35,
+  translationBarCollapsed: false,
 };
 
-export const useYouTubeStore = create<YouTubeStore>((set) => ({
-  ...initialState,
+export const useYouTubeStore = create<YouTubeStore>()(
+  persist(
+    (set) => ({
+      ...initialState,
 
-  setVideoUrl: (url: string) => set({ videoUrl: url }),
+      setVideoUrl: (url: string) => set({ videoUrl: url }),
 
-  setVideo: (url: string, id: string, title: string | null) =>
-    set({
-      videoUrl: url,
-      videoId: id,
-      videoTitle: title,
-      videoUnavailable: false,
-      error: null,
+      setVideo: (url: string, id: string, title: string | null) =>
+        set({
+          videoUrl: url,
+          videoId: id,
+          videoTitle: title,
+          videoUnavailable: false,
+          error: null,
+        }),
+
+      setLoading: (isLoading: boolean) => set({ isLoading }),
+
+      setExtracting: (isExtracting: boolean) => set({ isExtracting }),
+
+      setTranslating: (isTranslating: boolean) => set({ isTranslating }),
+
+      setCurrentTranslation: (data: TranslationData | null, id?: string | null) =>
+        set({
+          currentTranslation: data,
+          currentTranslationId: id ?? null,
+        }),
+
+      setCurrentFrameImage: (image: string | null) => set({ currentFrameImage: image }),
+
+      setCurrentTimestamp: (timestamp: number) => set({ currentTimestamp: timestamp }),
+
+      setVideoUnavailable: (unavailable: boolean) => set({ videoUnavailable: unavailable }),
+
+      setError: (error: string | null) => set({ error }),
+
+      clearVideo: () =>
+        set({
+          videoId: null,
+          videoTitle: null,
+          videoUrl: "",
+          currentTranslation: null,
+          currentTranslationId: null,
+          currentFrameImage: null,
+          currentTimestamp: 0,
+          videoUnavailable: false,
+          error: null,
+        }),
+
+      reset: () => set(initialState),
+
+      setTranslationBarWidth: (width: number) =>
+        set({ translationBarWidth: Math.max(20, Math.min(50, width)) }),
+
+      toggleTranslationBarCollapsed: () =>
+        set((state) => ({ translationBarCollapsed: !state.translationBarCollapsed })),
     }),
-
-  setLoading: (isLoading: boolean) => set({ isLoading }),
-
-  setExtracting: (isExtracting: boolean) => set({ isExtracting }),
-
-  setTranslating: (isTranslating: boolean) => set({ isTranslating }),
-
-  setCurrentTranslation: (data: TranslationData | null, id?: string | null) =>
-    set({
-      currentTranslation: data,
-      currentTranslationId: id ?? null,
-    }),
-
-  setCurrentFrameImage: (image: string | null) => set({ currentFrameImage: image }),
-
-  setCurrentTimestamp: (timestamp: number) => set({ currentTimestamp: timestamp }),
-
-  setVideoUnavailable: (unavailable: boolean) => set({ videoUnavailable: unavailable }),
-
-  setError: (error: string | null) => set({ error }),
-
-  clearVideo: () =>
-    set({
-      videoId: null,
-      videoTitle: null,
-      videoUrl: "",
-      currentTranslation: null,
-      currentTranslationId: null,
-      currentFrameImage: null,
-      currentTimestamp: 0,
-      videoUnavailable: false,
-      error: null,
-    }),
-
-  reset: () => set(initialState),
-}));
+    {
+      name: "blossom-youtube-ui",
+      partialize: (state) => ({
+        translationBarWidth: state.translationBarWidth,
+        translationBarCollapsed: state.translationBarCollapsed,
+      }),
+    }
+  )
+);
