@@ -1050,38 +1050,32 @@ export function YouTubeViewer() {
         {!videoId && (
           <div className="flex flex-col h-full">
             <header
-              className="sticky top-0 z-10 px-4 py-3 border-b flex items-center justify-between"
+              className="sticky top-0 z-10 border-b"
               style={{
                 backgroundColor: "var(--surface)",
                 borderColor: "var(--border)",
               }}
             >
-              <button
-                onClick={toggleSidebar}
-                className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
-                aria-label="Toggle sidebar"
-              >
-                <MenuIcon isOpen={sidebarCollapsed} />
-                <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
-                  blossom
-                </h1>
-                <span className="text-xs self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
-                  v{version}
-                </span>
-              </button>
+              <div className="px-4 py-3 flex items-center justify-between">
+                <button
+                  onClick={toggleSidebar}
+                  className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
+                  aria-label="Toggle sidebar"
+                >
+                  <MenuIcon isOpen={sidebarCollapsed} />
+                  <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
+                    blossom
+                  </h1>
+                  <span className="text-xs self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
+                    v{version}
+                  </span>
+                </button>
 
-              <HeaderControls />
-            </header>
+                <HeaderControls />
+              </div>
 
-            <div className="flex-1 overflow-auto">
-              <div className="flex flex-col items-center px-6 py-10">
-                <h3 className="font-medium mb-1" style={{ color: "var(--text)" }}>
-                  {translations[language].title}
-                </h3>
-                <p className="text-sm mb-6 max-w-sm text-center" style={{ color: "var(--text-muted)" }}>
-                  {translations[language].description}
-                </p>
-                <div className="flex gap-2 w-full max-w-md">
+              <div className="px-4 pb-3">
+                <div className="flex gap-2 w-full">
                   <input
                     type="text"
                     value={inputUrl}
@@ -1106,7 +1100,11 @@ export function YouTubeViewer() {
                     {translations[language].load}
                   </button>
                 </div>
+              </div>
+            </header>
 
+            <div className="flex-1 overflow-auto">
+              <div className="px-4 py-6">
                 <RecentVideosGrid
                   language={language}
                   onVideoSelect={(videoId, timestamp) => {

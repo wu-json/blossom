@@ -85,7 +85,7 @@ export function RecentVideosGrid({ onVideoSelect, language }: RecentVideosGridPr
   }
 
   return (
-    <div className="mt-8 w-full max-w-3xl">
+    <div className="w-full">
       <h3
         className="text-sm font-medium mb-4"
         style={{ color: "var(--text-muted)" }}
