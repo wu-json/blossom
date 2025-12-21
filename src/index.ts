@@ -733,7 +733,7 @@ If there is no ${languageName} text visible in the image, respond with a brief m
                     type: "image",
                     source: {
                       type: "base64",
-                      media_type: "image/png",
+                      media_type: "image/jpeg",
                       data: imageBase64,
                     },
                   },
