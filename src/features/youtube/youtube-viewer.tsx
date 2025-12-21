@@ -1177,55 +1177,42 @@ export function YouTubeViewer() {
               </div>
             )}
 
-            {/* Collapse/expand button when sidebar is collapsed */}
-            {translationBarCollapsed && (
-              <button
-                onClick={toggleTranslationBarCollapsed}
-                className="hidden lg:flex items-center justify-center flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                style={{
-                  width: "24px",
-                  borderLeft: "1px solid var(--border)",
-                }}
-                title="Expand sidebar (])"
-              >
-                <PanelRightOpen size={14} style={{ color: "var(--text-muted)" }} />
-              </button>
-            )}
-
-            {/* Translation bar content */}
-            {!translationBarCollapsed && (
-              (isTranslating || timelineActiveTranslation?.translationData) ? (
+            {/* Translation bar - always rendered, animated via width/opacity */}
+            <div
+              className="hidden lg:flex flex-col overflow-hidden flex-shrink-0"
+              style={{
+                width: translationBarCollapsed ? "0px" : `${translationBarWidth}%`,
+                opacity: translationBarCollapsed ? 0 : 1,
+                borderLeft: translationBarCollapsed ? "none" : "1px solid var(--border)",
+                transition: isResizing ? "none" : "width 0.2s ease-out, opacity 0.15s ease-out, border 0.2s ease-out",
+              }}
+            >
+              <div style={{ minWidth: "280px" }}>
+                {/* Collapse button header */}
                 <div
-                  className="hidden lg:flex flex-col min-w-0 overflow-auto"
-                  style={{
-                    flex: `0 0 ${translationBarWidth}%`,
-                    borderLeft: "1px solid var(--border)",
-                    transition: isResizing ? "none" : "all 0.2s ease-out",
-                  }}
+                  className="flex items-center justify-between px-3 py-2 flex-shrink-0"
+                  style={{ borderBottom: "1px solid var(--border)" }}
                 >
-                  {/* Collapse button header */}
-                  <div
-                    className="flex items-center justify-between px-3 py-2 flex-shrink-0"
-                    style={{ borderBottom: "1px solid var(--border)" }}
+                  <button
+                    onClick={toggleTranslationBarCollapsed}
+                    className="flex items-center gap-1.5 p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                    title="Collapse sidebar (])"
                   >
-                    <button
-                      onClick={toggleTranslationBarCollapsed}
-                      className="flex items-center gap-1.5 p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                      title="Collapse sidebar (])"
+                    <PanelRightClose size={14} style={{ color: "var(--text-muted)" }} />
+                    <kbd
+                      className="text-[10px] px-1 py-0.5 rounded"
+                      style={{
+                        backgroundColor: "var(--surface)",
+                        color: "var(--text-muted)",
+                        border: "1px solid var(--border)",
+                      }}
                     >
-                      <PanelRightClose size={14} style={{ color: "var(--text-muted)" }} />
-                      <kbd
-                        className="text-[10px] px-1 py-0.5 rounded"
-                        style={{
-                          backgroundColor: "var(--surface)",
-                          color: "var(--text-muted)",
-                          border: "1px solid var(--border)",
-                        }}
-                      >
-                        ]
-                      </kbd>
-                    </button>
-                  </div>
+                      ]
+                    </kbd>
+                  </button>
+                </div>
+
+                {(isTranslating || timelineActiveTranslation?.translationData) ? (
                   <div className="flex-1 overflow-auto px-4 pt-4 pb-8">
                     <div
                       className="rounded-xl px-4 py-4"
@@ -1247,40 +1234,8 @@ export function YouTubeViewer() {
                       ) : null}
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div
-                  className="hidden lg:flex flex-col min-w-0"
-                  style={{
-                    flex: `0 0 ${translationBarWidth}%`,
-                    borderLeft: "1px solid var(--border)",
-                    transition: isResizing ? "none" : "all 0.2s ease-out",
-                  }}
-                >
-                  {/* Collapse button header */}
-                  <div
-                    className="flex items-center justify-between px-3 py-2 flex-shrink-0"
-                    style={{ borderBottom: "1px solid var(--border)" }}
-                  >
-                    <button
-                      onClick={toggleTranslationBarCollapsed}
-                      className="flex items-center gap-1.5 p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                      title="Collapse sidebar (])"
-                    >
-                      <PanelRightClose size={14} style={{ color: "var(--text-muted)" }} />
-                      <kbd
-                        className="text-[10px] px-1 py-0.5 rounded"
-                        style={{
-                          backgroundColor: "var(--surface)",
-                          color: "var(--text-muted)",
-                          border: "1px solid var(--border)",
-                        }}
-                      >
-                        ]
-                      </kbd>
-                    </button>
-                  </div>
-                  <div className="flex-1 flex flex-col items-center justify-center">
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center py-16">
                     <Languages size={32} style={{ color: "var(--text-muted)", opacity: 0.5 }} />
                     <p
                       className="mt-3 text-sm text-center px-4"
@@ -1289,8 +1244,23 @@ export function YouTubeViewer() {
                       {translations[language].translate} (⌘↵)
                     </p>
                   </div>
-                </div>
-              )
+                )}
+              </div>
+            </div>
+
+            {/* Expand button when collapsed */}
+            {translationBarCollapsed && (
+              <button
+                onClick={toggleTranslationBarCollapsed}
+                className="hidden lg:flex items-center justify-center flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{
+                  width: "24px",
+                  borderLeft: "1px solid var(--border)",
+                }}
+                title="Expand sidebar (])"
+              >
+                <PanelRightOpen size={14} style={{ color: "var(--text-muted)" }} />
+              </button>
             )}
 
             {/* Mobile translation view - always full width on small screens */}
