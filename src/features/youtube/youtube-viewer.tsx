@@ -1068,7 +1068,7 @@ export function YouTubeViewer() {
 
             {(isTranslating || timelineActiveTranslation?.translationData) ? (
               <div
-                className="flex-1 min-w-0 overflow-auto px-4 pt-4 pb-16 lg:pt-4 lg:border-l"
+                className="flex-1 min-w-0 overflow-auto px-4 pt-4 pb-8 lg:pt-4 lg:border-l"
                 style={{ borderColor: "var(--border)" }}
               >
                 <div
