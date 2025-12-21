@@ -1053,5 +1053,5 @@ For ALL other interactions (questions, conversation, requests for examples, clar
 const pink = "\x1b[38;2;236;72;153m"; // #EC4899
 const reset = "\x1b[0m";
 
-console.log(`\n🌸 ${pink}Blossom${reset}`);
+console.log(`\n🌸 ${pink}Blossom${reset} - language as a meadow`);
 console.log(`   Server running at ${pink}http://localhost:${server.port}${reset}\n`);
