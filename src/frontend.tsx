@@ -30,7 +30,7 @@ function App() {
         return;
       }
 
-      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+      if (e.key === "[") {
         e.preventDefault();
         toggleSidebar();
       }
