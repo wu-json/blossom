@@ -124,42 +124,38 @@ export async function extractFrame(videoId: string, timestampSeconds: number): P
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
   // Get direct stream URL (yt-dlp resolves YouTube's signed URLs)
-  // Try formats in order of preference: 720p or less, then any best video
-  const formatSelectors = [
-    "bestvideo[height<=720]+bestaudio/best[height<=720]/bestvideo+bestaudio/best",
-  ];
+  // Prefer combined formats (single URL) to avoid 403 errors from separate video streams
+  const streamUrlProc = Bun.spawn([
+    ytdlp,
+    "-g",
+    "-f", "best[height<=720]/best",  // Combined format only (no +bestaudio)
+    "--no-warnings",
+    videoUrl
+  ], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
 
-  let streamUrl = "";
-  let lastError = "";
+  const streamUrlOutput = await new Response(streamUrlProc.stdout).text();
+  const stderr = await new Response(streamUrlProc.stderr).text();
+  const exitCode = await streamUrlProc.exited;
 
-  for (const format of formatSelectors) {
-    const streamUrlProc = Bun.spawn([ytdlp, "-g", "-f", format, "--no-warnings", videoUrl], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+  // Take first URL in case multiple are returned
+  const streamUrl = streamUrlOutput.trim().split("\n")[0];
 
-    const streamUrlOutput = await new Response(streamUrlProc.stdout).text();
-    const stderr = await new Response(streamUrlProc.stderr).text();
-    const exitCode = await streamUrlProc.exited;
-
-    if (exitCode === 0 && streamUrlOutput.trim()) {
-      // yt-dlp may return multiple URLs (video + audio), take the first (video)
-      streamUrl = streamUrlOutput.trim().split("\n")[0];
-      break;
-    }
-    lastError = stderr;
-  }
-
-  if (!streamUrl) {
-    throw new Error(`Failed to get video stream URL: ${lastError || "Unknown error"}`);
+  if (exitCode !== 0 || !streamUrl) {
+    throw new Error(`Failed to get video stream URL: ${stderr || "Unknown error"}`);
   }
 
   // Extract single frame at timestamp
+  // Using JPEG for faster encoding, -q:v 2 for high quality
   const ffmpegProc = Bun.spawn(
     [
       ffmpeg,
+      "-hide_banner",
+      "-nostdin",
       "-ss",
-      String(timestampSeconds), // Seek to timestamp
+      String(timestampSeconds), // Seek to timestamp (before -i for fast seeking)
       "-i",
       streamUrl, // Input stream
       "-frames:v",
@@ -167,7 +163,9 @@ export async function extractFrame(videoId: string, timestampSeconds: number): P
       "-f",
       "image2pipe", // Output to stdout
       "-vcodec",
-      "png", // PNG format
+      "mjpeg", // JPEG format (faster than PNG)
+      "-q:v",
+      "2", // High quality (1-31, lower is better)
       "-", // Output to stdout
     ],
     {
