@@ -11,6 +11,8 @@ export interface PetalRow {
   message_id: string;
   user_input: string;
   user_images: string | null;
+  source_type: string;
+  youtube_translation_id: string | null;
   created_at: number;
 }
 
@@ -55,6 +57,8 @@ export function createPetal(
     message_id: messageId,
     user_input: userInput,
     user_images: userImagesJson,
+    source_type: "chat",
+    youtube_translation_id: null,
     created_at: createdAt,
   };
 }
@@ -118,4 +122,51 @@ export function deletePetalByMessageAndWord(messageId: string, word: string): bo
     return true;
   }
   return false;
+}
+
+export function createPetalWithSource(
+  word: string,
+  reading: string,
+  meaning: string,
+  partOfSpeech: string,
+  language: string,
+  conversationId: string | null,
+  messageId: string,
+  userInput: string,
+  sourceType: "chat" | "youtube",
+  youtubeTranslationId: string | null,
+  userImages?: string[]
+): PetalRow {
+  const id = generateId();
+  const createdAt = Date.now();
+  const userImagesJson = userImages && userImages.length > 0 ? JSON.stringify(userImages) : null;
+
+  db.run(
+    `INSERT INTO petals (id, word, reading, meaning, part_of_speech, language, conversation_id, message_id, user_input, user_images, source_type, youtube_translation_id, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, word, reading, meaning, partOfSpeech, language, conversationId || "", messageId, userInput, userImagesJson, sourceType, youtubeTranslationId, createdAt]
+  );
+
+  return {
+    id,
+    word,
+    reading,
+    meaning,
+    part_of_speech: partOfSpeech,
+    language,
+    conversation_id: conversationId || "",
+    message_id: messageId,
+    user_input: userInput,
+    user_images: userImagesJson,
+    source_type: sourceType,
+    youtube_translation_id: youtubeTranslationId,
+    created_at: createdAt,
+  };
+}
+
+export function petalExistsByYouTubeTranslation(youtubeTranslationId: string, word: string): boolean {
+  const result = db.query<{ count: number }, [string, string]>(
+    "SELECT COUNT(*) as count FROM petals WHERE youtube_translation_id = ? AND word = ?"
+  ).get(youtubeTranslationId, word);
+  return (result?.count ?? 0) > 0;
 }

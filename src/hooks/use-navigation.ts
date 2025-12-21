@@ -32,5 +32,12 @@ export function useNavigation() {
     },
     navigateToTeacher: () => setLocation("/teacher"),
     navigateToSettings: () => setLocation("/settings"),
+    navigateToYouTube: (translationId?: string) => {
+      let path = "/youtube";
+      if (translationId) {
+        path += `?tid=${translationId}`;
+      }
+      setLocation(path);
+    },
   };
 }
