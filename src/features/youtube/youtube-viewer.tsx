@@ -864,10 +864,11 @@ export function YouTubeViewer() {
               </div>
             ) : (
               <div
-                className="flex flex-col min-w-0 lg:flex-shrink-0 transition-all duration-200"
+                className="flex flex-col min-w-0 lg:flex-shrink-0"
                 style={{
                   width: translationBarCollapsed ? "100%" : undefined,
                   flex: translationBarCollapsed ? undefined : `0 0 ${100 - translationBarWidth}%`,
+                  transition: isResizing ? "none" : "all 0.2s ease-out",
                 }}
               >
                 {!videoUnavailable && (
@@ -1131,10 +1132,11 @@ export function YouTubeViewer() {
             {!translationBarCollapsed && (
               (isTranslating || timelineActiveTranslation?.translationData) ? (
                 <div
-                  className="hidden lg:flex flex-col min-w-0 overflow-auto transition-all duration-200"
+                  className="hidden lg:flex flex-col min-w-0 overflow-auto"
                   style={{
                     flex: `0 0 ${translationBarWidth}%`,
                     borderLeft: "1px solid var(--border)",
+                    transition: isResizing ? "none" : "all 0.2s ease-out",
                   }}
                 >
                   {/* Collapse button header */}
@@ -1184,10 +1186,11 @@ export function YouTubeViewer() {
                 </div>
               ) : (
                 <div
-                  className="hidden lg:flex flex-col min-w-0 transition-all duration-200"
+                  className="hidden lg:flex flex-col min-w-0"
                   style={{
                     flex: `0 0 ${translationBarWidth}%`,
                     borderLeft: "1px solid var(--border)",
+                    transition: isResizing ? "none" : "all 0.2s ease-out",
                   }}
                 >
                   {/* Collapse button header */}
