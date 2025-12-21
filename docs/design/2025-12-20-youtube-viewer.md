@@ -118,208 +118,183 @@ The `getVideoData()` method returns video metadata which we store in `youtube_tr
 
 ### Frame Capture Strategy
 
-Due to cross-origin restrictions, we cannot directly capture pixels from a YouTube iframe. We use the Screen Capture API (`getDisplayMedia`) to capture the video frame.
+We use server-side frame extraction with yt-dlp and ffmpeg. This provides clean video frames without any YouTube player UI overlay, controls, or browser chrome.
 
-#### Screen Capture Flow
+#### Why Server-Side Extraction?
 
-1. User clicks "Start Capture" button to begin a capture session
-2. Browser prompts user to select screen/window to share
-3. Once permission granted, the stream stays open (browser shows "sharing" indicator)
-4. User pauses video at desired frame and clicks "Translate Frame" button
-5. We grab a frame from the active stream (no permission prompt)
-6. Frame is cropped to the video player region using stored element bounds
-7. Image is compressed and sent to Claude API for translation
-8. User can translate multiple frames without re-prompting
-9. User clicks "Stop Capture" or navigates away to end the session
+- **Clean frames**: No player controls, progress bars, or UI elements
+- **No user permission prompts**: Unlike Screen Capture API
+- **Reliable cropping**: Exact video dimensions, no guesswork
+- **Works in background**: User can pause video, frame is extracted server-side
 
-```typescript
-// src/features/youtube/frame-capture.ts
+#### Video Tools Setup
 
-interface CaptureResult {
-  imageBlob: Blob;
-  timestamp: number;
-}
-
-interface PlayerBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-// Capture session manager - keeps stream open for multiple frame grabs
-class CaptureSession {
-  private stream: MediaStream | null = null;
-  private imageCapture: ImageCapture | null = null;
-
-  async start(): Promise<void> {
-    this.stream = await navigator.mediaDevices.getDisplayMedia({
-      video: {
-        displaySurface: "window", // Prefer window capture
-      },
-      audio: false,
-    });
-
-    const track = this.stream.getVideoTracks()[0];
-    this.imageCapture = new ImageCapture(track);
-
-    // Listen for user clicking "Stop Sharing" in browser UI
-    track.onended = () => {
-      this.stream = null;
-      this.imageCapture = null;
-    };
-  }
-
-  isActive(): boolean {
-    return this.stream !== null && this.stream.active;
-  }
-
-  async grabFrame(
-    currentTimestamp: number,
-    playerBounds: PlayerBounds
-  ): Promise<CaptureResult> {
-    if (!this.imageCapture) {
-      throw new Error("Capture session not active");
-    }
-
-    const bitmap = await this.imageCapture.grabFrame();
-
-    // Create canvas and crop to player region
-    const canvas = document.createElement("canvas");
-    canvas.width = playerBounds.width;
-    canvas.height = playerBounds.height;
-    const ctx = canvas.getContext("2d")!;
-
-    // Calculate scale factor (screen capture may be at different resolution)
-    const scaleX = bitmap.width / window.innerWidth;
-    const scaleY = bitmap.height / window.innerHeight;
-
-    // Draw only the player region
-    ctx.drawImage(
-      bitmap,
-      playerBounds.x * scaleX,      // source x
-      playerBounds.y * scaleY,      // source y
-      playerBounds.width * scaleX,  // source width
-      playerBounds.height * scaleY, // source height
-      0,                            // dest x
-      0,                            // dest y
-      playerBounds.width,           // dest width
-      playerBounds.height           // dest height
-    );
-
-    const blob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob((b) => resolve(b!), "image/png");
-    });
-
-    return {
-      imageBlob: blob,
-      timestamp: currentTimestamp,
-    };
-  }
-
-  stop(): void {
-    if (this.stream) {
-      this.stream.getTracks().forEach((track) => track.stop());
-      this.stream = null;
-      this.imageCapture = null;
-    }
-  }
-}
-
-// Get player element bounds before capture
-function getPlayerBounds(playerElement: HTMLElement): PlayerBounds {
-  const rect = playerElement.getBoundingClientRect();
-  return {
-    x: rect.left,
-    y: rect.top,
-    width: rect.width,
-    height: rect.height,
-  };
-}
-```
-
-#### UX Considerations
-
-- **Permission dialog**: Browser shows a picker for which screen/window to share. Guide user to select the browser window with the video.
-- **Cropping accuracy**: The cropping logic uses player bounds relative to the browser window. If the user selects the entire screen or a different window instead, the crop will be incorrect. This is acceptable - users can retry with the correct selection.
-- **Sharing indicator**: Browser shows a "sharing" indicator while the capture session is active. This is expected and the user can stop sharing via the "Stop Capture" button or browser UI when done.
-- **First-time guidance**: Show a tooltip or modal explaining the capture flow on first use. Emphasize selecting the browser window (not entire screen).
-- **Session cleanup**: Stop the capture session when navigating away or unmounting the component.
-- **Error handling**: Handle `NotAllowedError` (user cancelled) gracefully with a friendly message.
+yt-dlp and ffmpeg binaries are downloaded on first use to `~/.blossom/bin/`. Versions are pinned for compatibility.
 
 ```typescript
-// In youtube-viewer.tsx
-const captureSessionRef = useRef(new CaptureSession());
+// src/lib/video-tools.ts
 
-async function handleStartCapture() {
+const TOOL_VERSIONS = {
+  ytdlp: "2024.12.13",
+  ffmpeg: "7.1",
+} as const;
+
+const DOWNLOAD_URLS: Record<string, Record<string, { ytdlp: string; ffmpeg: string }>> = {
+  darwin: {
+    arm64: {
+      ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp_macos`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/darwin-arm64.gz`,
+    },
+    x64: {
+      ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp_macos`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/darwin-x64.gz`,
+    },
+  },
+  linux: {
+    x64: {
+      ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp_linux`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/linux-x64.gz`,
+    },
+  },
+  win32: {
+    x64: {
+      ytdlp: `https://github.com/yt-dlp/yt-dlp/releases/download/${TOOL_VERSIONS.ytdlp}/yt-dlp.exe`,
+      ffmpeg: `https://github.com/eugeneware/ffmpeg-static/releases/download/b${TOOL_VERSIONS.ffmpeg}/win32-x64.gz`,
+    },
+  },
+};
+
+interface ToolPaths {
+  ytdlp: string;
+  ffmpeg: string;
+}
+
+// ~/.blossom/bin/versions.json tracks installed versions
+interface VersionManifest {
+  ytdlp: string;
+  ffmpeg: string;
+}
+
+async function ensureVideoTools(): Promise<ToolPaths> {
+  const binDir = join(blossomDir, "bin");
+  const manifestPath = join(binDir, "versions.json");
+
+  const ytdlpPath = join(binDir, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
+  const ffmpegPath = join(binDir, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+
+  // Check if we need to download/update
+  let needsDownload = false;
   try {
-    await captureSessionRef.current.start();
-    setIsCaptureActive(true);
-  } catch (error) {
-    if (error.name === "NotAllowedError") {
-      showToast("Screen capture cancelled. Click to try again.");
-    } else {
-      showToast("Failed to start capture.");
+    const manifest: VersionManifest = JSON.parse(await Bun.file(manifestPath).text());
+    if (manifest.ytdlp !== TOOL_VERSIONS.ytdlp || manifest.ffmpeg !== TOOL_VERSIONS.ffmpeg) {
+      needsDownload = true;
     }
-  }
-}
-
-function handleStopCapture() {
-  captureSessionRef.current.stop();
-  setIsCaptureActive(false);
-}
-
-async function handleTranslateClick() {
-  if (!captureSessionRef.current.isActive()) {
-    showToast("Start capture first.");
-    return;
+  } catch {
+    needsDownload = true;
   }
 
-  try {
-    setIsTranslating(true);
-    const playerBounds = getPlayerBounds(playerContainerRef.current);
-    const { imageBlob, timestamp } = await captureSessionRef.current.grabFrame(
-      player.getCurrentTime(),
-      playerBounds
-    );
-    await translateFrame(imageBlob, timestamp);
-  } catch (error) {
-    showToast("Failed to capture frame. Please try again.");
-  } finally {
-    setIsTranslating(false);
-  }
-}
+  if (needsDownload) {
+    await mkdir(binDir, { recursive: true });
 
-// Clean up on unmount or navigation
-useEffect(() => {
-  return () => captureSessionRef.current.stop();
-}, []);
+    const platform = process.platform;
+    const arch = process.arch === "arm64" ? "arm64" : "x64";
+    const urls = DOWNLOAD_URLS[platform]?.[arch];
+
+    if (!urls) {
+      throw new Error(`Unsupported platform: ${platform}-${arch}`);
+    }
+
+    // Download yt-dlp
+    const ytdlpResponse = await fetch(urls.ytdlp);
+    await Bun.write(ytdlpPath, ytdlpResponse);
+    await chmod(ytdlpPath, 0o755);
+
+    // Download and decompress ffmpeg (gzipped)
+    const ffmpegResponse = await fetch(urls.ffmpeg);
+    const ffmpegGz = await ffmpegResponse.arrayBuffer();
+    const ffmpegBinary = Bun.gunzipSync(new Uint8Array(ffmpegGz));
+    await Bun.write(ffmpegPath, ffmpegBinary);
+    await chmod(ffmpegPath, 0o755);
+
+    // Write version manifest
+    await Bun.write(manifestPath, JSON.stringify(TOOL_VERSIONS));
+  }
+
+  return { ytdlp: ytdlpPath, ffmpeg: ffmpegPath };
+}
 ```
 
-#### Browser Support Check
+#### Frame Extraction Flow
 
-If Screen Capture API is not available, show a browser not supported message:
+1. User clicks "Translate Frame" at current timestamp
+2. Frontend sends `{ videoId, timestamp }` to server
+3. Server extracts frame using yt-dlp + ffmpeg:
 
 ```typescript
-function YouTubeViewer() {
-  const isSupported = "getDisplayMedia" in navigator.mediaDevices;
+// src/lib/frame-extraction.ts
 
-  if (!isSupported) {
-    return (
-      <div className="browser-not-supported">
-        <AlertCircle />
-        <h3>Browser Not Supported</h3>
-        <p>
-          Your browser doesn't support screen capture.
-          Please use a modern browser like Chrome, Firefox, Safari, or Edge.
-        </p>
-      </div>
-    );
+async function extractFrame(videoId: string, timestampSeconds: number): Promise<Buffer> {
+  const { ytdlp, ffmpeg } = await ensureVideoTools();
+  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+  // Get direct stream URL (yt-dlp resolves YouTube's signed URLs)
+  const streamUrlProc = Bun.spawn([ytdlp, "-g", "-f", "best[height<=720]", videoUrl]);
+  const streamUrl = (await new Response(streamUrlProc.stdout).text()).trim();
+
+  if (!streamUrl) {
+    throw new Error("Failed to get video stream URL");
   }
 
-  // ... normal UI
+  // Extract single frame at timestamp
+  const ffmpegProc = Bun.spawn([
+    ffmpeg,
+    "-ss", String(timestampSeconds),  // Seek to timestamp
+    "-i", streamUrl,                   // Input stream
+    "-frames:v", "1",                  // Extract 1 frame
+    "-f", "image2pipe",                // Output to stdout
+    "-vcodec", "png",                  // PNG format
+    "-",                               // Output to stdout
+  ]);
+
+  const frameBuffer = await new Response(ffmpegProc.stdout).arrayBuffer();
+  return Buffer.from(frameBuffer);
 }
 ```
+
+#### API Endpoint
+
+```typescript
+// POST /api/youtube/extract-frame
+interface ExtractFrameRequest {
+  videoId: string;
+  timestamp: number; // seconds
+}
+
+interface ExtractFrameResponse {
+  imageBase64: string;
+}
+
+// In routes
+"/api/youtube/extract-frame": {
+  POST: async (req) => {
+    const { videoId, timestamp } = await req.json();
+
+    try {
+      const frameBuffer = await extractFrame(videoId, timestamp);
+      const imageBase64 = frameBuffer.toString("base64");
+      return Response.json({ imageBase64 });
+    } catch (error) {
+      return Response.json({ error: "Failed to extract frame" }, { status: 500 });
+    }
+  },
+},
+```
+
+#### Error Handling
+
+- **Download failure**: Retry with exponential backoff, show manual install instructions as fallback
+- **Extraction failure**: Could be geo-restricted, age-gated, or live stream. Show appropriate error message.
+- **Video unavailable**: yt-dlp will fail, catch and show "Video unavailable" message
 
 ### Translation API
 
@@ -426,7 +401,6 @@ function parseYouTubeUrl(url: string): string | null {
 |           (16:9 aspect ratio)            |
 |                                          |
 +------------------------------------------+
-| [Start Capture]  or  [Stop Capture]      |
 |        [ Translate Frame ]               |
 +------------------------------------------+
 |                                          |
@@ -436,9 +410,7 @@ function parseYouTubeUrl(url: string): string | null {
 +------------------------------------------+
 ```
 
-- **Start Capture**: Begins screen sharing session (prompts for permission)
-- **Stop Capture**: Ends the session (also ends if user clicks browser's "Stop Sharing")
-- **Translate Frame**: Only enabled when capture session is active
+- **Translate Frame**: Extracts frame at current timestamp via server-side yt-dlp/ffmpeg and sends to Claude for translation
 
 #### Translation Card
 
@@ -633,23 +605,74 @@ To support this fallback, we should store a thumbnail of the captured frame in `
 ### Required
 
 - YouTube IFrame Player API (loaded dynamically)
-- Screen Capture API (`navigator.mediaDevices.getDisplayMedia`) - supported in all modern browsers
+- yt-dlp (downloaded on first use, pinned version)
+- ffmpeg (downloaded on first use, pinned version)
 
-### Browser Compatibility
+### Binary Management
 
-Screen Capture API support:
-- Chrome 72+ ✓
-- Firefox 66+ ✓
-- Safari 13+ ✓
-- Edge 79+ ✓
+Binaries are stored in `~/.blossom/bin/` with a `versions.json` manifest:
 
-Unsupported browsers will see a "browser not supported" message.
+```
+~/.blossom/
+├── sqlite.db
+├── uploads/
+└── bin/
+    ├── yt-dlp           # ~22MB
+    ├── ffmpeg           # ~80MB
+    └── versions.json    # {"ytdlp": "2024.12.13", "ffmpeg": "7.1"}
+```
+
+On server startup (before "Blossom server running at" message):
+1. Check if `versions.json` exists and matches `TOOL_VERSIONS` in code
+2. If mismatch or missing, download fresh binaries with progress output
+3. This ensures tools are ready before the user can access the YouTube feature
+
+```typescript
+// In src/index.ts, before server starts
+
+async function ensureVideoTools() {
+  const binDir = join(blossomDir, "bin");
+  const manifestPath = join(binDir, "versions.json");
+
+  // ... version check logic ...
+
+  if (needsDownload) {
+    console.log("Downloading video tools...");
+
+    console.log("  yt-dlp...");
+    await downloadYtDlp();
+
+    console.log("  ffmpeg...");
+    await downloadFfmpeg();
+
+    console.log("  Done\n");
+  }
+}
+
+// Call before server starts
+await ensureVideoTools();
+
+const server = Bun.serve({ ... });
+
+console.log(`\n🌸 Blossom - ようこそ | 欢迎 | 환영합니다`);
+console.log(`   Server running at http://localhost:${server.port}\n`);
+```
+
+### Platform Support
+
+| Platform      | yt-dlp | ffmpeg |
+|---------------|--------|--------|
+| macOS arm64   | ✓      | ✓      |
+| macOS x64     | ✓      | ✓      |
+| Linux x64     | ✓      | ✓      |
+| Windows x64   | ✓      | ✓      |
 
 ## Security Considerations
 
 1. **URL Validation**: Only accept valid YouTube URLs
 2. **Content Size**: Apply same image size limits as chat (20MB max)
-3. **CORS**: YouTube iframe has cross-origin restrictions; handled via Screen Capture API
+3. **Binary Downloads**: Only download from official GitHub release URLs (yt-dlp, ffmpeg-static)
+4. **Subprocess Execution**: Only execute downloaded binaries with controlled arguments
 
 ## Future Enhancements
 
@@ -664,9 +687,9 @@ Unsupported browsers will see a "browser not supported" message.
 ### Phase 1: Core Functionality
 - Sidebar navigation and routing
 - YouTube URL input and player embed
-- Screen Capture API frame capture
+- Video tools download system (yt-dlp + ffmpeg with version pinning)
+- Server-side frame extraction via yt-dlp/ffmpeg
 - Translation display using existing card component
-- Image compression pipeline
 
 ### Phase 2: History & Integration
 - Database schema for youtube_translations
@@ -676,7 +699,6 @@ Unsupported browsers will see a "browser not supported" message.
 
 ### Phase 3: Polish
 - Video unavailability fallback UI
-- First-time user guidance for screen capture flow
 - Video bookmarking
 
 ## Design Decisions
@@ -685,7 +707,7 @@ Unsupported browsers will see a "browser not supported" message.
 
 2. **Petal source navigation**: Clicking a petal from YouTube navigates to `/youtube?tid={translationId}` instead of chat. The viewer fetches the translation record to get video ID, timestamp, and cached frame (for unavailability fallback).
 
-3. **Frame capture method**: Use Screen Capture API (`getDisplayMedia`) instead of server-side yt-dlp/ffmpeg. This eliminates external dependencies and works entirely in the browser. Unsupported browsers show a "browser not supported" message.
+3. **Frame capture method**: Use server-side yt-dlp + ffmpeg for frame extraction. This provides clean frames without YouTube player UI overlay, and avoids browser permission prompts. Binaries are downloaded on first use with pinned versions for compatibility.
 
 4. **Video unavailability**: Store captured frame thumbnails in the database. When a video becomes unavailable, show the cached frame image along with the translation data so users can still review their saved vocabulary in context.
 
