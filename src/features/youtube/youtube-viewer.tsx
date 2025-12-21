@@ -358,6 +358,23 @@ export function YouTubeViewer() {
     return () => clearInterval(interval);
   }, [playerReady]);
 
+  // Recover focus when iframe steals it
+  useEffect(() => {
+    if (!playerReady || !playerRef.current) return;
+
+    const handleWindowBlur = () => {
+      // Check if an iframe has stolen focus
+      setTimeout(() => {
+        if (document.activeElement?.tagName === "IFRAME") {
+          window.focus();
+        }
+      }, 0);
+    };
+
+    window.addEventListener("blur", handleWindowBlur);
+    return () => window.removeEventListener("blur", handleWindowBlur);
+  }, [playerReady]);
+
   useEffect(() => {
     if (!playerReady) return;
 
