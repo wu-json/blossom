@@ -81,7 +81,7 @@ export function PetalCard({ petal }: PetalCardProps) {
 
   const handleViewContext = () => {
     if (isYouTube && petal.youtubeTranslationId) {
-      navigateToYouTube(petal.youtubeTranslationId);
+      navigateToYouTube({ translationId: petal.youtubeTranslationId });
     } else {
       setScrollToMessage(petal.messageId);
       navigateToChat(petal.conversationId);

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useSearch } from "wouter";
-import { Loader2, Languages, AlertCircle, ExternalLink, X } from "lucide-react";
+import { useSearch, useLocation } from "wouter";
+import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check } from "lucide-react";
 import { useYouTubeStore } from "../../store/youtube-store";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -9,7 +9,7 @@ import { parseTranslationContent, hasTranslationMarkers, parseStreamingTranslati
 import type { TranslationData, WordBreakdown, PartialTranslationData } from "../../types/translation";
 import type { Language } from "../../types/chat";
 
-const translations: Record<Language, { title: string; description: string; placeholder: string; load: string; translate: string; extracting: string; translating: string }> = {
+const translations: Record<Language, { title: string; description: string; placeholder: string; load: string; translate: string; extracting: string; translating: string; share: string; copied: string }> = {
   ja: {
     title: "YouTube翻訳",
     description: "YouTube動画のフレームからテキストを翻訳",
@@ -18,6 +18,8 @@ const translations: Record<Language, { title: string; description: string; place
     translate: "翻訳",
     extracting: "抽出中...",
     translating: "翻訳中...",
+    share: "共有",
+    copied: "コピー済",
   },
   zh: {
     title: "YouTube翻译",
@@ -27,6 +29,8 @@ const translations: Record<Language, { title: string; description: string; place
     translate: "翻译",
     extracting: "提取中...",
     translating: "翻译中...",
+    share: "分享",
+    copied: "已复制",
   },
   ko: {
     title: "YouTube 번역",
@@ -36,6 +40,8 @@ const translations: Record<Language, { title: string; description: string; place
     translate: "번역",
     extracting: "추출 중...",
     translating: "번역 중...",
+    share: "공유",
+    copied: "복사됨",
   },
 };
 
@@ -112,8 +118,11 @@ interface YouTubeTranslationRecord {
 
 export function YouTubeViewer() {
   const searchString = useSearch();
+  const [, setLocation] = useLocation();
   const params = new URLSearchParams(searchString);
   const translationId = params.get("tid");
+  const urlVideoId = params.get("v");
+  const urlTimestamp = params.get("t");
 
   const {
     videoUrl,
@@ -146,6 +155,7 @@ export function YouTubeViewer() {
   const [playerReady, setPlayerReady] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [savedWords, setSavedWords] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -167,6 +177,25 @@ export function YouTubeViewer() {
       fetchTranslationRecord(translationId);
     }
   }, [translationId]);
+
+  // Handle URL params for shareable links (?v=VIDEO_ID&t=TIMESTAMP)
+  useEffect(() => {
+    if (urlVideoId && !translationId && urlVideoId !== videoId) {
+      const url = `https://www.youtube.com/watch?v=${urlVideoId}`;
+      setVideo(url, urlVideoId, null);
+      setInputUrl(url);
+      setCurrentTranslation(null);
+      setCurrentFrameImage(null);
+      setError(null);
+      setSavedWords([]);
+      // Set timestamp if provided (will be used in onReady)
+      if (urlTimestamp) {
+        setCurrentTimestamp(parseFloat(urlTimestamp));
+      } else {
+        setCurrentTimestamp(0);
+      }
+    }
+  }, [urlVideoId, urlTimestamp, translationId]);
 
   const fetchTranslationRecord = async (id: string) => {
     try {
@@ -279,6 +308,8 @@ export function YouTubeViewer() {
       setCurrentTimestamp(0);
       setError(null);
       setSavedWords([]);
+      // Update URL to shareable format
+      setLocation(`/youtube?v=${id}`);
     } else {
       setError("Invalid YouTube URL");
     }
@@ -508,6 +539,24 @@ export function YouTubeViewer() {
     setInputUrl("");
     setPlayerReady(false);
     setSavedWords([]);
+    // Clear URL params
+    setLocation("/youtube");
+  };
+
+  const handleShare = async () => {
+    if (!videoId || !playerRef.current) return;
+
+    const timestamp = playerRef.current.getCurrentTime();
+    const shareUrl = `${window.location.origin}/youtube?v=${videoId}&t=${Math.floor(timestamp)}`;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback - open share URL in alert
+      prompt("Copy this link:", shareUrl);
+    }
   };
 
   return (
@@ -607,32 +656,46 @@ export function YouTubeViewer() {
                       </h2>
                     )}
                     {playerReady && (
-                      <button
-                        onClick={handleTranslateFrame}
-                        disabled={isExtracting || isTranslating}
-                        className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50 flex-shrink-0"
-                        style={{
-                          backgroundColor: "var(--primary)",
-                          color: "white",
-                        }}
-                      >
-                        {isExtracting ? (
-                          <>
-                            <Loader2 size={14} className="animate-spin" />
-                            {translations[language].extracting}
-                          </>
-                        ) : isTranslating ? (
-                          <>
-                            <Loader2 size={14} className="animate-spin" />
-                            {translations[language].translating}
-                          </>
-                        ) : (
-                          <>
-                            <Languages size={14} />
-                            {translations[language].translate}
-                          </>
-                        )}
-                      </button>
+                      <>
+                        <button
+                          onClick={handleShare}
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-80 flex-shrink-0"
+                          style={{
+                            backgroundColor: "var(--surface)",
+                            color: copied ? "var(--primary)" : "var(--text-muted)",
+                            border: "1px solid var(--border)",
+                          }}
+                        >
+                          {copied ? <Check size={14} /> : <Share2 size={14} />}
+                          {copied ? translations[language].copied : translations[language].share}
+                        </button>
+                        <button
+                          onClick={handleTranslateFrame}
+                          disabled={isExtracting || isTranslating}
+                          className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50 flex-shrink-0"
+                          style={{
+                            backgroundColor: "var(--primary)",
+                            color: "white",
+                          }}
+                        >
+                          {isExtracting ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" />
+                              {translations[language].extracting}
+                            </>
+                          ) : isTranslating ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" />
+                              {translations[language].translating}
+                            </>
+                          ) : (
+                            <>
+                              <Languages size={14} />
+                              {translations[language].translate}
+                            </>
+                          )}
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
