@@ -447,12 +447,14 @@ export function YouTubeViewer() {
     }
   }, []);
 
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+  const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
     isResizingRef.current = true;
     setIsResizing(true);
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handlePointerMove = (moveEvent: PointerEvent) => {
       if (!isResizingRef.current || !layoutContainerRef.current) return;
 
       const containerRect = layoutContainerRef.current.getBoundingClientRect();
@@ -461,23 +463,29 @@ export function YouTubeViewer() {
       setTranslationBarWidth(clampedWidth);
     };
 
-    const handleMouseUp = () => {
+    const cleanup = () => {
       isResizingRef.current = false;
       setIsResizing(false);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+      target.removeEventListener("pointermove", handlePointerMove);
+      target.removeEventListener("pointerup", cleanup);
+      target.removeEventListener("pointercancel", cleanup);
+      target.removeEventListener("lostpointercapture", cleanup);
     };
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+    target.addEventListener("pointermove", handlePointerMove);
+    target.addEventListener("pointerup", cleanup);
+    target.addEventListener("pointercancel", cleanup);
+    target.addEventListener("lostpointercapture", cleanup);
   }, [setTranslationBarWidth]);
 
-  const handleHeightResizeStart = useCallback((e: React.MouseEvent) => {
+  const handleHeightResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
     isResizingHeightRef.current = true;
     setIsResizingHeight(true);
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handlePointerMove = (moveEvent: PointerEvent) => {
       if (!isResizingHeightRef.current) return;
 
       const newHeight = (moveEvent.clientY / window.innerHeight) * 100;
@@ -485,15 +493,19 @@ export function YouTubeViewer() {
       setPlayerHeight(clampedHeight);
     };
 
-    const handleMouseUp = () => {
+    const cleanup = () => {
       isResizingHeightRef.current = false;
       setIsResizingHeight(false);
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+      target.removeEventListener("pointermove", handlePointerMove);
+      target.removeEventListener("pointerup", cleanup);
+      target.removeEventListener("pointercancel", cleanup);
+      target.removeEventListener("lostpointercapture", cleanup);
     };
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+    target.addEventListener("pointermove", handlePointerMove);
+    target.addEventListener("pointerup", cleanup);
+    target.addEventListener("pointercancel", cleanup);
+    target.addEventListener("lostpointercapture", cleanup);
   }, [setPlayerHeight]);
 
   const handleLoadVideo = () => {
@@ -986,14 +998,14 @@ export function YouTubeViewer() {
 
                 {/* Height resize handle - only on large screens */}
                 <div
-                  className="hidden lg:flex items-center justify-center flex-shrink-0 group"
+                  className="hidden lg:flex items-center justify-center flex-shrink-0 group touch-none"
                   style={{
                     height: "6px",
                     cursor: "row-resize",
                     backgroundColor: isResizingHeight ? "var(--primary)" : "transparent",
                     transition: isResizingHeight ? "none" : "background-color 0.15s",
                   }}
-                  onMouseDown={handleHeightResizeStart}
+                  onPointerDown={handleHeightResizeStart}
                 >
                   <div
                     className="h-[2px] w-8 rounded-full transition-colors group-hover:opacity-100"
@@ -1146,14 +1158,14 @@ export function YouTubeViewer() {
             {/* Resize handle - only visible on large screens when not collapsed */}
             {!translationBarCollapsed && (
               <div
-                className="hidden lg:flex items-center justify-center flex-shrink-0 group"
+                className="hidden lg:flex items-center justify-center flex-shrink-0 group touch-none"
                 style={{
                   width: "6px",
                   cursor: "col-resize",
                   backgroundColor: isResizing ? "var(--primary)" : "transparent",
                   transition: isResizing ? "none" : "background-color 0.15s",
                 }}
-                onMouseDown={handleResizeStart}
+                onPointerDown={handleResizeStart}
               >
                 <div
                   className="w-[2px] h-8 rounded-full transition-colors group-hover:opacity-100"
