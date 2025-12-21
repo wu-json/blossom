@@ -80,11 +80,19 @@ db.run(`
     video_id TEXT NOT NULL,
     video_title TEXT,
     timestamp_seconds REAL NOT NULL,
+    duration_seconds REAL DEFAULT 5.0,
     frame_image TEXT,
     translation_data TEXT,
     created_at INTEGER NOT NULL
   )
 `);
 db.run(`CREATE INDEX IF NOT EXISTS idx_youtube_translations_video_id ON youtube_translations(video_id)`);
+
+// Migration: Add duration_seconds column if it doesn't exist
+try {
+  db.run(`ALTER TABLE youtube_translations ADD COLUMN duration_seconds REAL DEFAULT 5.0`);
+} catch {
+  // Column already exists
+}
 
 export { db, blossomDir };

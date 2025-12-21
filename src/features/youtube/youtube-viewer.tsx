@@ -6,6 +6,9 @@ import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
 import { TranslationCard, TranslationSkeleton, StreamingTranslationCard } from "../../components/translation-card";
 import { parseTranslationContent, hasTranslationMarkers, parseStreamingTranslation } from "../../lib/parse-translation";
+import { TranslationTimeline } from "./translation-timeline";
+import { useVideoTranslations, type YouTubeTranslation } from "./hooks/use-video-translations";
+import { useActiveTranslation } from "./hooks/use-active-translation";
 import type { TranslationData, WordBreakdown, PartialTranslationData } from "../../types/translation";
 import type { Language } from "../../types/chat";
 
@@ -101,6 +104,7 @@ declare global {
 
 interface YTPlayer {
   getCurrentTime: () => number;
+  getDuration: () => number;
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
   getVideoData: () => { title: string; author: string; video_id: string };
   destroy: () => void;
@@ -156,10 +160,17 @@ export function YouTubeViewer() {
   const [streamingContent, setStreamingContent] = useState("");
   const [savedWords, setSavedWords] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
+  const [timelineSavedWords, setTimelineSavedWords] = useState<Record<string, string[]>>({});
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const apiLoadedRef = useRef(false);
+
+  // Timeline hooks
+  const { translations: videoTranslations, addTranslation, updateDuration, refetch: refetchTranslations } = useVideoTranslations(videoId);
+  const timelineActiveTranslation = useActiveTranslation(videoTranslations, currentPlaybackTime);
 
   // Load YouTube IFrame API
   useEffect(() => {
@@ -263,6 +274,10 @@ export function YouTubeViewer() {
               setVideo(videoUrl, videoId, data.title);
             }
 
+            // Get video duration for timeline
+            const duration = event.target.getDuration();
+            setVideoDuration(duration);
+
             // Seek to timestamp if we have one from URL params
             if (currentTimestamp > 0) {
               event.target.seekTo(currentTimestamp, true);
@@ -298,6 +313,18 @@ export function YouTubeViewer() {
       }
     };
   }, [videoId]);
+
+  // Poll current time from player for timeline
+  useEffect(() => {
+    if (!playerReady || !playerRef.current) return;
+
+    const interval = setInterval(() => {
+      const time = playerRef.current?.getCurrentTime() ?? 0;
+      setCurrentPlaybackTime(time);
+    }, 250); // Update 4x per second
+
+    return () => clearInterval(interval);
+  }, [playerReady]);
 
   const handleLoadVideo = () => {
     const id = parseYouTubeUrl(inputUrl);
@@ -407,8 +434,24 @@ export function YouTubeViewer() {
         });
 
         // Set translation only once, with ID if save succeeded
-        const savedId = saveResponse.ok ? (await saveResponse.json()).id : null;
-        setCurrentTranslation(parsedContent.data, savedId);
+        if (saveResponse.ok) {
+          const savedTranslation = await saveResponse.json();
+          setCurrentTranslation(parsedContent.data, savedTranslation.id);
+
+          // Add to timeline
+          addTranslation({
+            id: savedTranslation.id,
+            videoId: videoId!,
+            videoTitle: videoTitle,
+            timestampSeconds: timestamp,
+            durationSeconds: 5.0,
+            frameImage: frameFilename ? `/api/youtube/frames/${frameFilename}` : null,
+            translationData: parsedContent.data,
+            createdAt: Date.now(),
+          });
+        } else {
+          setCurrentTranslation(parsedContent.data, null);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -473,6 +516,74 @@ export function YouTubeViewer() {
   const handleViewFlower = (word: string) => {
     navigateToMeadow(word);
   };
+
+  // Timeline handlers
+  const handleTimelineMarkerClick = useCallback((translation: YouTubeTranslation) => {
+    playerRef.current?.seekTo(translation.timestampSeconds, true);
+  }, []);
+
+  const handleTimelineSeek = useCallback((seconds: number) => {
+    playerRef.current?.seekTo(seconds, true);
+  }, []);
+
+  const handleTimelineDurationChange = useCallback((translationId: string, durationSeconds: number) => {
+    updateDuration(translationId, durationSeconds);
+  }, [updateDuration]);
+
+  const handleTimelineSaveWord = useCallback(async (translationId: string, word: WordBreakdown): Promise<boolean> => {
+    const translation = videoTranslations.find(t => t.id === translationId);
+    if (!translation) return false;
+
+    try {
+      const response = await fetch("/api/petals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          word: word.word,
+          reading: word.reading,
+          meaning: word.meaning,
+          partOfSpeech: word.partOfSpeech,
+          language,
+          conversationId: `youtube-${videoId}`,
+          messageId: translationId,
+          userInput: `From YouTube: ${translation.videoTitle || videoId} at ${formatTimestamp(translation.timestampSeconds)}`,
+          sourceType: "youtube",
+          youtubeTranslationId: translationId,
+        }),
+      });
+
+      if (response.ok) {
+        setTimelineSavedWords((prev) => ({
+          ...prev,
+          [translationId]: [...(prev[translationId] || []), word.word],
+        }));
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, [videoTranslations, language, videoId]);
+
+  const handleTimelineRemoveWord = useCallback(async (translationId: string, word: string): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `/api/petals/message/${translationId}/word/${encodeURIComponent(word)}`,
+        { method: "DELETE" }
+      );
+
+      if (response.ok) {
+        setTimelineSavedWords((prev) => ({
+          ...prev,
+          [translationId]: (prev[translationId] || []).filter((w) => w !== word),
+        }));
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, []);
 
   // Render translation content based on streaming state
   const renderTranslationContent = () => {
@@ -706,11 +817,25 @@ export function YouTubeViewer() {
                   className="w-full aspect-video flex-shrink-0"
                   style={{ backgroundColor: "var(--surface)" }}
                 />
+
+                {/* Timeline below video */}
+                {playerReady && videoDuration > 0 && videoTranslations.length > 0 && (
+                  <TranslationTimeline
+                    videoId={videoId!}
+                    videoDuration={videoDuration}
+                    currentTime={currentPlaybackTime}
+                    translations={videoTranslations}
+                    activeTranslationId={timelineActiveTranslation?.id ?? null}
+                    onMarkerClick={handleTimelineMarkerClick}
+                    onDurationChange={handleTimelineDurationChange}
+                    onSeek={handleTimelineSeek}
+                  />
+                )}
               </>
             )}
 
-            {/* Translation Result */}
-            {(isTranslating || currentTranslation) && (
+            {/* Translation Result - show streaming/manual translation OR timeline active translation */}
+            {(isTranslating || currentTranslation || timelineActiveTranslation?.translationData) && (
               <div className="flex-1 overflow-auto px-4 py-4">
                 <div
                   className="max-w-3xl mx-auto rounded-xl px-4 py-4"
@@ -719,7 +844,18 @@ export function YouTubeViewer() {
                     color: "var(--assistant-bubble-text)",
                   }}
                 >
-                  {renderTranslationContent()}
+                  {/* Priority: streaming > manual translation > timeline active */}
+                  {isTranslating || currentTranslation ? (
+                    renderTranslationContent()
+                  ) : timelineActiveTranslation?.translationData ? (
+                    <TranslationCard
+                      data={timelineActiveTranslation.translationData}
+                      onSaveWord={(word) => handleTimelineSaveWord(timelineActiveTranslation.id, word)}
+                      onRemoveWord={(word) => handleTimelineRemoveWord(timelineActiveTranslation.id, word)}
+                      onViewFlower={handleViewFlower}
+                      savedWords={timelineSavedWords[timelineActiveTranslation.id] || []}
+                    />
+                  ) : null}
                 </div>
               </div>
             )}

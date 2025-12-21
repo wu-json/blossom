@@ -29,7 +29,9 @@ import {
 import {
   createYouTubeTranslation,
   getYouTubeTranslationById,
+  getYouTubeTranslationsByVideoId,
   updateYouTubeTranslation,
+  updateYouTubeTranslationDuration,
 } from "./db/youtube-translations";
 import { extractAndSaveFrame, compressFrameForApi, framesDir, ensureVideoTools, precacheStreamUrl } from "./lib/video-tools";
 import { db, blossomDir } from "./db/database";
@@ -646,6 +648,30 @@ const server = Bun.serve({
       },
     },
     "/api/youtube/translations": {
+      GET: (req) => {
+        const url = new URL(req.url);
+        const videoId = url.searchParams.get("videoId");
+
+        if (!videoId) {
+          return Response.json({ error: "videoId required" }, { status: 400 });
+        }
+
+        const translations = getYouTubeTranslationsByVideoId(videoId);
+
+        // Transform to client format
+        const clientTranslations = translations.map((t) => ({
+          id: t.id,
+          videoId: t.video_id,
+          videoTitle: t.video_title,
+          timestampSeconds: t.timestamp_seconds,
+          durationSeconds: t.duration_seconds ?? 5.0,
+          frameImage: t.frame_image ? `/api/youtube/frames/${t.frame_image}` : null,
+          translationData: t.translation_data ? JSON.parse(t.translation_data) : null,
+          createdAt: t.created_at,
+        }));
+
+        return Response.json({ translations: clientTranslations });
+      },
       POST: async (req) => {
         try {
           const { videoId, videoTitle, timestampSeconds, frameFilename, translationData } = await req.json();
@@ -700,6 +726,24 @@ const server = Bun.serve({
           translationData ? JSON.stringify(translationData) : null,
           frameImage
         );
+
+        if (!success) {
+          return Response.json({ error: "Translation not found" }, { status: 404 });
+        }
+
+        return Response.json({ success: true });
+      },
+    },
+    "/api/youtube/translations/:id/duration": {
+      PATCH: async (req) => {
+        const id = req.params.id;
+        const { durationSeconds } = await req.json();
+
+        if (typeof durationSeconds !== "number" || durationSeconds < 1) {
+          return Response.json({ error: "Duration must be at least 1 second" }, { status: 400 });
+        }
+
+        const success = updateYouTubeTranslationDuration(id, durationSeconds);
 
         if (!success) {
           return Response.json({ error: "Translation not found" }, { status: 404 });
