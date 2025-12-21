@@ -36,7 +36,7 @@ Create a unified LLM interface that both Anthropic and Ollama can implement:
 export interface LLMMessage {
   role: "user" | "assistant";
   content: string;
-  images?: string[]; // base64 encoded
+  images?: string[]; // base64, may include data URI prefix (e.g., "data:image/png;base64,...")
 }
 
 export interface LLMStreamOptions {
@@ -124,18 +124,34 @@ export class AnthropicProvider implements LLMProvider {
       role: m.role,
       content: m.images?.length
         ? [
-            ...m.images.map((img) => ({
-              type: "image" as const,
-              source: {
-                type: "base64" as const,
-                media_type: "image/png" as const,
-                data: img,
-              },
-            })),
+            ...m.images.map((img) => {
+              const { mediaType, data } = this.parseImage(img);
+              return {
+                type: "image" as const,
+                source: {
+                  type: "base64" as const,
+                  media_type: mediaType,
+                  data,
+                },
+              };
+            }),
             { type: "text" as const, text: m.content },
           ]
         : m.content,
     }));
+  }
+
+  // Parse data URI to extract media type and raw base64
+  private parseImage(img: string): { mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif"; data: string } {
+    const match = img.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (match) {
+      return {
+        mediaType: match[1] as "image/png" | "image/jpeg" | "image/webp" | "image/gif",
+        data: match[2],
+      };
+    }
+    // Assume raw base64 PNG if no prefix
+    return { mediaType: "image/png", data: img };
   }
 }
 ```
