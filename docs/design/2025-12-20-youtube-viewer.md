@@ -189,6 +189,12 @@ async function ensureVideoTools(): Promise<ToolPaths> {
     if (manifest.ytdlp !== TOOL_VERSIONS.ytdlp || manifest.ffmpeg !== TOOL_VERSIONS.ffmpeg) {
       needsDownload = true;
     }
+    // Also check if binaries exist
+    const ytdlpExists = await Bun.file(ytdlpPath).exists();
+    const ffmpegExists = await Bun.file(ffmpegPath).exists();
+    if (!ytdlpExists || !ffmpegExists) {
+      needsDownload = true;
+    }
   } catch {
     needsDownload = true;
   }
@@ -204,20 +210,43 @@ async function ensureVideoTools(): Promise<ToolPaths> {
       throw new Error(`Unsupported platform: ${platform}-${arch}`);
     }
 
-    // Download yt-dlp
-    const ytdlpResponse = await fetch(urls.ytdlp);
-    await Bun.write(ytdlpPath, ytdlpResponse);
+    console.log("Downloading video tools...");
+
+    // Download yt-dlp using curl for reliable redirect handling
+    console.log("  yt-dlp...");
+    const ytdlpProc = Bun.spawn(["curl", "-fsSL", "-o", ytdlpPath, urls.ytdlp], {
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const ytdlpExit = await ytdlpProc.exited;
+    if (ytdlpExit !== 0) {
+      throw new Error(`Failed to download yt-dlp (exit code ${ytdlpExit})`);
+    }
     await chmod(ytdlpPath, 0o755);
 
-    // Download and decompress ffmpeg (gzipped)
-    const ffmpegResponse = await fetch(urls.ffmpeg);
-    const ffmpegGz = await ffmpegResponse.arrayBuffer();
+    // Download ffmpeg using curl and decompress
+    console.log("  ffmpeg...");
+    const ffmpegGzPath = `${ffmpegPath}.gz`;
+    const ffmpegProc = Bun.spawn(["curl", "-fsSL", "-o", ffmpegGzPath, urls.ffmpeg], {
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const ffmpegExit = await ffmpegProc.exited;
+    if (ffmpegExit !== 0) {
+      throw new Error(`Failed to download ffmpeg (exit code ${ffmpegExit})`);
+    }
+
+    // Decompress ffmpeg
+    const ffmpegGz = await Bun.file(ffmpegGzPath).arrayBuffer();
     const ffmpegBinary = Bun.gunzipSync(new Uint8Array(ffmpegGz));
     await Bun.write(ffmpegPath, ffmpegBinary);
     await chmod(ffmpegPath, 0o755);
+    await unlink(ffmpegGzPath);
 
     // Write version manifest
     await Bun.write(manifestPath, JSON.stringify(TOOL_VERSIONS));
+
+    console.log("  Done\n");
   }
 
   return { ytdlp: ytdlpPath, ffmpeg: ffmpegPath };
@@ -231,19 +260,31 @@ async function ensureVideoTools(): Promise<ToolPaths> {
 3. Server extracts frame using yt-dlp + ffmpeg:
 
 ```typescript
-// src/lib/frame-extraction.ts
+// src/lib/video-tools.ts
 
 async function extractFrame(videoId: string, timestampSeconds: number): Promise<Buffer> {
   const { ytdlp, ffmpeg } = await ensureVideoTools();
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
   // Get direct stream URL (yt-dlp resolves YouTube's signed URLs)
-  const streamUrlProc = Bun.spawn([ytdlp, "-g", "-f", "best[height<=720]", videoUrl]);
-  const streamUrl = (await new Response(streamUrlProc.stdout).text()).trim();
+  // Use flexible format selector: prefer 720p, fall back to any available format
+  const format = "bestvideo[height<=720]+bestaudio/best[height<=720]/bestvideo+bestaudio/best";
 
-  if (!streamUrl) {
-    throw new Error("Failed to get video stream URL");
+  const streamUrlProc = Bun.spawn([ytdlp, "-g", "-f", format, "--no-warnings", videoUrl], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const streamUrlOutput = await new Response(streamUrlProc.stdout).text();
+  const stderr = await new Response(streamUrlProc.stderr).text();
+  const exitCode = await streamUrlProc.exited;
+
+  if (exitCode !== 0 || !streamUrlOutput.trim()) {
+    throw new Error(`Failed to get video stream URL: ${stderr || "Unknown error"}`);
   }
+
+  // yt-dlp may return multiple URLs (video + audio), take the first (video)
+  const streamUrl = streamUrlOutput.trim().split("\n")[0];
 
   // Extract single frame at timestamp
   const ffmpegProc = Bun.spawn([
@@ -254,9 +295,19 @@ async function extractFrame(videoId: string, timestampSeconds: number): Promise<
     "-f", "image2pipe",                // Output to stdout
     "-vcodec", "png",                  // PNG format
     "-",                               // Output to stdout
-  ]);
+  ], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
 
   const frameBuffer = await new Response(ffmpegProc.stdout).arrayBuffer();
+  const ffmpegExitCode = await ffmpegProc.exited;
+
+  if (ffmpegExitCode !== 0 || frameBuffer.byteLength === 0) {
+    const ffmpegStderr = await new Response(ffmpegProc.stderr).text();
+    throw new Error(`Failed to extract frame: ${ffmpegStderr || "Unknown error"}`);
+  }
+
   return Buffer.from(frameBuffer);
 }
 ```
@@ -605,6 +656,7 @@ To support this fallback, we should store a thumbnail of the captured frame in `
 ### Required
 
 - YouTube IFrame Player API (loaded dynamically)
+- curl (for downloading binaries - pre-installed on macOS/Linux)
 - yt-dlp (downloaded on server startup, pinned version)
 - ffmpeg (downloaded on server startup, pinned version)
 
