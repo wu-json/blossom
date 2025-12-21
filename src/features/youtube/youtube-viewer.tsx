@@ -153,6 +153,7 @@ export function YouTubeViewer() {
     error,
     translationBarWidth,
     translationBarCollapsed,
+    playerHeight,
     setVideoUrl,
     setVideo,
     setExtracting,
@@ -165,6 +166,7 @@ export function YouTubeViewer() {
     clearVideo,
     setTranslationBarWidth,
     toggleTranslationBarCollapsed,
+    setPlayerHeight,
   } = useYouTubeStore();
 
   const language = useChatStore((state) => state.language);
@@ -189,7 +191,9 @@ export function YouTubeViewer() {
   const apiLoadedRef = useRef(false);
   const layoutContainerRef = useRef<HTMLDivElement>(null);
   const isResizingRef = useRef(false);
+  const isResizingHeightRef = useRef(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [isResizingHeight, setIsResizingHeight] = useState(false);
 
   const {
     translations: videoTranslations,
@@ -467,6 +471,30 @@ export function YouTubeViewer() {
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
   }, [setTranslationBarWidth]);
+
+  const handleHeightResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingHeightRef.current = true;
+    setIsResizingHeight(true);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isResizingHeightRef.current) return;
+
+      const newHeight = (moveEvent.clientY / window.innerHeight) * 100;
+      const clampedHeight = Math.max(25, Math.min(75, newHeight));
+      setPlayerHeight(clampedHeight);
+    };
+
+    const handleMouseUp = () => {
+      isResizingHeightRef.current = false;
+      setIsResizingHeight(false);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, [setPlayerHeight]);
 
   const handleLoadVideo = () => {
     const id = parseYouTubeUrl(inputUrl);
@@ -948,9 +976,33 @@ export function YouTubeViewer() {
 
                 <div
                   ref={containerRef}
-                  className="w-full aspect-video flex-shrink-0 max-h-[50vh] lg:max-h-[55vh]"
-                  style={{ backgroundColor: "var(--surface)" }}
+                  className="w-full aspect-video flex-shrink-0 max-h-[50vh]"
+                  style={{
+                    backgroundColor: "var(--surface)",
+                    maxHeight: `${playerHeight}vh`,
+                    transition: isResizingHeight ? "none" : "max-height 0.2s ease-out",
+                  }}
                 />
+
+                {/* Height resize handle - only on large screens */}
+                <div
+                  className="hidden lg:flex items-center justify-center flex-shrink-0 group"
+                  style={{
+                    height: "6px",
+                    cursor: "row-resize",
+                    backgroundColor: isResizingHeight ? "var(--primary)" : "transparent",
+                    transition: isResizingHeight ? "none" : "background-color 0.15s",
+                  }}
+                  onMouseDown={handleHeightResizeStart}
+                >
+                  <div
+                    className="h-[2px] w-8 rounded-full transition-colors group-hover:opacity-100"
+                    style={{
+                      backgroundColor: isResizingHeight ? "var(--primary)" : "var(--border)",
+                      opacity: isResizingHeight ? 1 : 0.5,
+                    }}
+                  />
+                </div>
 
                 {playerReady && videoDuration > 0 && (
                   <div

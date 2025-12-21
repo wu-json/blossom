@@ -28,6 +28,7 @@ interface YouTubeState {
   // UI preferences (persisted)
   translationBarWidth: number;
   translationBarCollapsed: boolean;
+  playerHeight: number; // vh percentage
 }
 
 interface YouTubeActions {
@@ -46,6 +47,7 @@ interface YouTubeActions {
   // UI preferences
   setTranslationBarWidth: (width: number) => void;
   toggleTranslationBarCollapsed: () => void;
+  setPlayerHeight: (height: number) => void;
 }
 
 export type YouTubeStore = YouTubeState & YouTubeActions;
@@ -66,6 +68,7 @@ const initialState: YouTubeState = {
   // UI preferences (persisted)
   translationBarWidth: 35,
   translationBarCollapsed: false,
+  playerHeight: 50,
 };
 
 export const useYouTubeStore = create<YouTubeStore>()(
@@ -124,12 +127,16 @@ export const useYouTubeStore = create<YouTubeStore>()(
 
       toggleTranslationBarCollapsed: () =>
         set((state) => ({ translationBarCollapsed: !state.translationBarCollapsed })),
+
+      setPlayerHeight: (height: number) =>
+        set({ playerHeight: Math.max(25, Math.min(75, height)) }),
     }),
     {
       name: "blossom-youtube-ui",
       partialize: (state) => ({
         translationBarWidth: state.translationBarWidth,
         translationBarCollapsed: state.translationBarCollapsed,
+        playerHeight: state.playerHeight,
       }),
     }
   )
