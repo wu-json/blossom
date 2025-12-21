@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearch, useLocation } from "wouter";
-import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check } from "lucide-react";
+import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check, Play, Pause, Volume2, VolumeX, Maximize } from "lucide-react";
 import { useYouTubeStore } from "../../store/youtube-store";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -110,6 +110,12 @@ interface YTPlayer {
   getPlayerState: () => number;
   playVideo: () => void;
   pauseVideo: () => void;
+  mute: () => void;
+  unMute: () => void;
+  isMuted: () => boolean;
+  getVolume: () => number;
+  setVolume: (volume: number) => void;
+  getIframe: () => HTMLIFrameElement;
   destroy: () => void;
 }
 
@@ -166,6 +172,9 @@ export function YouTubeViewer() {
   const [videoDuration, setVideoDuration] = useState(0);
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
   const [timelineSavedWords, setTimelineSavedWords] = useState<Record<string, string[]>>({});
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(100);
+  const [isMuted, setIsMuted] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -304,6 +313,10 @@ export function YouTubeViewer() {
               setVideoUnavailable(true);
             }
           },
+          onStateChange: (event) => {
+            // 1 = playing, 2 = paused
+            setIsPlaying(event.data === 1);
+          },
         },
       });
     };
@@ -405,6 +418,47 @@ export function YouTubeViewer() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [playerReady, videoTranslations, isExtracting, isTranslating]);
+
+  // Playback controls
+  const togglePlayPause = useCallback(() => {
+    if (!playerRef.current) return;
+    if (isPlaying) {
+      playerRef.current.pauseVideo();
+    } else {
+      playerRef.current.playVideo();
+    }
+  }, [isPlaying]);
+
+  const toggleMute = useCallback(() => {
+    if (!playerRef.current) return;
+    if (isMuted) {
+      playerRef.current.unMute();
+      setIsMuted(false);
+    } else {
+      playerRef.current.mute();
+      setIsMuted(true);
+    }
+  }, [isMuted]);
+
+  const handleVolumeChange = useCallback((newVolume: number) => {
+    if (!playerRef.current) return;
+    playerRef.current.setVolume(newVolume);
+    setVolume(newVolume);
+    if (newVolume === 0) {
+      setIsMuted(true);
+    } else if (isMuted) {
+      playerRef.current.unMute();
+      setIsMuted(false);
+    }
+  }, [isMuted]);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!playerRef.current) return;
+    const iframe = playerRef.current.getIframe();
+    if (iframe.requestFullscreen) {
+      iframe.requestFullscreen();
+    }
+  }, []);
 
   const handleLoadVideo = () => {
     const id = parseYouTubeUrl(inputUrl);
@@ -902,16 +956,107 @@ export function YouTubeViewer() {
                   style={{ backgroundColor: "var(--surface)" }}
                 />
 
-                {/* Timeline below video */}
-                {playerReady && videoDuration > 0 && videoTranslations.length > 0 && (
-                  <TranslationTimeline
-                    videoDuration={videoDuration}
-                    currentTime={currentPlaybackTime}
-                    translations={videoTranslations}
-                    activeTranslationId={timelineActiveTranslation?.id ?? null}
-                    onMarkerClick={handleTimelineMarkerClick}
-                    onSeek={handleTimelineSeek}
-                  />
+                {/* Video Controls Bar */}
+                {playerReady && videoDuration > 0 && (
+                  <div
+                    className="flex flex-col gap-2 px-4 py-3"
+                    style={{
+                      backgroundColor: "var(--surface)",
+                      borderTop: "1px solid var(--border)",
+                    }}
+                  >
+                    {/* Top row: Play/Pause, Time, Volume, Fullscreen */}
+                    <div className="flex items-center gap-3">
+                      {/* Play/Pause */}
+                      <button
+                        onClick={togglePlayPause}
+                        className="p-2 rounded-lg transition-all hover:opacity-80"
+                        style={{
+                          backgroundColor: "var(--primary)",
+                          color: "white",
+                        }}
+                        title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+                      >
+                        {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                      </button>
+
+                      {/* Current Time / Duration */}
+                      <span
+                        className="text-sm font-medium tabular-nums"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        {formatTimestamp(currentPlaybackTime)} / {formatTimestamp(videoDuration)}
+                      </span>
+
+                      {/* Spacer */}
+                      <div className="flex-1" />
+
+                      {/* Volume */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={toggleMute}
+                          className="p-1.5 rounded-lg transition-all hover:opacity-80"
+                          style={{ color: "var(--text-muted)" }}
+                          title={isMuted ? "Unmute" : "Mute"}
+                        >
+                          {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                        </button>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={isMuted ? 0 : volume}
+                          onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                          className="w-20 h-1.5 rounded-full appearance-none cursor-pointer"
+                          style={{
+                            backgroundColor: "var(--border)",
+                            accentColor: "var(--primary)",
+                          }}
+                        />
+                      </div>
+
+                      {/* Fullscreen */}
+                      <button
+                        onClick={toggleFullscreen}
+                        className="p-1.5 rounded-lg transition-all hover:opacity-80"
+                        style={{ color: "var(--text-muted)" }}
+                        title="Fullscreen"
+                      >
+                        <Maximize size={18} />
+                      </button>
+                    </div>
+
+                    {/* Bottom row: Full-width Timeline */}
+                    {videoTranslations.length > 0 ? (
+                      <TranslationTimeline
+                        videoDuration={videoDuration}
+                        currentTime={currentPlaybackTime}
+                        translations={videoTranslations}
+                        activeTranslationId={timelineActiveTranslation?.id ?? null}
+                        onMarkerClick={handleTimelineMarkerClick}
+                        onSeek={handleTimelineSeek}
+                      />
+                    ) : (
+                      /* Simple progress bar when no translations */
+                      <div
+                        className="relative h-2 rounded-full cursor-pointer"
+                        style={{ backgroundColor: "var(--border)" }}
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const percent = (e.clientX - rect.left) / rect.width;
+                          handleTimelineSeek(percent * videoDuration);
+                        }}
+                      >
+                        <div
+                          className="absolute left-0 top-0 h-full rounded-full"
+                          style={{
+                            width: `${(currentPlaybackTime / videoDuration) * 100}%`,
+                            backgroundColor: "var(--primary)",
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
               </>
             )}

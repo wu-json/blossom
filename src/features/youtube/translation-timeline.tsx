@@ -2,12 +2,6 @@ import { useRef, useCallback } from "react";
 import { TimelineMarker } from "./timeline-marker";
 import type { YouTubeTranslation } from "./hooks/use-video-translations";
 
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
-
 interface TranslationTimelineProps {
   videoDuration: number;
   currentTime: number;
@@ -41,14 +35,7 @@ export function TranslationTimeline({
   );
 
   return (
-    <div
-      className="translation-timeline"
-      style={{
-        padding: "12px 16px",
-        backgroundColor: "var(--surface)",
-        borderTop: "1px solid var(--border)",
-      }}
-    >
+    <div className="translation-timeline">
       <div
         ref={trackRef}
         className="timeline-track"
@@ -91,21 +78,6 @@ export function TranslationTimeline({
             />
           );
         })}
-      </div>
-
-      {/* Time labels */}
-      <div
-        className="timeline-labels"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginTop: "4px",
-          fontSize: "11px",
-          color: "var(--text-muted)",
-        }}
-      >
-        <span>{formatTime(0)}</span>
-        <span>{formatTime(videoDuration)}</span>
       </div>
     </div>
   );
