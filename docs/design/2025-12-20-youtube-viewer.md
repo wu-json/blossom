@@ -122,12 +122,15 @@ Due to cross-origin restrictions, we cannot directly capture pixels from a YouTu
 
 #### Screen Capture Flow
 
-1. User pauses video at desired frame
-2. User clicks "Translate Frame" button
-3. Browser prompts user to select screen/window to share
-4. Once permission granted, we capture a single frame and immediately stop the stream
-5. Frame is cropped to the video player region using stored element bounds
-6. Image is compressed and sent to Claude API for translation
+1. User clicks "Start Capture" button to begin a capture session
+2. Browser prompts user to select screen/window to share
+3. Once permission granted, the stream stays open (browser shows "sharing" indicator)
+4. User pauses video at desired frame and clicks "Translate Frame" button
+5. We grab a frame from the active stream (no permission prompt)
+6. Frame is cropped to the video player region using stored element bounds
+7. Image is compressed and sent to Claude API for translation
+8. User can translate multiple frames without re-prompting
+9. User clicks "Stop Capture" or navigates away to end the session
 
 ```typescript
 // src/features/youtube/frame-capture.ts
