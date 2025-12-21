@@ -107,6 +107,9 @@ interface YTPlayer {
   getDuration: () => number;
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
   getVideoData: () => { title: string; author: string; video_id: string };
+  getPlayerState: () => number;
+  playVideo: () => void;
+  pauseVideo: () => void;
   destroy: () => void;
 }
 
@@ -265,6 +268,11 @@ export function YouTubeViewer() {
           enablejsapi: 1,
           origin: window.location.origin,
           rel: 0,
+          controls: 0,        // Hide player controls
+          disablekb: 1,       // Disable YouTube keyboard controls (we have our own)
+          fs: 0,              // Hide fullscreen button
+          iv_load_policy: 3,  // Hide video annotations
+          modestbranding: 1,  // Minimal YouTube branding
         },
         events: {
           onReady: (event) => {
@@ -334,6 +342,19 @@ export function YouTubeViewer() {
       // Don't handle if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
+      }
+
+      if (e.key === " " || e.code === "Space") {
+        e.preventDefault();
+        // Toggle play/pause
+        if (playerRef.current) {
+          const state = playerRef.current.getPlayerState();
+          if (state === 1) { // Playing
+            playerRef.current.pauseVideo();
+          } else {
+            playerRef.current.playVideo();
+          }
+        }
       }
 
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
