@@ -147,23 +147,42 @@ interface PlayerBounds {
   height: number;
 }
 
-async function captureFrame(
-  currentTimestamp: number,
-  playerBounds: PlayerBounds
-): Promise<CaptureResult> {
-  // Request screen capture permission
-  const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: {
-      displaySurface: "window", // Prefer window capture
-    },
-    audio: false,
-  });
+// Capture session manager - keeps stream open for multiple frame grabs
+class CaptureSession {
+  private stream: MediaStream | null = null;
+  private imageCapture: ImageCapture | null = null;
 
-  try {
-    // Get video track and capture frame
-    const track = stream.getVideoTracks()[0];
-    const imageCapture = new ImageCapture(track);
-    const bitmap = await imageCapture.grabFrame();
+  async start(): Promise<void> {
+    this.stream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        displaySurface: "window", // Prefer window capture
+      },
+      audio: false,
+    });
+
+    const track = this.stream.getVideoTracks()[0];
+    this.imageCapture = new ImageCapture(track);
+
+    // Listen for user clicking "Stop Sharing" in browser UI
+    track.onended = () => {
+      this.stream = null;
+      this.imageCapture = null;
+    };
+  }
+
+  isActive(): boolean {
+    return this.stream !== null && this.stream.active;
+  }
+
+  async grabFrame(
+    currentTimestamp: number,
+    playerBounds: PlayerBounds
+  ): Promise<CaptureResult> {
+    if (!this.imageCapture) {
+      throw new Error("Capture session not active");
+    }
+
+    const bitmap = await this.imageCapture.grabFrame();
 
     // Create canvas and crop to player region
     const canvas = document.createElement("canvas");
@@ -196,9 +215,14 @@ async function captureFrame(
       imageBlob: blob,
       timestamp: currentTimestamp,
     };
-  } finally {
-    // Immediately stop all tracks to end the capture
-    stream.getTracks().forEach((track) => track.stop());
+  }
+
+  stop(): void {
+    if (this.stream) {
+      this.stream.getTracks().forEach((track) => track.stop());
+      this.stream = null;
+      this.imageCapture = null;
+    }
   }
 }
 
