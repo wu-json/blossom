@@ -523,8 +523,16 @@ The "nearest" detection threshold (default 5 seconds) could be configurable:
 
 When user clicks a marker:
 1. Player seeks to that timestamp
-2. Active translation immediately switches to clicked translation
-3. Normal playback-based detection resumes
+2. Active translation updates via nearest algorithm (naturally selects clicked one)
+3. Normal playback-based detection continues
+
+### New Translation Creation
+
+When user clicks "Translate Frame":
+1. Translation is created and saved to database
+2. New translation is added to local timeline state via `addTranslation()`
+3. Nearest algorithm naturally selects it (since it was just created at current timestamp)
+4. No special handling needed - the algorithm handles it
 
 ## Implementation Steps
 
