@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearch } from "wouter";
-import { Loader2, Camera, AlertCircle, ExternalLink } from "lucide-react";
+import { Loader2, Camera, AlertCircle, ExternalLink, X } from "lucide-react";
 import { useYouTubeStore } from "../../store/youtube-store";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -8,6 +8,27 @@ import { TranslationCard, TranslationSkeleton, StreamingTranslationCard } from "
 import { parseTranslationContent, hasTranslationMarkers, parseStreamingTranslation } from "../../lib/parse-translation";
 import type { TranslationData, WordBreakdown, PartialTranslationData } from "../../types/translation";
 import type { Language } from "../../types/chat";
+
+const translations: Record<Language, { title: string; description: string; placeholder: string; load: string }> = {
+  ja: {
+    title: "YouTube翻訳",
+    description: "YouTube動画のフレームからテキストを翻訳",
+    placeholder: "YouTube URLを貼り付け...",
+    load: "読込",
+  },
+  zh: {
+    title: "YouTube翻译",
+    description: "翻译YouTube视频帧中的文字",
+    placeholder: "粘贴YouTube链接...",
+    load: "加载",
+  },
+  ko: {
+    title: "YouTube 번역",
+    description: "YouTube 동영상 프레임에서 텍스트 번역",
+    placeholder: "YouTube URL 붙여넣기...",
+    load: "로드",
+  },
+};
 
 // YouTube URL parsing
 function parseYouTubeUrl(url: string): string | null {
@@ -433,45 +454,20 @@ export function YouTubeViewer() {
     );
   }
 
+  const handleClearVideo = () => {
+    clearVideo();
+    setInputUrl("");
+    setPlayerReady(false);
+    setSavedWords([]);
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {/* URL Input */}
-      <div
-        className="flex-shrink-0 px-6 py-4 border-b"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <div className="flex gap-3 max-w-3xl mx-auto">
-          <input
-            type="text"
-            value={inputUrl}
-            onChange={(e) => setInputUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLoadVideo()}
-            placeholder="Paste YouTube URL..."
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
-            style={{
-              backgroundColor: "var(--input-bg)",
-              color: "var(--text)",
-              border: "1px solid var(--border)",
-            }}
-          />
-          <button
-            onClick={handleLoadVideo}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
-            style={{
-              backgroundColor: "var(--primary)",
-              color: "white",
-            }}
-          >
-            Load
-          </button>
-        </div>
-      </div>
-
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
-          {/* Error Display */}
-          {error && (
+      <div className="flex-1 overflow-auto relative">
+        {/* Error Display */}
+        {error && (
+          <div className="max-w-3xl mx-auto px-6 pt-4">
             <div
               className="flex items-center gap-3 px-4 py-3 rounded-xl"
               style={{
@@ -482,112 +478,130 @@ export function YouTubeViewer() {
               <AlertCircle size={18} />
               <span className="text-sm">{error}</span>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Video Player or Unavailable State */}
-          {videoId && (
-            <>
-              {videoUnavailable && currentFrameImage ? (
-                <div className="space-y-4">
-                  <div
-                    className="flex flex-col items-center gap-4 p-6 rounded-xl"
-                    style={{
-                      backgroundColor: "var(--surface)",
-                      border: "1px solid var(--border)",
-                    }}
-                  >
-                    <AlertCircle size={32} style={{ color: "var(--text-muted)" }} />
-                    <div className="text-center">
-                      <h3 className="font-medium" style={{ color: "var(--text)" }}>
-                        Video Unavailable
-                      </h3>
-                      <p
-                        className="text-sm mt-1"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        This video is no longer available on YouTube.
-                      </p>
-                    </div>
-                    <a
-                      href={`https://www.youtube.com/watch?v=${videoId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm hover:underline"
-                      style={{ color: "var(--primary)" }}
-                    >
-                      Try on YouTube <ExternalLink size={14} />
-                    </a>
-                  </div>
-                  {/* Show cached frame */}
-                  <div className="relative">
-                    <img
-                      src={currentFrameImage}
-                      alt="Cached video frame"
-                      className="w-full rounded-xl"
-                    />
-                    <div
-                      className="absolute bottom-3 right-3 px-2 py-1 rounded text-xs font-medium"
-                      style={{
-                        backgroundColor: "rgba(0, 0, 0, 0.7)",
-                        color: "white",
-                      }}
-                    >
-                      {formatTimestamp(currentTimestamp)}
-                    </div>
-                  </div>
-                </div>
-              ) : (
+        {/* Video Player or Unavailable State */}
+        {videoId && (
+          <div className="flex flex-col h-full">
+            {videoUnavailable && currentFrameImage ? (
+              <div className="max-w-3xl mx-auto px-6 py-4 space-y-4">
                 <div
-                  ref={containerRef}
-                  className="w-full aspect-video rounded-xl overflow-hidden"
-                  style={{ backgroundColor: "var(--surface)" }}
-                />
-              )}
-
-              {/* Video Title */}
-              {videoTitle && !videoUnavailable && (
-                <h2
-                  className="text-lg font-medium"
-                  style={{ color: "var(--text)" }}
-                >
-                  {videoTitle}
-                </h2>
-              )}
-
-              {/* Translate Button */}
-              {playerReady && !videoUnavailable && (
-                <button
-                  onClick={handleTranslateFrame}
-                  disabled={isExtracting || isTranslating}
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                  className="flex flex-col items-center gap-4 p-6 rounded-xl"
                   style={{
-                    backgroundColor: "var(--primary)",
-                    color: "white",
+                    backgroundColor: "var(--surface)",
+                    border: "1px solid var(--border)",
                   }}
                 >
-                  {isExtracting ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Extracting frame...
-                    </>
-                  ) : isTranslating ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Translating...
-                    </>
-                  ) : (
-                    <>
-                      <Camera size={18} />
-                      Translate Frame
-                    </>
-                  )}
-                </button>
-              )}
+                  <AlertCircle size={32} style={{ color: "var(--text-muted)" }} />
+                  <div className="text-center">
+                    <h3 className="font-medium" style={{ color: "var(--text)" }}>
+                      Video Unavailable
+                    </h3>
+                    <p
+                      className="text-sm mt-1"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      This video is no longer available on YouTube.
+                    </p>
+                  </div>
+                  <a
+                    href={`https://www.youtube.com/watch?v=${videoId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm hover:underline"
+                    style={{ color: "var(--primary)" }}
+                  >
+                    Try on YouTube <ExternalLink size={14} />
+                  </a>
+                </div>
+                {/* Show cached frame */}
+                <div className="relative">
+                  <img
+                    src={currentFrameImage}
+                    alt="Cached video frame"
+                    className="w-full rounded-xl"
+                  />
+                  <div
+                    className="absolute bottom-3 right-3 px-2 py-1 rounded text-xs font-medium"
+                    style={{
+                      backgroundColor: "rgba(0, 0, 0, 0.7)",
+                      color: "white",
+                    }}
+                  >
+                    {formatTimestamp(currentTimestamp)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Video Title Bar */}
+                {!videoUnavailable && (
+                  <div
+                    className="flex items-center gap-3 px-4 py-2 border-b flex-shrink-0"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    <button
+                      onClick={handleClearVideo}
+                      className="p-1 rounded transition-all hover:opacity-70 flex-shrink-0"
+                      style={{ color: "var(--text-muted)" }}
+                      title="Close video"
+                    >
+                      <X size={18} />
+                    </button>
+                    {videoTitle && (
+                      <h2
+                        className="flex-1 text-sm font-medium truncate"
+                        style={{ color: "var(--text)" }}
+                      >
+                        {videoTitle}
+                      </h2>
+                    )}
+                    {playerReady && (
+                      <button
+                        onClick={handleTranslateFrame}
+                        disabled={isExtracting || isTranslating}
+                        className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50 flex-shrink-0"
+                        style={{
+                          backgroundColor: "var(--primary)",
+                          color: "white",
+                        }}
+                      >
+                        {isExtracting ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Extracting...
+                          </>
+                        ) : isTranslating ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Translating...
+                          </>
+                        ) : (
+                          <>
+                            <Camera size={14} />
+                            Translate
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                )}
 
-              {/* Translation Result */}
-              {(isTranslating || currentTranslation) && (
+                {/* Full-width Video */}
                 <div
-                  className="rounded-xl px-4 py-4"
+                  ref={containerRef}
+                  className="w-full aspect-video flex-shrink-0"
+                  style={{ backgroundColor: "var(--surface)" }}
+                />
+              </>
+            )}
+
+            {/* Translation Result */}
+            {(isTranslating || currentTranslation) && (
+              <div className="flex-1 overflow-auto px-4 py-4">
+                <div
+                  className="max-w-3xl mx-auto rounded-xl px-4 py-4"
                   style={{
                     backgroundColor: "var(--assistant-bubble)",
                     color: "var(--assistant-bubble-text)",
@@ -605,32 +619,50 @@ export function YouTubeViewer() {
                     />
                   ) : null}
                 </div>
-              )}
-            </>
-          )}
-
-          {/* Empty State */}
-          {!videoId && (
-            <div
-              className="flex flex-col items-center justify-center py-16 text-center"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
-                style={{ backgroundColor: "var(--surface)" }}
-              >
-                <Camera size={32} />
               </div>
-              <h3 className="font-medium mb-2" style={{ color: "var(--text)" }}>
-                YouTube Frame Translator
-              </h3>
-              <p className="text-sm max-w-sm">
-                Paste a YouTube URL above, play the video, and click "Translate
-                Frame" to get word-by-word translations of any text in the video.
-              </p>
+            )}
+          </div>
+        )}
+
+        {/* Empty State with URL Input */}
+        {!videoId && (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 pb-10"
+            style={{ color: "var(--text-muted)" }}
+          >
+            <h3 className="font-medium mb-1" style={{ color: "var(--text)" }}>
+              {translations[language].title}
+            </h3>
+            <p className="text-sm mb-6 max-w-sm">
+              {translations[language].description}
+            </p>
+            <div className="flex gap-2 w-full max-w-md">
+              <input
+                type="text"
+                value={inputUrl}
+                onChange={(e) => setInputUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLoadVideo()}
+                placeholder={translations[language].placeholder}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+                style={{
+                  backgroundColor: "var(--input-bg)",
+                  color: "var(--text)",
+                  border: "1px solid var(--border)",
+                }}
+              />
+              <button
+                onClick={handleLoadVideo}
+                className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                style={{
+                  backgroundColor: "var(--primary)",
+                  color: "white",
+                }}
+              >
+                {translations[language].load}
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
