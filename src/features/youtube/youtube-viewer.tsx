@@ -378,7 +378,8 @@ export function YouTubeViewer() {
     } finally {
       setExtracting(false);
       setTranslating(false);
-      setStreamingContent("");
+      // Don't clear streamingContent here - it causes a flash
+      // It's cleared at the start of each new translation anyway
     }
   };
 
