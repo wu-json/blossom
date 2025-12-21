@@ -5,16 +5,17 @@
 
 ## Overview
 
-The YouTube Translation Timeline adds a visual timeline component below the YouTube player that displays all saved translations for a video. As the video plays, the timeline highlights the nearest translation, and users can click on timeline markers to view specific translation breakdowns.
+The YouTube Translation Timeline adds a visual timeline component below the YouTube player that displays all saved translations for a video. Translations appear as range segments on the timeline—when playback enters a translation's range, its breakdown card is displayed. Users can click markers to jump to translations and drag to adjust each translation's duration.
 
 ## User Flow
 
 1. User opens a YouTube video in the viewer
-2. If the video has saved translations, timeline markers appear below the player
-3. As the video plays, the nearest translation is highlighted on the timeline
+2. If the video has saved translations, timeline shows range segments below the player
+3. As video plays, when playback enters a translation's range, it becomes active
 4. The active translation's breakdown card is displayed below the timeline
-5. User can click any timeline marker to jump to that translation
-6. New translations are added to the timeline as they're created
+5. User can click any timeline segment to jump to that translation
+6. User can drag the end of a segment to adjust how long the translation stays active
+7. New translations are added to the timeline as they're created (default 5 second duration)
 
 ## Technical Design
 
@@ -43,6 +44,8 @@ interface TimelineProps {
   translations: YouTubeTranslation[];
   activeTranslationId: string | null;
   onMarkerClick: (translation: YouTubeTranslation) => void;
+  onDurationChange: (translationId: string, durationSeconds: number) => void;
+  onSeek: (seconds: number) => void;
 }
 
 function TranslationTimeline({
@@ -52,26 +55,53 @@ function TranslationTimeline({
   translations,
   activeTranslationId,
   onMarkerClick,
+  onDurationChange,
+  onSeek,
 }: TimelineProps) {
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  // Click on track to seek
+  const handleTrackClick = (e: React.MouseEvent) => {
+    if (!trackRef.current) return;
+
+    const rect = trackRef.current.getBoundingClientRect();
+    const clickPercent = (e.clientX - rect.left) / rect.width;
+    const seekTime = clickPercent * videoDuration;
+
+    onSeek(seekTime);
+  };
+
   return (
     <div className="translation-timeline">
-      <div className="timeline-track">
+      <div
+        ref={trackRef}
+        className="timeline-track"
+        onClick={handleTrackClick}
+      >
         {/* Progress indicator */}
         <div
           className="timeline-progress"
           style={{ width: `${(currentTime / videoDuration) * 100}%` }}
         />
 
-        {/* Translation markers */}
-        {translations.map((t) => (
-          <TimelineMarker
-            key={t.id}
-            translation={t}
-            position={(t.timestampSeconds / videoDuration) * 100}
-            isActive={t.id === activeTranslationId}
-            onClick={() => onMarkerClick(t)}
-          />
-        ))}
+        {/* Translation markers as range segments */}
+        {translations.map((t) => {
+          const startPercent = (t.timestampSeconds / videoDuration) * 100;
+          const endPercent = ((t.timestampSeconds + t.durationSeconds) / videoDuration) * 100;
+
+          return (
+            <TimelineMarker
+              key={t.id}
+              translation={t}
+              startPosition={startPercent}
+              endPosition={endPercent}
+              videoDuration={videoDuration}
+              isActive={t.id === activeTranslationId}
+              onClick={() => onMarkerClick(t)}
+              onDurationChange={(duration) => onDurationChange(t.id, duration)}
+            />
+          );
+        })}
       </div>
 
       {/* Time labels */}
@@ -86,18 +116,49 @@ function TranslationTimeline({
 
 ### Timeline Marker Component
 
+Each marker displays as a range segment showing when the translation is active. Users can drag the right edge to adjust the duration.
+
 ```typescript
 // src/features/youtube/timeline-marker.tsx
 
 interface MarkerProps {
   translation: YouTubeTranslation;
-  position: number; // percentage
+  startPosition: number; // percentage
+  endPosition: number; // percentage (start + duration)
+  videoDuration: number;
   isActive: boolean;
   onClick: () => void;
+  onDurationChange: (newDurationSeconds: number) => void;
 }
 
-function TimelineMarker({ translation, position, isActive, onClick }: MarkerProps) {
+function TimelineMarker({
+  translation,
+  startPosition,
+  endPosition,
+  videoDuration,
+  isActive,
+  onClick,
+  onDurationChange,
+}: MarkerProps) {
   const [showPreview, setShowPreview] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDrag = (e: MouseEvent, trackWidth: number) => {
+    if (!isDragging) return;
+
+    const trackRect = e.currentTarget.getBoundingClientRect();
+    const newEndPercent = ((e.clientX - trackRect.left) / trackWidth) * 100;
+    const newDuration = ((newEndPercent - startPosition) / 100) * videoDuration;
+
+    // Minimum 1 second, maximum until next translation or end
+    const clampedDuration = Math.max(1, Math.min(newDuration, maxAllowedDuration));
+    onDurationChange(clampedDuration);
+  };
 
   return (
     <div
@@ -105,15 +166,28 @@ function TimelineMarker({ translation, position, isActive, onClick }: MarkerProp
         "timeline-marker",
         isActive && "timeline-marker-active"
       )}
-      style={{ left: `${position}%` }}
+      style={{
+        left: `${startPosition}%`,
+        width: `${endPosition - startPosition}%`,
+      }}
       onClick={onClick}
       onMouseEnter={() => setShowPreview(true)}
       onMouseLeave={() => setShowPreview(false)}
     >
-      <div className="marker-dot" />
+      {/* Range segment */}
+      <div className="marker-range" />
+
+      {/* Start dot */}
+      <div className="marker-dot marker-dot-start" />
+
+      {/* Draggable end handle */}
+      <div
+        className="marker-handle"
+        onMouseDown={handleDragStart}
+      />
 
       {/* Hover preview */}
-      {showPreview && (
+      {showPreview && !isDragging && (
         <div className="marker-preview">
           <span className="preview-time">{formatTime(translation.timestampSeconds)}</span>
           <span className="preview-text">{translation.translationData.originalText}</span>
@@ -126,52 +200,33 @@ function TimelineMarker({ translation, position, isActive, onClick }: MarkerProp
 
 ### Active Translation Detection
 
-Determine which translation is "nearest" to current playback position:
+Pure range-based detection - a translation is active only when current time falls within its range:
 
 ```typescript
 // src/features/youtube/hooks/use-active-translation.ts
 
+const DEFAULT_DURATION_SECONDS = 5;
+
 function useActiveTranslation(
   translations: YouTubeTranslation[],
-  currentTime: number,
-  threshold: number = 5 // seconds
+  currentTime: number
 ): YouTubeTranslation | null {
   return useMemo(() => {
     if (translations.length === 0) return null;
 
-    // Sort by timestamp
-    const sorted = [...translations].sort(
-      (a, b) => a.timestampSeconds - b.timestampSeconds
-    );
+    // Find translation whose range contains current time
+    for (const t of translations) {
+      const start = t.timestampSeconds;
+      const end = start + (t.durationSeconds ?? DEFAULT_DURATION_SECONDS);
 
-    // Find the most recent translation that we've passed or are near
-    let nearest: YouTubeTranslation | null = null;
-
-    for (const t of sorted) {
-      if (t.timestampSeconds <= currentTime) {
-        // We've passed this translation - it becomes the active one
-        nearest = t;
-      } else if (t.timestampSeconds - currentTime <= threshold) {
-        // We're approaching this translation (within threshold)
-        // Only use if we haven't passed any yet
-        if (!nearest) {
-          nearest = t;
-        }
-        break;
-      } else {
-        // Past the threshold for upcoming translations
-        break;
+      if (currentTime >= start && currentTime <= end) {
+        return t;
       }
     }
 
-    // If we've passed all translations, keep showing the last one
-    // (don't clear - user can review while video continues)
-    if (!nearest && sorted.length > 0) {
-      nearest = sorted[sorted.length - 1];
-    }
-
-    return nearest;
-  }, [translations, currentTime, threshold]);
+    // Not within any range - show nothing
+    return null;
+  }, [translations, currentTime]);
 }
 ```
 
@@ -184,6 +239,7 @@ interface UseVideoTranslationsResult {
   translations: YouTubeTranslation[];
   isLoading: boolean;
   addTranslation: (translation: YouTubeTranslation) => void;
+  updateDuration: (translationId: string, durationSeconds: number) => void;
   refetch: () => Promise<void>;
 }
 
@@ -219,10 +275,27 @@ function useVideoTranslations(videoId: string | null): UseVideoTranslationsResul
     ));
   }, []);
 
+  const updateDuration = useCallback(async (translationId: string, durationSeconds: number) => {
+    // Optimistic update
+    setTranslations((prev) =>
+      prev.map((t) =>
+        t.id === translationId ? { ...t, durationSeconds } : t
+      )
+    );
+
+    // Persist to server
+    await fetch(`/api/youtube/translations/${translationId}/duration`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ durationSeconds }),
+    });
+  }, []);
+
   return {
     translations,
     isLoading,
     addTranslation,
+    updateDuration,
     refetch: fetchTranslations,
   };
 }
@@ -262,7 +335,7 @@ interface GetTranslationsResponse {
 
 function getYouTubeTranslationsByVideoId(videoId: string): YouTubeTranslation[] {
   const stmt = db.prepare(`
-    SELECT id, video_id, video_title, timestamp_seconds, frame_image, translation_data, created_at
+    SELECT id, video_id, video_title, timestamp_seconds, duration_seconds, frame_image, translation_data, created_at
     FROM youtube_translations
     WHERE video_id = ?
     ORDER BY timestamp_seconds ASC
@@ -275,6 +348,7 @@ function getYouTubeTranslationsByVideoId(videoId: string): YouTubeTranslation[] 
     videoId: row.video_id,
     videoTitle: row.video_title,
     timestampSeconds: row.timestamp_seconds,
+    durationSeconds: row.duration_seconds,
     frameImage: row.frame_image,
     translationData: JSON.parse(row.translation_data),
     createdAt: row.created_at,
@@ -399,7 +473,7 @@ function YouTubeViewer() {
 
 .timeline-track {
   position: relative;
-  height: 8px;
+  height: 24px;
   background: var(--border-color);
   border-radius: 4px;
   cursor: pointer;
@@ -411,40 +485,88 @@ function YouTubeViewer() {
   top: 0;
   height: 100%;
   background: var(--accent-color);
+  opacity: 0.3;
   border-radius: 4px;
   pointer-events: none;
 }
 
-/* Markers */
+/* Markers as range segments */
 .timeline-marker {
   position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  top: 4px;
+  bottom: 4px;
   z-index: 1;
   cursor: pointer;
 }
 
-.marker-dot {
-  width: 12px;
-  height: 12px;
+.marker-range {
+  position: absolute;
+  inset: 0;
+  background: var(--text-secondary);
+  opacity: 0.4;
+  border-radius: 3px;
+  transition: opacity 0.15s ease;
+}
+
+.timeline-marker:hover .marker-range,
+.timeline-marker-active .marker-range {
+  opacity: 0.7;
+  background: var(--accent-color);
+}
+
+/* Start dot */
+.marker-dot-start {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
   background: var(--text-primary);
   border: 2px solid var(--bg-primary);
   border-radius: 50%;
-  transition: transform 0.15s ease;
+  z-index: 2;
 }
 
-.timeline-marker:hover .marker-dot,
-.timeline-marker-active .marker-dot {
-  transform: scale(1.4);
+.timeline-marker-active .marker-dot-start {
   background: var(--accent-color);
+}
+
+/* Draggable end handle */
+.marker-handle {
+  position: absolute;
+  right: -4px;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  background: transparent;
+  z-index: 3;
+}
+
+.marker-handle::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 12px;
+  background: var(--text-tertiary);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.timeline-marker:hover .marker-handle::after {
+  opacity: 1;
 }
 
 /* Hover preview */
 .marker-preview {
   position: absolute;
   bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
   margin-bottom: 8px;
   padding: 6px 10px;
   background: var(--bg-elevated);
@@ -452,6 +574,7 @@ function YouTubeViewer() {
   box-shadow: var(--shadow-md);
   white-space: nowrap;
   font-size: 12px;
+  z-index: 10;
 }
 
 .preview-time {
@@ -488,13 +611,58 @@ When a video has no translations yet:
 )}
 ```
 
-### Index on video_id
+### Database Schema Extension
+
+Add `duration_seconds` column to track each translation's active range:
+
+```sql
+-- Add duration column to youtube_translations (default 5 seconds)
+ALTER TABLE youtube_translations ADD COLUMN duration_seconds REAL DEFAULT 5.0;
+```
 
 Add database index for efficient lookups:
 
 ```sql
 CREATE INDEX IF NOT EXISTS idx_youtube_translations_video_id
 ON youtube_translations(video_id);
+```
+
+### Update Duration API
+
+```typescript
+// PATCH /api/youtube/translations/:id/duration
+
+interface UpdateDurationRequest {
+  durationSeconds: number;
+}
+
+// In src/index.ts routes
+"/api/youtube/translations/:id/duration": {
+  PATCH: async (req, params) => {
+    const { durationSeconds } = await req.json();
+    const { id } = params;
+
+    if (durationSeconds < 1) {
+      return Response.json({ error: "Duration must be at least 1 second" }, { status: 400 });
+    }
+
+    updateYouTubeTranslationDuration(id, durationSeconds);
+    return Response.json({ success: true });
+  },
+},
+```
+
+```typescript
+// src/db/youtube-translations.ts
+
+function updateYouTubeTranslationDuration(id: string, durationSeconds: number): void {
+  const stmt = db.prepare(`
+    UPDATE youtube_translations
+    SET duration_seconds = ?
+    WHERE id = ?
+  `);
+  stmt.run(durationSeconds, id);
+}
 ```
 
 ## Behavior Details
@@ -513,26 +681,20 @@ useEffect(() => {
 }, [activeTranslation?.id]);
 ```
 
-### Threshold Configuration
-
-The "nearest" detection threshold (default 5 seconds) could be configurable:
-- Shorter threshold: Only show translations very close to current time
-- Longer threshold: Keep showing translation until next one appears
-
 ### Click vs Playback Priority
 
 When user clicks a marker:
 1. Player seeks to that timestamp
-2. Active translation updates via nearest algorithm (naturally selects clicked one)
+2. Active translation updates via range detection (seeked position is within clicked translation's range)
 3. Normal playback-based detection continues
 
 ### New Translation Creation
 
 When user clicks "Translate Frame":
-1. Translation is created and saved to database
+1. Translation is created and saved to database with default duration (5 seconds)
 2. New translation is added to local timeline state via `addTranslation()`
-3. Nearest algorithm naturally selects it (since it was just created at current timestamp)
-4. No special handling needed - the algorithm handles it
+3. Range detection naturally selects it (current timestamp is within its range)
+4. User can drag the end handle to extend or shrink the range as needed
 
 ## Implementation Steps
 
