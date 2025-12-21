@@ -98,33 +98,4 @@ try {
   // Column already exists, ignore
 }
 
-// Create youtube_translations table for YouTube viewer feature
-db.run(`
-  CREATE TABLE IF NOT EXISTS youtube_translations (
-    id TEXT PRIMARY KEY,
-    video_id TEXT NOT NULL,
-    video_title TEXT,
-    timestamp_seconds REAL NOT NULL,
-    frame_image TEXT,
-    translation_data TEXT NOT NULL,
-    created_at INTEGER NOT NULL
-  )
-`);
-
-// Create indexes for youtube_translations
-db.run(`CREATE INDEX IF NOT EXISTS idx_youtube_translations_video_id ON youtube_translations(video_id)`);
-
-// Migration: Add source_type and youtube_translation_id columns to petals table
-try {
-  db.run(`ALTER TABLE petals ADD COLUMN source_type TEXT DEFAULT 'chat'`);
-} catch {
-  // Column already exists, ignore
-}
-
-try {
-  db.run(`ALTER TABLE petals ADD COLUMN youtube_translation_id TEXT`);
-} catch {
-  // Column already exists, ignore
-}
-
 export { db, blossomDir };

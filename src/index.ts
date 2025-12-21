@@ -25,14 +25,7 @@ import {
   deletePetal,
   deletePetalByMessageAndWord,
   getFlowersByLanguage,
-  createPetalWithSource,
-  petalExistsByYouTubeTranslation,
 } from "./db/petals";
-import {
-  createYouTubeTranslation,
-  getYouTubeTranslationById,
-  updateYouTubeTranslationData,
-} from "./db/youtube-translations";
 import { db, blossomDir } from "./db/database";
 import { compactMessages } from "./lib/message-compaction";
 import { getImageForApi, type ImageMediaType } from "./lib/image-compression";
@@ -502,42 +495,15 @@ const server = Bun.serve({
     },
     "/api/petals": {
       POST: async (req) => {
-        const { word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput, userImages, sourceType, youtubeTranslationId } = await req.json();
+        const { word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput, userImages } = await req.json();
 
-        // For YouTube sources, conversationId is optional
-        const isYouTubeSource = sourceType === "youtube";
-        if (!word || !language || !messageId) {
+        if (!word || !language || !conversationId || !messageId) {
           return Response.json({ error: "Missing required fields" }, { status: 400 });
         }
-        if (!isYouTubeSource && !conversationId) {
-          return Response.json({ error: "Missing conversationId for chat source" }, { status: 400 });
-        }
 
-        // Check for duplicate
-        if (isYouTubeSource && youtubeTranslationId) {
-          if (petalExistsByYouTubeTranslation(youtubeTranslationId, word)) {
-            return Response.json({ error: "Petal already exists", duplicate: true }, { status: 409 });
-          }
-        } else if (petalExists(messageId, word)) {
+        // Check for duplicate (same word in same message)
+        if (petalExists(messageId, word)) {
           return Response.json({ error: "Petal already exists", duplicate: true }, { status: 409 });
-        }
-
-        // Use the appropriate function based on source type
-        if (isYouTubeSource) {
-          const petal = createPetalWithSource(
-            word,
-            reading || "",
-            meaning || "",
-            partOfSpeech || "",
-            language,
-            conversationId || null,
-            messageId,
-            userInput || "",
-            "youtube",
-            youtubeTranslationId || null,
-            userImages
-          );
-          return Response.json(petal);
         }
 
         const petal = createPetal(
@@ -796,167 +762,6 @@ For ALL other interactions (questions, conversation, requests for examples, clar
           const message = error instanceof Error ? error.message : "Unknown error";
           return Response.json({ error: message }, { status: 500 });
         }
-      },
-    },
-    "/api/youtube/translate": {
-      POST: async (req) => {
-        const apiKey = Bun.env.ANTHROPIC_API_KEY;
-        if (!apiKey) {
-          return Response.json({ error: "API key not configured" }, { status: 401 });
-        }
-
-        const { imageBase64, language, videoId, videoTitle, timestamp } = await req.json();
-
-        if (!imageBase64 || !language || !videoId) {
-          return Response.json({ error: "Missing required fields" }, { status: 400 });
-        }
-
-        const languageName = languageNames[language] || "Japanese";
-        const subtextName = language === "ja" ? "kana (hiragana/katakana readings)" : language === "zh" ? "pinyin" : "romanization";
-
-        const systemPrompt = `You are a language learning assistant helping users understand text in video frames.
-
-When analyzing an image:
-1. Extract all visible text in ${languageName} (subtitles, captions, signs, UI text)
-2. Provide translation with word-by-word breakdown
-3. Focus on the primary/most prominent text
-
-Respond using this EXACT JSON format wrapped in markers:
-
-<<<TRANSLATION_START>>>
-{
-  "originalText": "the original ${languageName} text",
-  "subtext": "${subtextName} for the entire phrase",
-  "translation": "English translation",
-  "breakdown": [
-    {
-      "word": "each word/particle",
-      "reading": "pronunciation in ${subtextName}",
-      "meaning": "English meaning",
-      "partOfSpeech": "noun|verb|adjective|particle|adverb|conjunction|auxiliary|etc"
-    }
-  ],
-  "grammarNotes": "Brief explanation of any notable grammar patterns, conjugations, or usage notes"
-}
-<<<TRANSLATION_END>>>
-
-If there is no ${languageName} text visible in the image, respond with a brief message explaining what you see instead.`;
-
-        // Create a translation record first (we'll update it with the full response later)
-        const translationRecord = createYouTubeTranslation(
-          videoId,
-          videoTitle || null,
-          timestamp || 0,
-          imageBase64.substring(0, 10000), // Store a compressed preview of the image (first 10KB)
-          "{}" // Placeholder, will be updated after translation
-        );
-
-        const anthropic = new Anthropic({ apiKey });
-
-        try {
-          const stream = anthropic.messages.stream({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 4096,
-            system: [
-              {
-                type: "text",
-                text: systemPrompt,
-                cache_control: { type: "ephemeral" },
-              },
-            ],
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "image",
-                    source: {
-                      type: "base64",
-                      media_type: "image/png",
-                      data: imageBase64,
-                    },
-                  },
-                  {
-                    type: "text",
-                    text: `Please analyze this video frame and translate any ${languageName} text you see.`,
-                  },
-                ],
-              },
-            ],
-          });
-
-          let fullContent = "";
-          const encoder = new TextEncoder();
-          const readable = new ReadableStream({
-            async start(controller) {
-              try {
-                // Send the translation ID first
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ type: "translation_id", id: translationRecord.id })}\n\n`)
-                );
-
-                for await (const event of stream) {
-                  if (controller.desiredSize === null) break;
-
-                  // Track content for final storage
-                  if (event.type === "content_block_delta") {
-                    const delta = event.delta as { type: string; text?: string };
-                    if (delta.type === "text_delta" && delta.text) {
-                      fullContent += delta.text;
-                    }
-                  }
-
-                  const data = `data: ${JSON.stringify(event)}\n\n`;
-                  controller.enqueue(encoder.encode(data));
-                }
-
-                // Update the translation record with the full response
-                if (fullContent) {
-                  updateYouTubeTranslationData(translationRecord.id, fullContent);
-                }
-
-                if (controller.desiredSize !== null) {
-                  controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-                  controller.close();
-                }
-              } catch (error) {
-                console.error("YouTube translate stream error:", error);
-                if (controller.desiredSize !== null) {
-                  controller.error(error);
-                }
-              }
-            },
-          });
-
-          return new Response(readable, {
-            headers: {
-              "Content-Type": "text/event-stream",
-              "Cache-Control": "no-cache",
-              "Connection": "keep-alive",
-            },
-          });
-        } catch (error: unknown) {
-          console.error("YouTube translate API error:", error);
-          const message = error instanceof Error ? error.message : "Unknown error";
-          return Response.json({ error: message }, { status: 500 });
-        }
-      },
-    },
-    "/api/youtube/translations/:id": {
-      GET: (req) => {
-        const id = req.params.id;
-        const translation = getYouTubeTranslationById(id);
-        if (!translation) {
-          return Response.json({ error: "Translation not found" }, { status: 404 });
-        }
-        return Response.json({
-          id: translation.id,
-          videoId: translation.video_id,
-          videoTitle: translation.video_title,
-          timestampSeconds: translation.timestamp_seconds,
-          frameImage: translation.frame_image,
-          translationData: translation.translation_data,
-        });
       },
     },
   },
