@@ -6,7 +6,6 @@ export interface YouTubeTranslation {
   videoId: string;
   videoTitle: string | null;
   timestampSeconds: number;
-  durationSeconds: number;
   frameImage: string | null;
   translationData: TranslationData | null;
   createdAt: number;
@@ -16,7 +15,6 @@ interface UseVideoTranslationsResult {
   translations: YouTubeTranslation[];
   isLoading: boolean;
   addTranslation: (translation: YouTubeTranslation) => void;
-  updateDuration: (translationId: string, durationSeconds: number) => void;
   refetch: () => Promise<void>;
 }
 
@@ -52,31 +50,10 @@ export function useVideoTranslations(videoId: string | null): UseVideoTranslatio
     );
   }, []);
 
-  const updateDuration = useCallback(async (translationId: string, durationSeconds: number) => {
-    // Optimistic update
-    setTranslations((prev) =>
-      prev.map((t) => (t.id === translationId ? { ...t, durationSeconds } : t))
-    );
-
-    // Persist to server
-    try {
-      await fetch(`/api/youtube/translations/${translationId}/duration`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ durationSeconds }),
-      });
-    } catch (error) {
-      console.error("Failed to update duration:", error);
-      // Refetch to restore correct state on error
-      fetchTranslations();
-    }
-  }, [fetchTranslations]);
-
   return {
     translations,
     isLoading,
     addTranslation,
-    updateDuration,
     refetch: fetchTranslations,
   };
 }

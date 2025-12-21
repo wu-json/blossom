@@ -169,7 +169,7 @@ export function YouTubeViewer() {
   const apiLoadedRef = useRef(false);
 
   // Timeline hooks
-  const { translations: videoTranslations, addTranslation, updateDuration, refetch: refetchTranslations } = useVideoTranslations(videoId);
+  const { translations: videoTranslations, addTranslation, refetch: refetchTranslations } = useVideoTranslations(videoId);
   const timelineActiveTranslation = useActiveTranslation(videoTranslations, currentPlaybackTime);
 
   // Load YouTube IFrame API
@@ -444,7 +444,6 @@ export function YouTubeViewer() {
             videoId: videoId!,
             videoTitle: videoTitle,
             timestampSeconds: timestamp,
-            durationSeconds: 5.0,
             frameImage: frameFilename ? `/api/youtube/frames/${frameFilename}` : null,
             translationData: parsedContent.data,
             createdAt: Date.now(),
@@ -525,10 +524,6 @@ export function YouTubeViewer() {
   const handleTimelineSeek = useCallback((seconds: number) => {
     playerRef.current?.seekTo(seconds, true);
   }, []);
-
-  const handleTimelineDurationChange = useCallback((translationId: string, durationSeconds: number) => {
-    updateDuration(translationId, durationSeconds);
-  }, [updateDuration]);
 
   const handleTimelineSaveWord = useCallback(async (translationId: string, word: WordBreakdown): Promise<boolean> => {
     const translation = videoTranslations.find(t => t.id === translationId);
@@ -821,13 +816,11 @@ export function YouTubeViewer() {
                 {/* Timeline below video */}
                 {playerReady && videoDuration > 0 && videoTranslations.length > 0 && (
                   <TranslationTimeline
-                    videoId={videoId!}
                     videoDuration={videoDuration}
                     currentTime={currentPlaybackTime}
                     translations={videoTranslations}
                     activeTranslationId={timelineActiveTranslation?.id ?? null}
                     onMarkerClick={handleTimelineMarkerClick}
-                    onDurationChange={handleTimelineDurationChange}
                     onSeek={handleTimelineSeek}
                   />
                 )}

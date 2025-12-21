@@ -9,13 +9,11 @@ function formatTime(seconds: number): string {
 }
 
 interface TranslationTimelineProps {
-  videoId: string;
   videoDuration: number;
   currentTime: number;
   translations: YouTubeTranslation[];
   activeTranslationId: string | null;
   onMarkerClick: (translation: YouTubeTranslation) => void;
-  onDurationChange: (translationId: string, durationSeconds: number) => void;
   onSeek: (seconds: number) => void;
 }
 
@@ -25,7 +23,6 @@ export function TranslationTimeline({
   translations,
   activeTranslationId,
   onMarkerClick,
-  onDurationChange,
   onSeek,
 }: TranslationTimelineProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -42,15 +39,6 @@ export function TranslationTimeline({
     },
     [videoDuration, onSeek]
   );
-
-  // Calculate max end position for each marker (until next translation or end)
-  const getMaxEndPosition = (index: number): number => {
-    const nextTranslation = translations[index + 1];
-    if (nextTranslation) {
-      return (nextTranslation.timestampSeconds / videoDuration) * 100;
-    }
-    return 100;
-  };
 
   return (
     <div
@@ -89,23 +77,17 @@ export function TranslationTimeline({
           }}
         />
 
-        {/* Translation markers as range segments */}
-        {translations.map((t, index) => {
-          const startPercent = (t.timestampSeconds / videoDuration) * 100;
-          const endPercent = ((t.timestampSeconds + t.durationSeconds) / videoDuration) * 100;
+        {/* Translation markers as points */}
+        {translations.map((t) => {
+          const position = (t.timestampSeconds / videoDuration) * 100;
 
           return (
             <TimelineMarker
               key={t.id}
               translation={t}
-              startPosition={startPercent}
-              endPosition={Math.min(endPercent, 100)}
-              videoDuration={videoDuration}
+              position={position}
               isActive={t.id === activeTranslationId}
               onClick={() => onMarkerClick(t)}
-              onDurationChange={(duration) => onDurationChange(t.id, duration)}
-              trackRef={trackRef}
-              maxEndPosition={getMaxEndPosition(index)}
             />
           );
         })}

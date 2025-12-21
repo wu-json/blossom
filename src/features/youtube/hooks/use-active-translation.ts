@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import type { YouTubeTranslation } from "./use-video-translations";
 
-const DEFAULT_DURATION_SECONDS = 5;
-
 export function useActiveTranslation(
   translations: YouTubeTranslation[],
   currentTime: number
@@ -10,17 +8,17 @@ export function useActiveTranslation(
   return useMemo(() => {
     if (translations.length === 0) return null;
 
-    // Find translation whose range contains current time
+    // Find the latest translation that is at or before the current time
+    // Translations are sorted by timestampSeconds ASC
+    let active: YouTubeTranslation | null = null;
     for (const t of translations) {
-      const start = t.timestampSeconds;
-      const end = start + (t.durationSeconds ?? DEFAULT_DURATION_SECONDS);
-
-      if (currentTime >= start && currentTime <= end) {
-        return t;
+      if (t.timestampSeconds <= currentTime) {
+        active = t;
+      } else {
+        break; // Past current time, no need to continue
       }
     }
 
-    // Not within any range - show nothing
-    return null;
+    return active;
   }, [translations, currentTime]);
 }
