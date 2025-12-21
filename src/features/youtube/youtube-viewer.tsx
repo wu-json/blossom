@@ -923,7 +923,7 @@ export function YouTubeViewer() {
 
                 <div
                   ref={containerRef}
-                  className="w-full aspect-video flex-shrink-0 max-h-[50vh] lg:max-h-none"
+                  className="w-full aspect-video flex-shrink-0 max-h-[50vh] lg:max-h-[55vh]"
                   style={{ backgroundColor: "var(--surface)" }}
                 />
 
