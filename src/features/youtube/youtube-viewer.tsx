@@ -348,7 +348,7 @@ export function YouTubeViewer() {
   }, [playerReady]);
 
   useEffect(() => {
-    if (!playerReady || videoTranslations.length === 0) return;
+    if (!playerReady) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -377,38 +377,19 @@ export function YouTubeViewer() {
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault();
         const currentTime = playerRef.current?.getCurrentTime() ?? 0;
+        const seekAmount = 5;
 
         if (e.key === "ArrowRight") {
-          const nextTranslation = videoTranslations.find(
-            (t) => t.timestampSeconds > currentTime + 0.5
-          );
-          if (nextTranslation) {
-            playerRef.current?.seekTo(nextTranslation.timestampSeconds, true);
-          }
+          playerRef.current?.seekTo(currentTime + seekAmount, true);
         } else {
-          let targetTranslation: typeof videoTranslations[number] | null = null;
-          for (let i = videoTranslations.length - 1; i >= 0; i--) {
-            const t = videoTranslations[i];
-            if (t && t.timestampSeconds < currentTime - 2) {
-              targetTranslation = t;
-              break;
-            }
-          }
-          if (targetTranslation) {
-            playerRef.current?.seekTo(targetTranslation.timestampSeconds, true);
-          } else {
-            const first = videoTranslations[0];
-            if (first) {
-              playerRef.current?.seekTo(first.timestampSeconds, true);
-            }
-          }
+          playerRef.current?.seekTo(Math.max(0, currentTime - seekAmount), true);
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playerReady, videoTranslations, isExtracting, isTranslating]);
+  }, [playerReady, isExtracting, isTranslating]);
 
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return;
