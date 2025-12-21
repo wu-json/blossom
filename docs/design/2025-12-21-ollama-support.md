@@ -182,6 +182,7 @@ export class OllamaProvider implements LLMProvider {
         messages,
         stream: true,
       }),
+      signal: AbortSignal.timeout(5 * 60 * 1000), // 5 minute timeout for model loading
     });
 
     if (!response.ok) {
@@ -227,6 +228,7 @@ export class OllamaProvider implements LLMProvider {
         messages,
         stream: false,
       }),
+      signal: AbortSignal.timeout(5 * 60 * 1000), // 5 minute timeout for model loading
     });
 
     if (!response.ok) {
@@ -473,18 +475,12 @@ Update `/api/chat` to use the provider abstraction:
 "/api/chat": {
   POST: async (req) => {
     const llmSettings = getLLMSettings();
+    const providerResult = getProvider();
 
-    // Create provider based on settings
-    let provider: LLMProvider;
-    if (llmSettings.provider === "ollama") {
-      provider = new OllamaProvider(llmSettings.ollamaUrl);
-    } else {
-      const apiKey = Bun.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        return Response.json({ error: "Anthropic API key not configured" }, { status: 400 });
-      }
-      provider = new AnthropicProvider(apiKey);
+    if ("error" in providerResult) {
+      return Response.json({ error: providerResult.error }, { status: 400 });
     }
+    const provider = providerResult;
 
     // Build messages from request...
     const { messages, system } = buildChatContext(req);
@@ -531,18 +527,12 @@ Update `/api/conversations/:id/title` to use the provider abstraction:
 "/api/conversations/:id/title": {
   POST: async (req, params) => {
     const llmSettings = getLLMSettings();
+    const providerResult = getProvider();
 
-    // Create provider based on settings
-    let provider: LLMProvider;
-    if (llmSettings.provider === "ollama") {
-      provider = new OllamaProvider(llmSettings.ollamaUrl);
-    } else {
-      const apiKey = Bun.env.ANTHROPIC_API_KEY;
-      if (!apiKey) {
-        return Response.json({ error: "Anthropic API key not configured" }, { status: 400 });
-      }
-      provider = new AnthropicProvider(apiKey);
+    if ("error" in providerResult) {
+      return Response.json({ error: providerResult.error }, { status: 400 });
     }
+    const provider = providerResult;
 
     // Build title generation prompt from conversation...
     const messages = buildTitlePrompt(params.id);
@@ -594,6 +584,17 @@ function LLMProviderSettings() {
   const [settings, setSettings] = useState<LLMSettings | null>(null);
   const [ollamaStatus, setOllamaStatus] = useState<{ available: boolean; models: string[] } | null>(null);
   const [isCheckingOllama, setIsCheckingOllama] = useState(false);
+
+  // Save settings to backend and update local state
+  const updateSettings = async (updates: Partial<LLMSettings>) => {
+    const newSettings = { ...settings, ...updates } as LLMSettings;
+    setSettings(newSettings);
+    await fetch("/api/llm/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+  };
 
   // Check Ollama status
   const checkOllamaStatus = async (url: string) => {
@@ -745,10 +746,11 @@ Update `/api/status` to reflect LLM configuration:
 
     return Response.json({
       llmProvider: llmSettings.provider,
+      chatModel: llmSettings.chatModel,
+      titleModel: llmSettings.titleModel,
       anthropicConfigured: !!apiKey,
       anthropicKeyPreview: apiKey ? `...${apiKey.slice(-6)}` : null,
       ollamaUrl: llmSettings.ollamaUrl,
-      ollamaModel: llmSettings.ollamaModel,
       ollamaAvailable,
       dataDir: blossomDir,
     });
@@ -789,25 +791,8 @@ Gemma 3 supports vision, so image-based translation (YouTube frames) works. The 
 
 Ollama can be slow on first request while loading the model into VRAM. Handle this with:
 
-1. **Longer timeout for Ollama** - 5 minutes vs 2 minutes for Anthropic
+1. **Longer timeout for Ollama** - 5 minutes (already included in `OllamaProvider` above)
 2. **Pre-warm on server startup** - If Ollama is selected, send a minimal request to load the model
-
-```typescript
-// In OllamaProvider
-async *stream(options: LLMStreamOptions): AsyncIterable<string> {
-  const response = await fetch(`${this.baseUrl}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: options.model,
-      messages: this.convertMessages(options.messages, options.system),
-      stream: true,
-    }),
-    signal: AbortSignal.timeout(5 * 60 * 1000), // 5 minute timeout for Ollama
-  });
-  // ...
-}
-```
 
 ```typescript
 // In src/index.ts, on server startup
