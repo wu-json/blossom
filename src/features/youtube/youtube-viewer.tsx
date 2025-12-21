@@ -362,8 +362,6 @@ export function YouTubeViewer() {
       // Parse final translation
       const parsedContent = parseTranslationContent(fullContent);
       if (parsedContent.type === "translation") {
-        setCurrentTranslation(parsedContent.data);
-
         // Save translation to database with frame filename
         const saveResponse = await fetch("/api/youtube/translations", {
           method: "POST",
@@ -377,10 +375,9 @@ export function YouTubeViewer() {
           }),
         });
 
-        if (saveResponse.ok) {
-          const saved = await saveResponse.json();
-          setCurrentTranslation(parsedContent.data, saved.id);
-        }
+        // Set translation only once, with ID if save succeeded
+        const savedId = saveResponse.ok ? (await saveResponse.json()).id : null;
+        setCurrentTranslation(parsedContent.data, savedId);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -446,8 +443,22 @@ export function YouTubeViewer() {
     navigateToMeadow(word);
   };
 
-  // Render streaming content
-  const renderStreamingContent = () => {
+  // Render translation content based on streaming state
+  const renderTranslationContent = () => {
+    // If we have final translation data, show the final card
+    if (currentTranslation) {
+      return (
+        <TranslationCard
+          data={currentTranslation}
+          onSaveWord={currentTranslationId ? handleSaveWord : undefined}
+          onRemoveWord={currentTranslationId ? handleRemoveWord : undefined}
+          onViewFlower={currentTranslationId ? handleViewFlower : undefined}
+          savedWords={savedWords}
+        />
+      );
+    }
+
+    // Otherwise, parse streaming content to determine what to show
     if (!streamingContent) return <TranslationSkeleton />;
 
     const markers = hasTranslationMarkers(streamingContent);
@@ -456,12 +467,27 @@ export function YouTubeViewer() {
       return <TranslationSkeleton />;
     }
 
-    if (markers.hasStart && !markers.hasEnd) {
+    if (markers.hasStart) {
+      // Check if complete
+      if (markers.hasEnd) {
+        const parsed = parseTranslationContent(streamingContent);
+        if (parsed.type === "translation") {
+          return (
+            <TranslationCard
+              data={parsed.data}
+              onSaveWord={currentTranslationId ? handleSaveWord : undefined}
+              onRemoveWord={currentTranslationId ? handleRemoveWord : undefined}
+              onViewFlower={currentTranslationId ? handleViewFlower : undefined}
+              savedWords={savedWords}
+            />
+          );
+        }
+      }
+      // Still streaming
       const partialData = parseStreamingTranslation(streamingContent);
       if (partialData && hasAnyContent(partialData)) {
         return <StreamingTranslationCard data={partialData} />;
       }
-      return <TranslationSkeleton />;
     }
 
     return <TranslationSkeleton />;
@@ -630,17 +656,7 @@ export function YouTubeViewer() {
                     color: "var(--assistant-bubble-text)",
                   }}
                 >
-                  {isTranslating ? (
-                    renderStreamingContent()
-                  ) : currentTranslation ? (
-                    <TranslationCard
-                      data={currentTranslation}
-                      onSaveWord={currentTranslationId ? handleSaveWord : undefined}
-                      onRemoveWord={currentTranslationId ? handleRemoveWord : undefined}
-                      onViewFlower={currentTranslationId ? handleViewFlower : undefined}
-                      savedWords={savedWords}
-                    />
-                  ) : null}
+                  {renderTranslationContent()}
                 </div>
               </div>
             )}
