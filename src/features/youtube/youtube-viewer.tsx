@@ -584,26 +584,6 @@ export function YouTubeViewer() {
                 </button>
               )}
 
-              {/* Frame Preview (during processing) */}
-              {currentFrameImage && (isExtracting || isTranslating) && (
-                <div className="relative">
-                  <img
-                    src={currentFrameImage}
-                    alt="Captured frame"
-                    className="w-full rounded-xl opacity-75"
-                  />
-                  <div
-                    className="absolute bottom-3 right-3 px-2 py-1 rounded text-xs font-medium"
-                    style={{
-                      backgroundColor: "rgba(0, 0, 0, 0.7)",
-                      color: "white",
-                    }}
-                  >
-                    {formatTimestamp(currentTimestamp)}
-                  </div>
-                </div>
-              )}
-
               {/* Translation Result */}
               {(isTranslating || currentTranslation) && (
                 <div
