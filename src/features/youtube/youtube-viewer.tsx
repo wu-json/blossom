@@ -845,7 +845,7 @@ export function YouTubeViewer() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col lg:w-[70%] lg:flex-shrink-0">
+              <div className="flex flex-col lg:w-[60%] lg:flex-shrink-0">
                 {!videoUnavailable && (
                   <div
                     className="flex items-center gap-3 px-4 py-2 border-b flex-shrink-0"
