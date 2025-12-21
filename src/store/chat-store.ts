@@ -377,7 +377,7 @@ export const useChatStore = create<ChatStore>()(
         try {
           const response = await fetch(`/api/petals/flower/${encodeURIComponent(word)}?language=${language}`);
           const data = await response.json();
-          const petals: Petal[] = data.map((p: { id: string; word: string; reading: string; meaning: string; part_of_speech: string; language: string; conversation_id: string; message_id: string; user_input: string; user_images: string | null; created_at: number }) => ({
+          const petals: Petal[] = data.map((p: { id: string; word: string; reading: string; meaning: string; part_of_speech: string; language: string; conversation_id: string; message_id: string; user_input: string; user_images: string | null; created_at: number; source_type: string; youtube_translation_id: string | null }) => ({
             id: p.id,
             word: p.word,
             reading: p.reading,
@@ -389,6 +389,8 @@ export const useChatStore = create<ChatStore>()(
             userInput: p.user_input,
             userImages: p.user_images ? JSON.parse(p.user_images) : undefined,
             createdAt: new Date(p.created_at),
+            sourceType: p.source_type as "chat" | "youtube",
+            youtubeTranslationId: p.youtube_translation_id || undefined,
           }));
           set({ selectedFlower: word, flowerPetals: petals });
         } catch {

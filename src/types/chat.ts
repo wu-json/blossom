@@ -42,6 +42,8 @@ export interface Petal {
   userInput: string;
   userImages?: string[];
   createdAt: Date;
+  sourceType?: "chat" | "youtube";
+  youtubeTranslationId?: string;
 }
 
 export interface Flower {
