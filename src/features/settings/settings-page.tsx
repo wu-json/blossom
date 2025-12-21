@@ -37,7 +37,7 @@ const translations: Record<Language, {
 }> = {
   ja: {
     dataStorage: "データ保存",
-    dataStorageDesc: "Blossomがデータを保存するディレクトリ。BLOSSOM_DATA_DIR環境変数で設定できます。",
+    dataStorageDesc: "Blossomがデータを保存するディレクトリ。BLOSSOM_DIR環境変数で設定できます。",
     dataDirectory: "データディレクトリ:",
     aiProvider: "AIプロバイダー",
     aiProviderDesc: "ClaudeのAPIキー。ANTHROPIC_API_KEY環境変数で設定できます。",
@@ -66,7 +66,7 @@ const translations: Record<Language, {
   },
   zh: {
     dataStorage: "数据存储",
-    dataStorageDesc: "Blossom存储数据的目录。可通过BLOSSOM_DATA_DIR环境变量配置。",
+    dataStorageDesc: "Blossom存储数据的目录。可通过BLOSSOM_DIR环境变量配置。",
     dataDirectory: "数据目录:",
     aiProvider: "AI提供商",
     aiProviderDesc: "Claude的API密钥。可通过ANTHROPIC_API_KEY环境变量配置。",
@@ -95,7 +95,7 @@ const translations: Record<Language, {
   },
   ko: {
     dataStorage: "데이터 저장",
-    dataStorageDesc: "Blossom이 데이터를 저장하는 디렉토리입니다. BLOSSOM_DATA_DIR 환경 변수로 설정할 수 있습니다.",
+    dataStorageDesc: "Blossom이 데이터를 저장하는 디렉토리입니다. BLOSSOM_DIR 환경 변수로 설정할 수 있습니다.",
     dataDirectory: "데이터 디렉토리:",
     aiProvider: "AI 제공자",
     aiProviderDesc: "Claude API 키입니다. ANTHROPIC_API_KEY 환경 변수로 설정할 수 있습니다.",

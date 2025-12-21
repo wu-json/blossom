@@ -32,5 +32,25 @@ export function useNavigation() {
     },
     navigateToTeacher: () => setLocation("/teacher"),
     navigateToSettings: () => setLocation("/settings"),
+    navigateToYouTube: (options?: { translationId?: string; videoId?: string; timestamp?: number }) => {
+      let path = "/youtube";
+      const params = new URLSearchParams();
+
+      if (options?.translationId) {
+        params.set("tid", options.translationId);
+      } else if (options?.videoId) {
+        params.set("v", options.videoId);
+        if (options?.timestamp !== undefined) {
+          params.set("t", String(Math.floor(options.timestamp)));
+        }
+      }
+
+      const queryString = params.toString();
+      if (queryString) {
+        path += `?${queryString}`;
+      }
+
+      setLocation(path);
+    },
   };
 }

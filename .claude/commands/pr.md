@@ -39,3 +39,5 @@ Brief additional context or implementation notes if needed. Omit if not necessar
 ```
 
 Use HEREDOC for the body to preserve formatting.
+
+**Do NOT include any "Generated with Claude Code" attribution or similar footer.**

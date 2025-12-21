@@ -3,8 +3,7 @@ import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
-// Get data directory from BLOSSOM_DATA_DIR env var, default to ~/.blossom
-const envDataDir = Bun.env.BLOSSOM_DATA_DIR;
+const envDataDir = Bun.env.BLOSSOM_DIR;
 const blossomDir = envDataDir
   ? (isAbsolute(envDataDir) ? envDataDir : resolve(envDataDir))
   : join(homedir(), ".blossom");
@@ -13,10 +12,8 @@ mkdirSync(blossomDir, { recursive: true });
 const dbPath = join(blossomDir, "sqlite.db");
 const db = new Database(dbPath);
 
-// Enable foreign keys
 db.run("PRAGMA foreign_keys = ON");
 
-// Create tables if they don't exist
 db.run(`
   CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
@@ -32,18 +29,13 @@ db.run(`
     conversation_id TEXT NOT NULL,
     role TEXT NOT NULL,
     content TEXT NOT NULL,
+    images TEXT,
     timestamp INTEGER NOT NULL,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
   )
 `);
+db.run(`CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id)`);
 
-// Create index for faster lookups
-db.run(`
-  CREATE INDEX IF NOT EXISTS idx_messages_conversation
-  ON messages(conversation_id)
-`);
-
-// Create teacher settings table (singleton pattern - only one row)
 db.run(`
   CREATE TABLE IF NOT EXISTS teacher_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -54,7 +46,6 @@ db.run(`
   )
 `);
 
-// Create petals table for Meadow feature
 db.run(`
   CREATE TABLE IF NOT EXISTS petals (
     id TEXT PRIMARY KEY,
@@ -63,39 +54,30 @@ db.run(`
     meaning TEXT NOT NULL,
     part_of_speech TEXT NOT NULL,
     language TEXT NOT NULL,
-    conversation_id TEXT NOT NULL,
+    conversation_id TEXT,
     message_id TEXT NOT NULL,
     user_input TEXT NOT NULL,
-    user_images TEXT DEFAULT NULL,
+    user_images TEXT,
     created_at INTEGER NOT NULL,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+    source_type TEXT DEFAULT 'chat',
+    youtube_translation_id TEXT
   )
 `);
-
-// Migration: Add user_images column to petals table (for existing databases)
-try {
-  db.run(`ALTER TABLE petals ADD COLUMN user_images TEXT DEFAULT NULL`);
-} catch {
-  // Column already exists, ignore
-}
-
-// Create indexes for petals queries
 db.run(`CREATE INDEX IF NOT EXISTS idx_petals_language ON petals(language)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_petals_word ON petals(word)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_petals_word_language ON petals(word, language)`);
 
-// Migration: Add personality column if it doesn't exist (for existing databases)
-try {
-  db.run(`ALTER TABLE teacher_settings ADD COLUMN personality TEXT`);
-} catch {
-  // Column already exists, ignore
-}
-
-// Migration: Add images column to messages table (for existing databases)
-try {
-  db.run(`ALTER TABLE messages ADD COLUMN images TEXT DEFAULT NULL`);
-} catch {
-  // Column already exists, ignore
-}
+db.run(`
+  CREATE TABLE IF NOT EXISTS youtube_translations (
+    id TEXT PRIMARY KEY,
+    video_id TEXT NOT NULL,
+    video_title TEXT,
+    timestamp_seconds REAL NOT NULL,
+    frame_image TEXT,
+    translation_data TEXT,
+    created_at INTEGER NOT NULL
+  )
+`);
+db.run(`CREATE INDEX IF NOT EXISTS idx_youtube_translations_video_id ON youtube_translations(video_id)`);
 
 export { db, blossomDir };

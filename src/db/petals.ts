@@ -12,6 +12,8 @@ export interface PetalRow {
   user_input: string;
   user_images: string | null;
   created_at: number;
+  source_type: string;
+  youtube_translation_id: string | null;
 }
 
 export interface FlowerData {
@@ -32,16 +34,18 @@ export function createPetal(
   conversationId: string,
   messageId: string,
   userInput: string,
-  userImages?: string[]
+  userImages?: string[],
+  sourceType: string = "chat",
+  youtubeTranslationId?: string
 ): PetalRow {
   const id = generateId();
   const createdAt = Date.now();
   const userImagesJson = userImages && userImages.length > 0 ? JSON.stringify(userImages) : null;
 
   db.run(
-    `INSERT INTO petals (id, word, reading, meaning, part_of_speech, language, conversation_id, message_id, user_input, user_images, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput, userImagesJson, createdAt]
+    `INSERT INTO petals (id, word, reading, meaning, part_of_speech, language, conversation_id, message_id, user_input, user_images, created_at, source_type, youtube_translation_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput, userImagesJson, createdAt, sourceType, youtubeTranslationId || null]
   );
 
   return {
@@ -56,6 +60,8 @@ export function createPetal(
     user_input: userInput,
     user_images: userImagesJson,
     created_at: createdAt,
+    source_type: sourceType,
+    youtube_translation_id: youtubeTranslationId || null,
   };
 }
 

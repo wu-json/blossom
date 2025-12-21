@@ -3,12 +3,12 @@ import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
 import type { Petal, Language } from "../../types/chat";
 import type { TranslationData, WordBreakdown } from "../../types/translation";
-import { Trash2, ExternalLink } from "lucide-react";
+import { Trash2, ExternalLink, Youtube } from "lucide-react";
 
-const translations: Record<Language, { viewContext: string; delete: string; confirmDelete: string }> = {
-  ja: { viewContext: "会話を見る", delete: "削除", confirmDelete: "確認" },
-  zh: { viewContext: "查看对话", delete: "删除", confirmDelete: "确认" },
-  ko: { viewContext: "대화 보기", delete: "삭제", confirmDelete: "확인" },
+const translations: Record<Language, { viewContext: string; viewYoutube: string; delete: string; confirmDelete: string }> = {
+  ja: { viewContext: "会話を見る", viewYoutube: "動画を見る", delete: "削除", confirmDelete: "確認" },
+  zh: { viewContext: "查看对话", viewYoutube: "查看视频", delete: "删除", confirmDelete: "确认" },
+  ko: { viewContext: "대화 보기", viewYoutube: "동영상 보기", delete: "삭제", confirmDelete: "확인" },
 };
 
 const posColors: Record<string, string> = {
@@ -35,21 +35,47 @@ interface PetalCardProps {
 
 export function PetalCard({ petal }: PetalCardProps) {
   const { deletePetal, setScrollToMessage, language } = useChatStore();
-  const { navigateToChat } = useNavigation();
+  const { navigateToChat, navigateToYouTube } = useNavigation();
   const t = translations[language];
   const [translationData, setTranslationData] = useState<TranslationData | null>(null);
+  const [frameImage, setFrameImage] = useState<string | null>(null);
+  const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
+  const [youtubeTimestamp, setYoutubeTimestamp] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const isYouTube = petal.sourceType === "youtube";
 
   useEffect(() => {
     const fetchTranslation = async () => {
       try {
-        const response = await fetch(
-          `/api/messages/${petal.conversationId}/${petal.messageId}/translation`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setTranslationData(data);
+        if (isYouTube && petal.youtubeTranslationId) {
+          // Fetch YouTube translation
+          const response = await fetch(`/api/youtube/translations/${petal.youtubeTranslationId}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.translation_data) {
+              setTranslationData(data.translation_data);
+            }
+            if (data.frame_image) {
+              setFrameImage(data.frame_image);
+            }
+            if (data.video_id) {
+              setYoutubeVideoId(data.video_id);
+            }
+            if (data.timestamp_seconds !== undefined) {
+              setYoutubeTimestamp(data.timestamp_seconds);
+            }
+          }
+        } else {
+          // Fetch chat message translation
+          const response = await fetch(
+            `/api/messages/${petal.conversationId}/${petal.messageId}/translation`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setTranslationData(data);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch translation:", error);
@@ -59,11 +85,15 @@ export function PetalCard({ petal }: PetalCardProps) {
     };
 
     fetchTranslation();
-  }, [petal.conversationId, petal.messageId]);
+  }, [petal.conversationId, petal.messageId, petal.youtubeTranslationId, isYouTube]);
 
   const handleViewContext = () => {
-    setScrollToMessage(petal.messageId);
-    navigateToChat(petal.conversationId);
+    if (isYouTube && youtubeVideoId) {
+      navigateToYouTube({ videoId: youtubeVideoId, timestamp: youtubeTimestamp });
+    } else {
+      setScrollToMessage(petal.messageId);
+      navigateToChat(petal.conversationId);
+    }
   };
 
   const handleDelete = async () => {
@@ -77,14 +107,33 @@ export function PetalCard({ petal }: PetalCardProps) {
 
   const hasImages = petal.userImages && petal.userImages.length > 0;
   const hasText = petal.userInput && petal.userInput.trim().length > 0;
+  const hasFrameImage = isYouTube && frameImage;
 
   return (
     <div
       className="rounded-lg border overflow-hidden group"
       style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
     >
-      {/* User context - original text/images */}
-      {(hasImages || hasText) && (
+      {hasFrameImage && (
+        <div
+          className="border-b"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <img
+            src={frameImage}
+            alt="YouTube frame"
+            className="w-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => window.open(frameImage, "_blank")}
+          />
+          {hasText && (
+            <p className="px-4 py-2 text-sm" style={{ color: "var(--text-muted)" }}>
+              {petal.userInput}
+            </p>
+          )}
+        </div>
+      )}
+
+      {!isYouTube && (hasImages || hasText) && (
         <div
           className="px-4 py-3 border-b"
           style={{ backgroundColor: "var(--background)", borderColor: "var(--border)" }}
@@ -110,7 +159,6 @@ export function PetalCard({ petal }: PetalCardProps) {
         </div>
       )}
 
-      {/* Full breakdown */}
       <div className="px-4 py-3 space-y-3">
         {loading ? (
           <div className="animate-pulse space-y-2">
@@ -124,7 +172,6 @@ export function PetalCard({ petal }: PetalCardProps) {
           </div>
         ) : translationData ? (
           <>
-            {/* Original Text */}
             <div>
               <div className="text-base font-medium" style={{ color: "var(--text)" }}>
                 {translationData.originalText}
@@ -136,7 +183,6 @@ export function PetalCard({ petal }: PetalCardProps) {
               )}
             </div>
 
-            {/* Translation */}
             <div
               className="px-3 py-2 rounded-lg"
               style={{ backgroundColor: "var(--background)" }}
@@ -149,7 +195,6 @@ export function PetalCard({ petal }: PetalCardProps) {
               </div>
             </div>
 
-            {/* Word Breakdown */}
             <div>
               <div className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>
                 Breakdown
@@ -166,7 +211,6 @@ export function PetalCard({ petal }: PetalCardProps) {
               </div>
             </div>
 
-            {/* Grammar Notes */}
             {translationData.grammarNotes && (
               <div
                 className="pt-3 border-t"
@@ -182,7 +226,6 @@ export function PetalCard({ petal }: PetalCardProps) {
             )}
           </>
         ) : (
-          // Fallback to basic petal info if translation not found
           <div className="space-y-1">
             <div className="flex items-baseline gap-2">
               <span className="font-medium" style={{ color: "var(--text)" }}>
@@ -205,15 +248,14 @@ export function PetalCard({ petal }: PetalCardProps) {
           </div>
         )}
 
-        {/* Actions + Date */}
         <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
           <button
             onClick={handleViewContext}
             className="flex items-center gap-1.5 text-xs transition-colors hover:opacity-80"
             style={{ color: "var(--primary)" }}
           >
-            <ExternalLink size={14} />
-            {t.viewContext}
+            {isYouTube ? <Youtube size={14} /> : <ExternalLink size={14} />}
+            {isYouTube ? t.viewYoutube : t.viewContext}
           </button>
           <span className="text-xs ml-auto" style={{ color: "var(--text-muted)" }}>
             {new Date(petal.createdAt).toLocaleDateString(language === "ja" ? "ja-JP" : language === "zh" ? "zh-CN" : "ko-KR", {

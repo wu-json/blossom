@@ -26,6 +26,14 @@ import {
   deletePetalByMessageAndWord,
   getFlowersByLanguage,
 } from "./db/petals";
+import {
+  createYouTubeTranslation,
+  getYouTubeTranslationById,
+  getYouTubeTranslationsByVideoId,
+  updateYouTubeTranslation,
+  updateYouTubeTranslationTimestamp,
+} from "./db/youtube-translations";
+import { extractAndSaveFrame, compressFrameForApi, framesDir, ensureVideoTools, precacheStreamUrl } from "./lib/video-tools";
 import { db, blossomDir } from "./db/database";
 import { compactMessages } from "./lib/message-compaction";
 import { getImageForApi, type ImageMediaType } from "./lib/image-compression";
@@ -70,6 +78,9 @@ function addCacheControlToMessages(messages: MessageParam[]): MessageParam[] {
 // Ensure uploads directory exists in ~/.blossom/uploads
 const uploadsDir = join(blossomDir, "uploads");
 await mkdir(uploadsDir, { recursive: true });
+
+// Download video tools (yt-dlp + ffmpeg) on startup
+await ensureVideoTools();
 
 const languageNames: Record<string, string> = {
   ja: "Japanese",
@@ -495,7 +506,7 @@ const server = Bun.serve({
     },
     "/api/petals": {
       POST: async (req) => {
-        const { word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput, userImages } = await req.json();
+        const { word, reading, meaning, partOfSpeech, language, conversationId, messageId, userInput, userImages, sourceType, youtubeTranslationId } = await req.json();
 
         if (!word || !language || !conversationId || !messageId) {
           return Response.json({ error: "Missing required fields" }, { status: 400 });
@@ -515,7 +526,9 @@ const server = Bun.serve({
           conversationId,
           messageId,
           userInput || "",
-          userImages
+          userImages,
+          sourceType || "chat",
+          youtubeTranslationId
         );
         return Response.json(petal);
       },
@@ -578,6 +591,278 @@ const server = Bun.serve({
           return Response.json({ error: "No translation data in message" }, { status: 404 });
         }
         return Response.json(parsed.data);
+      },
+    },
+    "/api/youtube/extract-frame": {
+      POST: async (req) => {
+        try {
+          const { videoId, timestamp } = await req.json();
+
+          if (!videoId || typeof timestamp !== "number") {
+            return Response.json({ error: "Missing videoId or timestamp" }, { status: 400 });
+          }
+
+          // Extract high-quality frame and save to disk
+          const filename = await extractAndSaveFrame(videoId, timestamp);
+
+          return Response.json({ filename });
+        } catch (error) {
+          console.error("Frame extraction error:", error);
+          const message = error instanceof Error ? error.message : "Failed to extract frame";
+          return Response.json({ error: message }, { status: 500 });
+        }
+      },
+    },
+    "/api/youtube/precache-stream": {
+      POST: async (req) => {
+        try {
+          const { videoId } = await req.json();
+          if (!videoId) {
+            return Response.json({ error: "Missing videoId" }, { status: 400 });
+          }
+          // Fire and forget - don't wait for completion
+          precacheStreamUrl(videoId).catch((err) => {
+            console.error("Failed to precache stream:", err);
+          });
+          return Response.json({ status: "caching" });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unknown error";
+          return Response.json({ error: message }, { status: 500 });
+        }
+      },
+    },
+    "/api/youtube/frames/:filename": {
+      GET: async (req) => {
+        const filename = req.params.filename;
+        const filepath = `${framesDir}/${filename}`;
+        const file = Bun.file(filepath);
+
+        if (!(await file.exists())) {
+          return Response.json({ error: "Frame not found" }, { status: 404 });
+        }
+
+        const contentType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
+        return new Response(file, {
+          headers: { "Content-Type": contentType },
+        });
+      },
+    },
+    "/api/youtube/translations": {
+      GET: (req) => {
+        const url = new URL(req.url);
+        const videoId = url.searchParams.get("videoId");
+
+        if (!videoId) {
+          return Response.json({ error: "videoId required" }, { status: 400 });
+        }
+
+        const translations = getYouTubeTranslationsByVideoId(videoId);
+
+        // Transform to client format
+        const clientTranslations = translations.map((t) => ({
+          id: t.id,
+          videoId: t.video_id,
+          videoTitle: t.video_title,
+          timestampSeconds: t.timestamp_seconds,
+          frameImage: t.frame_image ? `/api/youtube/frames/${t.frame_image}` : null,
+          translationData: t.translation_data ? JSON.parse(t.translation_data) : null,
+          createdAt: t.created_at,
+        }));
+
+        return Response.json({ translations: clientTranslations });
+      },
+      POST: async (req) => {
+        try {
+          const { videoId, videoTitle, timestampSeconds, frameFilename, translationData } = await req.json();
+
+          if (!videoId || typeof timestampSeconds !== "number") {
+            return Response.json({ error: "Missing required fields" }, { status: 400 });
+          }
+
+          const translation = createYouTubeTranslation(
+            videoId,
+            videoTitle || null,
+            timestampSeconds,
+            frameFilename || null,
+            translationData ? JSON.stringify(translationData) : null
+          );
+
+          return Response.json(translation);
+        } catch (error) {
+          console.error("Create YouTube translation error:", error);
+          return Response.json({ error: "Failed to create translation" }, { status: 500 });
+        }
+      },
+    },
+    "/api/youtube/translations/:id": {
+      GET: (req) => {
+        const id = req.params.id;
+        const translation = getYouTubeTranslationById(id);
+
+        if (!translation) {
+          return Response.json({ error: "Translation not found" }, { status: 404 });
+        }
+
+        // Convert filename to URL for client
+        const frameUrl = translation.frame_image
+          ? `/api/youtube/frames/${translation.frame_image}`
+          : null;
+
+        return Response.json({
+          ...translation,
+          frame_image: frameUrl,
+          translation_data: translation.translation_data
+            ? JSON.parse(translation.translation_data)
+            : null,
+        });
+      },
+      PUT: async (req) => {
+        const id = req.params.id;
+        const { translationData, frameImage, timestampSeconds } = await req.json();
+
+        // Handle timestamp update if provided
+        if (timestampSeconds !== undefined) {
+          const timestampSuccess = updateYouTubeTranslationTimestamp(id, timestampSeconds);
+          if (!timestampSuccess) {
+            return Response.json({ error: "Translation not found" }, { status: 404 });
+          }
+          // If only updating timestamp, return early
+          if (translationData === undefined && frameImage === undefined) {
+            return Response.json({ success: true });
+          }
+        }
+
+        const success = updateYouTubeTranslation(
+          id,
+          translationData ? JSON.stringify(translationData) : null,
+          frameImage
+        );
+
+        if (!success) {
+          return Response.json({ error: "Translation not found" }, { status: 404 });
+        }
+
+        return Response.json({ success: true });
+      },
+    },
+    "/api/youtube/translate": {
+      POST: async (req) => {
+        const apiKey = Bun.env.ANTHROPIC_API_KEY;
+        if (!apiKey) {
+          return Response.json({ error: "API key not configured" }, { status: 401 });
+        }
+
+        const { filename, language } = await req.json();
+
+        if (!filename) {
+          return Response.json({ error: "Missing filename" }, { status: 400 });
+        }
+
+        // Compress the frame for API (smaller file = faster + cheaper)
+        const compressedBuffer = await compressFrameForApi(filename);
+        const imageBase64 = compressedBuffer.toString("base64");
+
+        const languageName = languageNames[language] || "Japanese";
+        const subtextName = language === "ja" ? "kana (hiragana/katakana readings)" : language === "zh" ? "pinyin" : "romanization";
+
+        const systemPrompt = `You are a language learning assistant helping users understand text in video frames.
+
+When analyzing an image:
+1. Extract all visible text (subtitles, captions, signs, UI text)
+2. Provide translation with word-by-word breakdown
+3. Focus on the primary/most prominent ${languageName} text
+
+Respond using this EXACT JSON format wrapped in markers:
+
+<<<TRANSLATION_START>>>
+{
+  "originalText": "the original ${languageName} text",
+  "subtext": "${subtextName} for the entire phrase",
+  "translation": "English translation",
+  "breakdown": [
+    {
+      "word": "each word/particle",
+      "reading": "pronunciation in ${subtextName}",
+      "meaning": "English meaning",
+      "partOfSpeech": "noun|verb|adjective|particle|adverb|conjunction|auxiliary|etc"
+    }
+  ],
+  "grammarNotes": "Brief explanation of any notable grammar patterns, conjugations, or usage notes"
+}
+<<<TRANSLATION_END>>>
+
+If there is no ${languageName} text visible in the image, respond with a brief message explaining that no text was found.`;
+
+        const anthropic = new Anthropic({ apiKey });
+
+        try {
+          const stream = anthropic.messages.stream({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 4096,
+            system: [
+              {
+                type: "text",
+                text: systemPrompt,
+                cache_control: { type: "ephemeral" },
+              },
+            ],
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "image",
+                    source: {
+                      type: "base64",
+                      media_type: "image/jpeg",
+                      data: imageBase64,
+                    },
+                  },
+                  {
+                    type: "text",
+                    text: `Please analyze this video frame and translate any ${languageName} text you see.`,
+                  },
+                ],
+              },
+            ],
+          });
+
+          const encoder = new TextEncoder();
+          const readable = new ReadableStream({
+            async start(controller) {
+              try {
+                for await (const event of stream) {
+                  if (controller.desiredSize === null) {
+                    break;
+                  }
+                  const data = `data: ${JSON.stringify(event)}\n\n`;
+                  controller.enqueue(encoder.encode(data));
+                }
+                if (controller.desiredSize !== null) {
+                  controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                  controller.close();
+                }
+              } catch (error) {
+                console.error("YouTube translate stream error:", error);
+                if (controller.desiredSize !== null) {
+                  controller.error(error);
+                }
+              }
+            },
+          });
+
+          return new Response(readable, {
+            headers: {
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              Connection: "keep-alive",
+            },
+          });
+        } catch (error: unknown) {
+          console.error("YouTube translate API error:", error);
+          const message = error instanceof Error ? error.message : "Unknown error";
+          return Response.json({ error: message }, { status: 500 });
+        }
       },
     },
     "/api/chat": {
@@ -805,5 +1090,5 @@ For ALL other interactions (questions, conversation, requests for examples, clar
 const pink = "\x1b[38;2;236;72;153m"; // #EC4899
 const reset = "\x1b[0m";
 
-console.log(`\n🌸 ${pink}Blossom${reset} - ようこそ | 欢迎 | 환영합니다`);
+console.log(`\n🌸 ${pink}Blossom${reset} - language as a meadow`);
 console.log(`   Server running at ${pink}http://localhost:${server.port}${reset}\n`);
