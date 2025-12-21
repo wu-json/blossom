@@ -242,34 +242,58 @@ function getPlayerBounds(playerElement: HTMLElement): PlayerBounds {
 
 - **Permission dialog**: Browser shows a picker for which screen/window to share. Guide user to select the browser window with the video.
 - **Cropping accuracy**: The cropping logic uses player bounds relative to the browser window. If the user selects the entire screen or a different window instead, the crop will be incorrect. This is acceptable - users can retry with the correct selection.
-- **Sharing indicator**: While capturing, browser shows a "sharing" indicator. We stop the stream immediately after grabbing one frame to minimize this.
+- **Sharing indicator**: Browser shows a "sharing" indicator while the capture session is active. This is expected and the user can stop sharing via the "Stop Capture" button or browser UI when done.
 - **First-time guidance**: Show a tooltip or modal explaining the capture flow on first use. Emphasize selecting the browser window (not entire screen).
+- **Session cleanup**: Stop the capture session when navigating away or unmounting the component.
 - **Error handling**: Handle `NotAllowedError` (user cancelled) gracefully with a friendly message.
 
 ```typescript
-async function handleTranslateClick() {
-  try {
-    setIsCapturing(true);
+// In youtube-viewer.tsx
+const captureSessionRef = useRef(new CaptureSession());
 
-    // Get player bounds before capture
+async function handleStartCapture() {
+  try {
+    await captureSessionRef.current.start();
+    setIsCaptureActive(true);
+  } catch (error) {
+    if (error.name === "NotAllowedError") {
+      showToast("Screen capture cancelled. Click to try again.");
+    } else {
+      showToast("Failed to start capture.");
+    }
+  }
+}
+
+function handleStopCapture() {
+  captureSessionRef.current.stop();
+  setIsCaptureActive(false);
+}
+
+async function handleTranslateClick() {
+  if (!captureSessionRef.current.isActive()) {
+    showToast("Start capture first.");
+    return;
+  }
+
+  try {
+    setIsTranslating(true);
     const playerBounds = getPlayerBounds(playerContainerRef.current);
-    const { imageBlob, timestamp } = await captureFrame(
+    const { imageBlob, timestamp } = await captureSessionRef.current.grabFrame(
       player.getCurrentTime(),
       playerBounds
     );
-
     await translateFrame(imageBlob, timestamp);
   } catch (error) {
-    if (error.name === "NotAllowedError") {
-      // User cancelled the permission dialog
-      showToast("Screen capture cancelled. Click the button to try again.");
-    } else {
-      showToast("Failed to capture frame. Please try again.");
-    }
+    showToast("Failed to capture frame. Please try again.");
   } finally {
-    setIsCapturing(false);
+    setIsTranslating(false);
   }
 }
+
+// Clean up on unmount or navigation
+useEffect(() => {
+  return () => captureSessionRef.current.stop();
+}, []);
 ```
 
 #### Browser Support Check
@@ -402,6 +426,7 @@ function parseYouTubeUrl(url: string): string | null {
 |           (16:9 aspect ratio)            |
 |                                          |
 +------------------------------------------+
+| [Start Capture]  or  [Stop Capture]      |
 |        [ Translate Frame ]               |
 +------------------------------------------+
 |                                          |
@@ -410,6 +435,10 @@ function parseYouTubeUrl(url: string): string | null {
 |                                          |
 +------------------------------------------+
 ```
+
+- **Start Capture**: Begins screen sharing session (prompts for permission)
+- **Stop Capture**: Ends the session (also ends if user clicks browser's "Stop Sharing")
+- **Translate Frame**: Only enabled when capture session is active
 
 #### Translation Card
 
