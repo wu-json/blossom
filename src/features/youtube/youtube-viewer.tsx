@@ -1018,6 +1018,51 @@ export function YouTubeViewer() {
                     )}
                   </div>
                 )}
+
+                {/* Translation history list - visible on wide screens */}
+                {videoTranslations.length > 0 && (
+                  <div className="hidden lg:flex flex-1 flex-col overflow-hidden">
+                    <div
+                      className="flex-1 overflow-auto px-4 py-3"
+                      style={{ borderTop: "1px solid var(--border)" }}
+                    >
+                      <div className="space-y-2">
+                        {videoTranslations.map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => handleTimelineMarkerClick(t)}
+                            className="w-full text-left px-3 py-2 rounded-lg transition-all hover:opacity-80"
+                            style={{
+                              backgroundColor: timelineActiveTranslation?.id === t.id
+                                ? "var(--primary)"
+                                : "var(--surface)",
+                              color: timelineActiveTranslation?.id === t.id
+                                ? "white"
+                                : "var(--text)",
+                              border: `1px solid ${timelineActiveTranslation?.id === t.id ? "var(--primary)" : "var(--border)"}`,
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="text-xs font-medium tabular-nums px-1.5 py-0.5 rounded"
+                                style={{
+                                  backgroundColor: timelineActiveTranslation?.id === t.id
+                                    ? "rgba(255,255,255,0.2)"
+                                    : "var(--border)",
+                                }}
+                              >
+                                {formatTimestamp(t.timestampSeconds)}
+                              </span>
+                              <span className="text-sm truncate flex-1">
+                                {t.translationData?.originalText || "Translation"}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
