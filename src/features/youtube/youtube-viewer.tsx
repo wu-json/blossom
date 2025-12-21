@@ -795,7 +795,7 @@ export function YouTubeViewer() {
         )}
 
         {videoId && (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col lg:flex-row h-full">
             {videoUnavailable && currentFrameImage ? (
               <div className="max-w-3xl mx-auto px-6 py-4 space-y-4">
                 <div
@@ -845,7 +845,7 @@ export function YouTubeViewer() {
                 </div>
               </div>
             ) : (
-              <>
+              <div className="flex flex-col lg:w-[70%] lg:flex-shrink-0">
                 {!videoUnavailable && (
                   <div
                     className="flex items-center gap-3 px-4 py-2 border-b flex-shrink-0"
@@ -923,7 +923,7 @@ export function YouTubeViewer() {
 
                 <div
                   ref={containerRef}
-                  className="w-full aspect-video flex-shrink-0"
+                  className="w-full aspect-video flex-shrink-0 max-h-[50vh] lg:max-h-[55vh]"
                   style={{ backgroundColor: "var(--surface)" }}
                 />
 
@@ -1018,11 +1018,59 @@ export function YouTubeViewer() {
                     )}
                   </div>
                 )}
-              </>
+
+                {/* Translation history list - visible on wide screens */}
+                {videoTranslations.length > 0 && (
+                  <div className="hidden lg:flex flex-1 flex-col overflow-hidden">
+                    <div
+                      className="flex-1 overflow-auto px-4 py-3"
+                      style={{ borderTop: "1px solid var(--border)" }}
+                    >
+                      <div className="space-y-2">
+                        {videoTranslations.map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => handleTimelineMarkerClick(t)}
+                            className="w-full text-left px-3 py-2 rounded-lg transition-all hover:opacity-80"
+                            style={{
+                              backgroundColor: timelineActiveTranslation?.id === t.id
+                                ? "var(--primary)"
+                                : "var(--surface)",
+                              color: timelineActiveTranslation?.id === t.id
+                                ? "white"
+                                : "var(--text)",
+                              border: `1px solid ${timelineActiveTranslation?.id === t.id ? "var(--primary)" : "var(--border)"}`,
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="text-xs font-medium tabular-nums px-1.5 py-0.5 rounded"
+                                style={{
+                                  backgroundColor: timelineActiveTranslation?.id === t.id
+                                    ? "rgba(255,255,255,0.2)"
+                                    : "var(--border)",
+                                }}
+                              >
+                                {formatTimestamp(t.timestampSeconds)}
+                              </span>
+                              <span className="text-sm truncate flex-1">
+                                {t.translationData?.originalText || "Translation"}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
-            {(isTranslating || timelineActiveTranslation?.translationData) && (
-              <div className="flex-1 overflow-auto px-4 pt-4 pb-16">
+            {(isTranslating || timelineActiveTranslation?.translationData) ? (
+              <div
+                className="flex-1 overflow-auto px-4 pt-4 pb-16 lg:pt-4 lg:border-l"
+                style={{ borderColor: "var(--border)" }}
+              >
                 <div
                   className="max-w-3xl mx-auto rounded-xl px-4 py-4"
                   style={{
@@ -1042,6 +1090,19 @@ export function YouTubeViewer() {
                     />
                   ) : null}
                 </div>
+              </div>
+            ) : (
+              <div
+                className="hidden lg:flex flex-1 flex-col items-center justify-center lg:border-l"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <Languages size={32} style={{ color: "var(--text-muted)", opacity: 0.5 }} />
+                <p
+                  className="mt-3 text-sm text-center px-4"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {translations[language].translate} (⌘↵)
+                </p>
               </div>
             )}
           </div>
