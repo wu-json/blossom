@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { blossomDir } from "../db/database";
 
 const TOOL_VERSIONS = {
-  ytdlp: "2024.12.13",
+  ytdlp: "2025.12.08",
   ffmpeg: "6.1.1",
 } as const;
 
@@ -124,18 +124,34 @@ export async function extractFrame(videoId: string, timestampSeconds: number): P
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
   // Get direct stream URL (yt-dlp resolves YouTube's signed URLs)
-  const streamUrlProc = Bun.spawn([ytdlp, "-g", "-f", "best[height<=720]", videoUrl], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  // Try formats in order of preference: 720p or less, then any best video
+  const formatSelectors = [
+    "bestvideo[height<=720]+bestaudio/best[height<=720]/bestvideo+bestaudio/best",
+  ];
 
-  const streamUrlOutput = await new Response(streamUrlProc.stdout).text();
-  const streamUrl = streamUrlOutput.trim();
-  const exitCode = await streamUrlProc.exited;
+  let streamUrl = "";
+  let lastError = "";
 
-  if (exitCode !== 0 || !streamUrl) {
+  for (const format of formatSelectors) {
+    const streamUrlProc = Bun.spawn([ytdlp, "-g", "-f", format, "--no-warnings", videoUrl], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const streamUrlOutput = await new Response(streamUrlProc.stdout).text();
     const stderr = await new Response(streamUrlProc.stderr).text();
-    throw new Error(`Failed to get video stream URL: ${stderr || "Unknown error"}`);
+    const exitCode = await streamUrlProc.exited;
+
+    if (exitCode === 0 && streamUrlOutput.trim()) {
+      // yt-dlp may return multiple URLs (video + audio), take the first (video)
+      streamUrl = streamUrlOutput.trim().split("\n")[0];
+      break;
+    }
+    lastError = stderr;
+  }
+
+  if (!streamUrl) {
+    throw new Error(`Failed to get video stream URL: ${lastError || "Unknown error"}`);
   }
 
   // Extract single frame at timestamp

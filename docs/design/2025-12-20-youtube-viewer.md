@@ -135,7 +135,7 @@ yt-dlp and ffmpeg binaries are downloaded on server startup to `~/.blossom/bin/`
 // src/lib/video-tools.ts
 
 const TOOL_VERSIONS = {
-  ytdlp: "2024.12.13",
+  ytdlp: "2025.12.08",
   ffmpeg: "6.1.1",
 } as const;
 
