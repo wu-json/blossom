@@ -711,7 +711,3 @@ console.log(`   Server running at http://localhost:${server.port}\n`);
 
 4. **Video unavailability**: Store captured frame thumbnails in the database. When a video becomes unavailable, show the cached frame image along with the translation data so users can still review their saved vocabulary in context.
 
-## Open Questions
-
-1. Do we need to handle age-restricted videos differently?
-2. Should we support other video platforms (Bilibili, NicoNico) in the future?
