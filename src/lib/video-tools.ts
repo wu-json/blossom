@@ -119,16 +119,21 @@ export async function ensureVideoTools(): Promise<ToolPaths> {
   return { ytdlp: ytdlpPath, ffmpeg: ffmpegPath };
 }
 
-export async function extractFrame(videoId: string, timestampSeconds: number): Promise<Buffer> {
-  const { ytdlp, ffmpeg } = await ensureVideoTools();
-  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+// Cache stream URLs to avoid repeated yt-dlp calls (URLs are valid for hours)
+const streamUrlCache = new Map<string, { url: string; expires: number }>();
+const CACHE_TTL = 3 * 60 * 60 * 1000; // 3 hours
 
-  // Get direct stream URL (yt-dlp resolves YouTube's signed URLs)
-  // Prefer combined formats (single URL) to avoid 403 errors from separate video streams
+async function getStreamUrl(videoId: string, ytdlp: string): Promise<string> {
+  const cached = streamUrlCache.get(videoId);
+  if (cached && cached.expires > Date.now()) {
+    return cached.url;
+  }
+
+  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
   const streamUrlProc = Bun.spawn([
     ytdlp,
     "-g",
-    "-f", "best[height<=720]/best",  // Combined format only (no +bestaudio)
+    "-f", "best[height<=720]/best",
     "--no-warnings",
     videoUrl
   ], {
@@ -140,33 +145,35 @@ export async function extractFrame(videoId: string, timestampSeconds: number): P
   const stderr = await new Response(streamUrlProc.stderr).text();
   const exitCode = await streamUrlProc.exited;
 
-  // Take first URL in case multiple are returned
   const streamUrl = streamUrlOutput.trim().split("\n")[0];
 
   if (exitCode !== 0 || !streamUrl) {
     throw new Error(`Failed to get video stream URL: ${stderr || "Unknown error"}`);
   }
 
-  // Extract single frame at timestamp
-  // Using JPEG for faster encoding, -q:v 2 for high quality
+  streamUrlCache.set(videoId, { url: streamUrl, expires: Date.now() + CACHE_TTL });
+  return streamUrl;
+}
+
+async function extractFrameWithUrl(ffmpeg: string, streamUrl: string, timestampSeconds: number): Promise<{ buffer: Buffer | null; error: string }> {
   const ffmpegProc = Bun.spawn(
     [
       ffmpeg,
       "-hide_banner",
       "-nostdin",
       "-ss",
-      String(timestampSeconds), // Seek to timestamp (before -i for fast seeking)
+      String(timestampSeconds),
       "-i",
-      streamUrl, // Input stream
+      streamUrl,
       "-frames:v",
-      "1", // Extract 1 frame
+      "1",
       "-f",
-      "image2pipe", // Output to stdout
+      "image2pipe",
       "-vcodec",
-      "mjpeg", // JPEG format (faster than PNG)
+      "mjpeg",
       "-q:v",
-      "2", // High quality (1-31, lower is better)
-      "-", // Output to stdout
+      "2",
+      "-",
     ],
     {
       stdout: "pipe",
@@ -179,8 +186,29 @@ export async function extractFrame(videoId: string, timestampSeconds: number): P
 
   if (ffmpegExitCode !== 0 || frameBuffer.byteLength === 0) {
     const stderr = await new Response(ffmpegProc.stderr).text();
-    throw new Error(`Failed to extract frame: ${stderr || "Unknown error"}`);
+    return { buffer: null, error: stderr };
   }
 
-  return Buffer.from(frameBuffer);
+  return { buffer: Buffer.from(frameBuffer), error: "" };
+}
+
+export async function extractFrame(videoId: string, timestampSeconds: number): Promise<Buffer> {
+  const { ytdlp, ffmpeg } = await ensureVideoTools();
+
+  // Get cached or fresh stream URL
+  let streamUrl = await getStreamUrl(videoId, ytdlp);
+  let result = await extractFrameWithUrl(ffmpeg, streamUrl, timestampSeconds);
+
+  // If failed (possibly expired URL), clear cache and retry once
+  if (!result.buffer && result.error.includes("403")) {
+    streamUrlCache.delete(videoId);
+    streamUrl = await getStreamUrl(videoId, ytdlp);
+    result = await extractFrameWithUrl(ffmpeg, streamUrl, timestampSeconds);
+  }
+
+  if (!result.buffer) {
+    throw new Error(`Failed to extract frame: ${result.error || "Unknown error"}`);
+  }
+
+  return result.buffer;
 }
