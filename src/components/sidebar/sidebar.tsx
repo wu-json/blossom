@@ -1,5 +1,5 @@
 import * as React from "react";
-import { MessageSquare, Settings, GraduationCap, Flower2, Youtube } from "lucide-react";
+import { MessageSquare, Settings, GraduationCap, Flower2, Youtube, PanelLeftClose } from "lucide-react";
 import { useLocation } from "wouter";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -290,10 +290,20 @@ export function Sidebar() {
         </div>
 
         <div
-          className="mt-auto px-4 py-3 text-xs"
+          className="mt-auto px-4 py-3 flex items-center gap-1.5"
           style={{ color: "var(--text-muted)", opacity: 0.6 }}
         >
-          {navigator.platform.includes("Mac") ? "⌘" : "Ctrl+"}B to toggle
+          <PanelLeftClose size={14} />
+          <kbd
+            className="text-[10px] px-1 py-0.5 rounded"
+            style={{
+              backgroundColor: "var(--background)",
+              color: "var(--text-muted)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            [
+          </kbd>
         </div>
       </aside>
     </>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearch, useLocation } from "wouter";
-import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check, Play, Pause, Volume2, VolumeX, Maximize } from "lucide-react";
+import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check, Play, Pause, Volume2, VolumeX, Maximize, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useYouTubeStore } from "../../store/youtube-store";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -151,6 +151,9 @@ export function YouTubeViewer() {
     currentTimestamp,
     videoUnavailable,
     error,
+    translationBarWidth,
+    translationBarCollapsed,
+    playerHeight,
     setVideoUrl,
     setVideo,
     setExtracting,
@@ -161,6 +164,9 @@ export function YouTubeViewer() {
     setVideoUnavailable,
     setError,
     clearVideo,
+    setTranslationBarWidth,
+    toggleTranslationBarCollapsed,
+    setPlayerHeight,
   } = useYouTubeStore();
 
   const language = useChatStore((state) => state.language);
@@ -183,6 +189,11 @@ export function YouTubeViewer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const apiLoadedRef = useRef(false);
+  const layoutContainerRef = useRef<HTMLDivElement>(null);
+  const isResizingRef = useRef(false);
+  const isResizingHeightRef = useRef(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isResizingHeight, setIsResizingHeight] = useState(false);
 
   const {
     translations: videoTranslations,
@@ -347,6 +358,23 @@ export function YouTubeViewer() {
     return () => clearInterval(interval);
   }, [playerReady]);
 
+  // Recover focus when iframe steals it
+  useEffect(() => {
+    if (!playerReady || !playerRef.current) return;
+
+    const handleWindowBlur = () => {
+      // Check if an iframe has stolen focus
+      setTimeout(() => {
+        if (document.activeElement?.tagName === "IFRAME") {
+          window.focus();
+        }
+      }, 0);
+    };
+
+    window.addEventListener("blur", handleWindowBlur);
+    return () => window.removeEventListener("blur", handleWindowBlur);
+  }, [playerReady]);
+
   useEffect(() => {
     if (!playerReady) return;
 
@@ -385,11 +413,16 @@ export function YouTubeViewer() {
           playerRef.current?.seekTo(Math.max(0, currentTime - seekAmount), true);
         }
       }
+
+      if (e.key === "]") {
+        e.preventDefault();
+        toggleTranslationBarCollapsed();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playerReady, isExtracting, isTranslating]);
+  }, [playerReady, isExtracting, isTranslating, toggleTranslationBarCollapsed]);
 
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return;
@@ -430,6 +463,67 @@ export function YouTubeViewer() {
       iframe.requestFullscreen();
     }
   }, []);
+
+  const handleResizeStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    isResizingRef.current = true;
+    setIsResizing(true);
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (!isResizingRef.current || !layoutContainerRef.current) return;
+
+      const containerRect = layoutContainerRef.current.getBoundingClientRect();
+      const newWidth = ((containerRect.right - moveEvent.clientX) / containerRect.width) * 100;
+      const clampedWidth = Math.max(20, Math.min(50, newWidth));
+      setTranslationBarWidth(clampedWidth);
+    };
+
+    const cleanup = () => {
+      isResizingRef.current = false;
+      setIsResizing(false);
+      target.removeEventListener("pointermove", handlePointerMove);
+      target.removeEventListener("pointerup", cleanup);
+      target.removeEventListener("pointercancel", cleanup);
+      target.removeEventListener("lostpointercapture", cleanup);
+    };
+
+    target.addEventListener("pointermove", handlePointerMove);
+    target.addEventListener("pointerup", cleanup);
+    target.addEventListener("pointercancel", cleanup);
+    target.addEventListener("lostpointercapture", cleanup);
+  }, [setTranslationBarWidth]);
+
+  const handleHeightResizeStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    isResizingHeightRef.current = true;
+    setIsResizingHeight(true);
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (!isResizingHeightRef.current) return;
+
+      const newHeight = (moveEvent.clientY / window.innerHeight) * 100;
+      const clampedHeight = Math.max(25, Math.min(75, newHeight));
+      setPlayerHeight(clampedHeight);
+    };
+
+    const cleanup = () => {
+      isResizingHeightRef.current = false;
+      setIsResizingHeight(false);
+      target.removeEventListener("pointermove", handlePointerMove);
+      target.removeEventListener("pointerup", cleanup);
+      target.removeEventListener("pointercancel", cleanup);
+      target.removeEventListener("lostpointercapture", cleanup);
+    };
+
+    target.addEventListener("pointermove", handlePointerMove);
+    target.addEventListener("pointerup", cleanup);
+    target.addEventListener("pointercancel", cleanup);
+    target.addEventListener("lostpointercapture", cleanup);
+  }, [setPlayerHeight]);
 
   const handleLoadVideo = () => {
     const id = parseYouTubeUrl(inputUrl);
@@ -758,7 +852,6 @@ export function YouTubeViewer() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {/* Main Content */}
       <div className="flex-1 overflow-auto relative">
         {error && (
           <div className="max-w-3xl mx-auto px-6 pt-4">
@@ -776,7 +869,7 @@ export function YouTubeViewer() {
         )}
 
         {videoId && (
-          <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+          <div ref={layoutContainerRef} className="flex flex-col lg:flex-row h-full overflow-hidden">
             {videoUnavailable && currentFrameImage ? (
               <div className="max-w-3xl mx-auto px-6 py-4 space-y-4">
                 <div
@@ -826,7 +919,14 @@ export function YouTubeViewer() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col min-w-0 lg:w-[60%] 2xl:w-[70%] lg:flex-shrink-0">
+              <div
+                className="flex flex-col min-w-0 lg:flex-shrink-0"
+                style={{
+                  width: translationBarCollapsed ? "100%" : undefined,
+                  flex: translationBarCollapsed ? undefined : `0 0 ${100 - translationBarWidth}%`,
+                  transition: isResizing ? "none" : "all 0.2s ease-out",
+                }}
+              >
                 {!videoUnavailable && (
                   <div
                     className="flex items-center gap-3 px-4 py-2 border-b flex-shrink-0"
@@ -904,9 +1004,33 @@ export function YouTubeViewer() {
 
                 <div
                   ref={containerRef}
-                  className="w-full aspect-video flex-shrink-0 max-h-[50vh] lg:max-h-[55vh]"
-                  style={{ backgroundColor: "var(--surface)" }}
+                  className="w-full aspect-video flex-shrink-0 max-h-[50vh]"
+                  style={{
+                    backgroundColor: "var(--surface)",
+                    maxHeight: `${playerHeight}vh`,
+                    transition: isResizingHeight ? "none" : "max-height 0.2s ease-out",
+                  }}
                 />
+
+                {/* Height resize handle - only on large screens */}
+                <div
+                  className="hidden lg:flex items-center justify-center flex-shrink-0 group touch-none"
+                  style={{
+                    height: "6px",
+                    cursor: "row-resize",
+                    backgroundColor: isResizingHeight ? "var(--primary)" : "transparent",
+                    transition: isResizingHeight ? "none" : "background-color 0.15s",
+                  }}
+                  onPointerDown={handleHeightResizeStart}
+                >
+                  <div
+                    className="h-[2px] w-8 rounded-full transition-colors group-hover:opacity-100"
+                    style={{
+                      backgroundColor: isResizingHeight ? "var(--primary)" : "var(--border)",
+                      opacity: isResizingHeight ? 1 : 0.5,
+                    }}
+                  />
+                </div>
 
                 {playerReady && videoDuration > 0 && (
                   <div
@@ -1047,11 +1171,117 @@ export function YouTubeViewer() {
               </div>
             )}
 
-            {(isTranslating || timelineActiveTranslation?.translationData) ? (
+            {/* Resize handle - only visible on large screens when not collapsed */}
+            {!translationBarCollapsed && (
               <div
-                className="flex-1 min-w-0 overflow-auto px-4 pt-4 pb-8 lg:pt-4 lg:border-l"
-                style={{ borderColor: "var(--border)" }}
+                className="hidden lg:flex items-center justify-center flex-shrink-0 group touch-none"
+                style={{
+                  width: "6px",
+                  cursor: "col-resize",
+                  backgroundColor: isResizing ? "var(--primary)" : "transparent",
+                  transition: isResizing ? "none" : "background-color 0.15s",
+                }}
+                onPointerDown={handleResizeStart}
               >
+                <div
+                  className="w-[2px] h-8 rounded-full transition-colors group-hover:opacity-100"
+                  style={{
+                    backgroundColor: isResizing ? "var(--primary)" : "var(--border)",
+                    opacity: isResizing ? 1 : 0.5,
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Translation bar - always rendered, animated via width/opacity */}
+            <div
+              className="hidden lg:flex flex-col overflow-hidden flex-shrink-0"
+              style={{
+                width: translationBarCollapsed ? "0px" : `${translationBarWidth}%`,
+                opacity: translationBarCollapsed ? 0 : 1,
+                borderLeft: translationBarCollapsed ? "none" : "1px solid var(--border)",
+                transition: isResizing ? "none" : "width 0.2s ease-out, opacity 0.15s ease-out, border 0.2s ease-out",
+              }}
+            >
+              <div style={{ minWidth: "280px" }}>
+                <div
+                  className="flex items-center justify-between px-3 py-2 flex-shrink-0"
+                  style={{ borderBottom: "1px solid var(--border)" }}
+                >
+                  <button
+                    onClick={toggleTranslationBarCollapsed}
+                    className="flex items-center gap-1.5 p-1 rounded transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                    title="Collapse sidebar (])"
+                  >
+                    <PanelRightClose size={14} style={{ color: "var(--text-muted)" }} />
+                    <kbd
+                      className="text-[10px] px-1 py-0.5 rounded"
+                      style={{
+                        backgroundColor: "var(--surface)",
+                        color: "var(--text-muted)",
+                        border: "1px solid var(--border)",
+                      }}
+                    >
+                      ]
+                    </kbd>
+                  </button>
+                </div>
+
+                {(isTranslating || timelineActiveTranslation?.translationData) ? (
+                  <div className="flex-1 overflow-auto px-4 pt-4 pb-8">
+                    <div
+                      className="rounded-xl px-4 py-4"
+                      style={{
+                        backgroundColor: "var(--assistant-bubble)",
+                        color: "var(--assistant-bubble-text)",
+                      }}
+                    >
+                      {isTranslating ? (
+                        renderTranslationContent()
+                      ) : timelineActiveTranslation?.translationData ? (
+                        <TranslationCard
+                          data={timelineActiveTranslation.translationData}
+                          onSaveWord={(word) => handleTimelineSaveWord(timelineActiveTranslation.id, word)}
+                          onRemoveWord={(word) => handleTimelineRemoveWord(timelineActiveTranslation.id, word)}
+                          onViewFlower={handleViewFlower}
+                          savedWords={timelineSavedWords[timelineActiveTranslation.id] || []}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center py-16">
+                    <Languages size={32} style={{ color: "var(--text-muted)", opacity: 0.5 }} />
+                    <p
+                      className="mt-3 text-sm text-center px-4"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {translations[language].translate} (⌘↵)
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Expand button - always rendered, animated */}
+            <button
+              onClick={toggleTranslationBarCollapsed}
+              className="hidden lg:flex items-center justify-center flex-shrink-0 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              style={{
+                width: translationBarCollapsed ? "24px" : "0px",
+                opacity: translationBarCollapsed ? 1 : 0,
+                borderLeft: translationBarCollapsed ? "1px solid var(--border)" : "none",
+                transition: "width 0.2s ease-out, opacity 0.15s ease-out, border 0.2s ease-out",
+                overflow: "hidden",
+              }}
+              title="Expand sidebar (])"
+            >
+              <PanelRightOpen size={14} style={{ color: "var(--text-muted)" }} />
+            </button>
+
+            {/* Mobile translation view - always full width on small screens */}
+            {(isTranslating || timelineActiveTranslation?.translationData) && (
+              <div className="lg:hidden flex-1 min-w-0 overflow-auto px-4 pt-4 pb-8">
                 <div
                   className="rounded-xl px-4 py-4"
                   style={{
@@ -1071,19 +1301,6 @@ export function YouTubeViewer() {
                     />
                   ) : null}
                 </div>
-              </div>
-            ) : (
-              <div
-                className="hidden lg:flex flex-1 flex-col items-center justify-center lg:border-l"
-                style={{ borderColor: "var(--border)" }}
-              >
-                <Languages size={32} style={{ color: "var(--text-muted)", opacity: 0.5 }} />
-                <p
-                  className="mt-3 text-sm text-center px-4"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {translations[language].translate} (⌘↵)
-                </p>
               </div>
             )}
           </div>
