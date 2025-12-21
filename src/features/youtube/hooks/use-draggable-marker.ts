@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect } from "react";
 
 const DRAG_THRESHOLD_PX = 5;
 const HOLD_THRESHOLD_MS = 150;
@@ -7,13 +7,13 @@ interface UseDraggableMarkerOptions {
   initialPosition: number; // percentage 0-100
   trackRef: React.RefObject<HTMLDivElement | null>;
   videoDuration: number;
+  onDragStart?: () => void;
   onDragEnd: (newTimestamp: number) => void;
   onNavigate: () => void;
   disabled?: boolean;
 }
 
 interface UseDraggableMarkerResult {
-  isDragging: boolean;
   markerRef: React.RefObject<HTMLDivElement | null>;
   handlers: {
     onMouseDown: (e: React.MouseEvent) => void;
@@ -25,24 +25,25 @@ export function useDraggableMarker({
   initialPosition,
   trackRef,
   videoDuration,
+  onDragStart,
   onDragEnd,
   onNavigate,
   disabled = false,
 }: UseDraggableMarkerOptions): UseDraggableMarkerResult {
-  const [isDragging, setIsDragging] = useState(false);
   const markerRef = useRef<HTMLDivElement | null>(null);
 
   const startXRef = useRef(0);
   const startTimeRef = useRef(0);
   const currentPositionRef = useRef(initialPosition);
   const hasDraggedRef = useRef(false);
+  const isDraggingRef = useRef(false);
 
   // Sync position ref with initialPosition when not dragging
   useEffect(() => {
-    if (!isDragging) {
+    if (!isDraggingRef.current) {
       currentPositionRef.current = initialPosition;
     }
-  }, [initialPosition, isDragging]);
+  }, [initialPosition]);
 
   const calculatePositionFromX = useCallback(
     (clientX: number): number => {
@@ -70,7 +71,10 @@ export function useDraggableMarker({
       // Start dragging if moved beyond threshold
       if (!hasDraggedRef.current && deltaX > DRAG_THRESHOLD_PX) {
         hasDraggedRef.current = true;
-        setIsDragging(true);
+        isDraggingRef.current = true;
+        // Add dragging class for CSS styling
+        markerRef.current?.classList.add("is-dragging");
+        onDragStart?.();
       }
 
       if (hasDraggedRef.current) {
@@ -78,7 +82,7 @@ export function useDraggableMarker({
         updateMarkerPosition(newPosition);
       }
     },
-    [calculatePositionFromX, updateMarkerPosition]
+    [calculatePositionFromX, updateMarkerPosition, onDragStart]
   );
 
   const handleMouseUp = useCallback(
@@ -96,8 +100,9 @@ export function useDraggableMarker({
         onDragEnd(newTimestamp);
       }
 
-      setIsDragging(false);
+      isDraggingRef.current = false;
       hasDraggedRef.current = false;
+      markerRef.current?.classList.remove("is-dragging");
 
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
@@ -131,7 +136,9 @@ export function useDraggableMarker({
 
       if (!hasDraggedRef.current && deltaX > DRAG_THRESHOLD_PX) {
         hasDraggedRef.current = true;
-        setIsDragging(true);
+        isDraggingRef.current = true;
+        markerRef.current?.classList.add("is-dragging");
+        onDragStart?.();
       }
 
       if (hasDraggedRef.current) {
@@ -140,7 +147,7 @@ export function useDraggableMarker({
         updateMarkerPosition(newPosition);
       }
     },
-    [calculatePositionFromX, updateMarkerPosition]
+    [calculatePositionFromX, updateMarkerPosition, onDragStart]
   );
 
   const handleTouchEnd = useCallback(() => {
@@ -153,8 +160,9 @@ export function useDraggableMarker({
       onDragEnd(newTimestamp);
     }
 
-    setIsDragging(false);
+    isDraggingRef.current = false;
     hasDraggedRef.current = false;
+    markerRef.current?.classList.remove("is-dragging");
 
     document.removeEventListener("touchmove", handleTouchMove);
     document.removeEventListener("touchend", handleTouchEnd);
@@ -189,7 +197,6 @@ export function useDraggableMarker({
   }, [handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   return {
-    isDragging,
     markerRef,
     handlers: {
       onMouseDown: handleMouseDown,

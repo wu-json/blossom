@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { TimelineMarker } from "./timeline-marker";
 import type { YouTubeTranslation } from "./hooks/use-video-translations";
 
@@ -22,6 +22,9 @@ export function TranslationTimeline({
   onMarkerDrag,
 }: TranslationTimelineProps) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const isDraggingRef = useRef(false);
 
   const handleTrackClick = useCallback(
     (e: React.MouseEvent) => {
@@ -36,39 +39,77 @@ export function TranslationTimeline({
     [videoDuration, onSeek]
   );
 
+  // Use DOM manipulation for drag state to avoid re-renders
+  const handleDragStart = useCallback(() => {
+    isDraggingRef.current = true;
+    containerRef.current?.classList.add("is-dragging");
+  }, []);
+
+  const handleDragEnd = useCallback((id: string, newTimestamp: number) => {
+    isDraggingRef.current = false;
+    containerRef.current?.classList.remove("is-dragging");
+    onMarkerDrag(id, newTimestamp);
+  }, [onMarkerDrag]);
+
+  const isExpanded = isHovered;
+
   return (
-    <div className="translation-timeline">
+    <div
+      ref={containerRef}
+      className="translation-timeline"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        // Don't collapse while dragging
+        if (!isDraggingRef.current) {
+          setIsHovered(false);
+        }
+      }}
+      style={{
+        // CSS handles the dragging expanded state via .is-dragging class
+      }}
+    >
+      <style>{`
+        .translation-timeline.is-dragging .timeline-track {
+          height: 32px !important;
+          background-color: rgba(255,255,255,0.1) !important;
+          border-radius: 6px !important;
+        }
+        .translation-timeline.is-dragging .timeline-progress {
+          height: 3px !important;
+        }
+      `}</style>
       <div
         ref={trackRef}
         className="timeline-track"
         onClick={handleTrackClick}
         style={{
           position: "relative",
-          height: "44px",
-          backgroundColor: "var(--border)",
-          borderRadius: "8px",
+          height: isExpanded ? "32px" : "8px",
+          backgroundColor: isExpanded ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.08)",
+          borderRadius: isExpanded ? "6px" : "4px",
           cursor: "pointer",
-          boxShadow: "inset 0 1px 2px rgba(0,0,0,0.05)",
+          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+          overflow: "hidden",
         }}
       >
-        {/* Progress indicator - thin centered line */}
+        {/* Progress indicator - positioned at bottom */}
         <div
           className="timeline-progress"
           style={{
             position: "absolute",
             left: 0,
-            top: "50%",
-            transform: "translateY(-50%)",
-            height: "4px",
+            bottom: 0,
+            height: isExpanded ? "3px" : "2px",
             width: `${(currentTime / videoDuration) * 100}%`,
             backgroundColor: "var(--primary)",
-            opacity: 0.6,
-            borderRadius: "2px",
+            borderRadius: "1.5px",
             pointerEvents: "none",
+            transition: "height 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+            boxShadow: isExpanded ? "0 0 6px var(--primary)" : "none",
           }}
         />
 
-        {/* Translation markers as points */}
+        {/* Translation markers */}
         {translations.map((t) => {
           const position = (t.timestampSeconds / videoDuration) * 100;
 
@@ -78,10 +119,12 @@ export function TranslationTimeline({
               translation={t}
               position={position}
               isActive={t.id === activeTranslationId}
+              isExpanded={isExpanded}
               trackRef={trackRef}
               videoDuration={videoDuration}
               onNavigate={() => onMarkerClick(t)}
-              onDragEnd={(newTimestamp) => onMarkerDrag(t.id, newTimestamp)}
+              onDragStart={handleDragStart}
+              onDragEnd={(newTimestamp) => handleDragEnd(t.id, newTimestamp)}
             />
           );
         })}
