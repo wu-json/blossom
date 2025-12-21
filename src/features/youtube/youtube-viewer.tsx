@@ -9,6 +9,9 @@ import { parseTranslationContent, hasTranslationMarkers, parseStreamingTranslati
 import { TranslationTimeline } from "./translation-timeline";
 import { useVideoTranslations, type YouTubeTranslation } from "./hooks/use-video-translations";
 import { useActiveTranslation } from "./hooks/use-active-translation";
+import { MenuIcon } from "../../components/icons/menu-icon";
+import { HeaderControls } from "../../components/ui/header-controls";
+import { version } from "../../generated/version";
 import type { TranslationData, WordBreakdown, PartialTranslationData } from "../../types/translation";
 import type { Language } from "../../types/chat";
 
@@ -160,6 +163,8 @@ export function YouTubeViewer() {
   } = useYouTubeStore();
 
   const language = useChatStore((state) => state.language);
+  const toggleSidebar = useChatStore((state) => state.toggleSidebar);
+  const sidebarCollapsed = useChatStore((state) => state.sidebarCollapsed);
   const { navigateToMeadow } = useNavigation();
 
   const [inputUrl, setInputUrl] = useState(videoUrl);
@@ -1042,40 +1047,66 @@ export function YouTubeViewer() {
         )}
 
         {!videoId && (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 pb-10"
-            style={{ color: "var(--text-muted)" }}
-          >
-            <h3 className="font-medium mb-1" style={{ color: "var(--text)" }}>
-              {translations[language].title}
-            </h3>
-            <p className="text-sm mb-6 max-w-sm">
-              {translations[language].description}
-            </p>
-            <div className="flex gap-2 w-full max-w-md">
-              <input
-                type="text"
-                value={inputUrl}
-                onChange={(e) => setInputUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLoadVideo()}
-                placeholder={translations[language].placeholder}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
-                style={{
-                  backgroundColor: "var(--input-bg)",
-                  color: "var(--text)",
-                  border: "1px solid var(--border)",
-                }}
-              />
+          <div className="flex flex-col h-full">
+            <header
+              className="sticky top-0 z-10 px-4 py-3 border-b flex items-center justify-between"
+              style={{
+                backgroundColor: "var(--surface)",
+                borderColor: "var(--border)",
+              }}
+            >
               <button
-                onClick={handleLoadVideo}
-                className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
-                style={{
-                  backgroundColor: "var(--primary)",
-                  color: "white",
-                }}
+                onClick={toggleSidebar}
+                className="flex items-center gap-2 p-1.5 -ml-1.5 rounded-xl transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/5"
+                aria-label="Toggle sidebar"
               >
-                {translations[language].load}
+                <MenuIcon isOpen={sidebarCollapsed} />
+                <h1 className="text-base font-semibold tracking-tight" style={{ color: "var(--text)" }}>
+                  blossom
+                </h1>
+                <span className="text-xs self-end mb-[2px]" style={{ color: "var(--text-muted)" }}>
+                  v{version}
+                </span>
               </button>
+
+              <HeaderControls />
+            </header>
+
+            <div
+              className="flex-1 flex flex-col items-center justify-center text-center px-6 pb-10"
+              style={{ color: "var(--text-muted)" }}
+            >
+              <h3 className="font-medium mb-1" style={{ color: "var(--text)" }}>
+                {translations[language].title}
+              </h3>
+              <p className="text-sm mb-6 max-w-sm">
+                {translations[language].description}
+              </p>
+              <div className="flex gap-2 w-full max-w-md">
+                <input
+                  type="text"
+                  value={inputUrl}
+                  onChange={(e) => setInputUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleLoadVideo()}
+                  placeholder={translations[language].placeholder}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+                  style={{
+                    backgroundColor: "var(--input-bg)",
+                    color: "var(--text)",
+                    border: "1px solid var(--border)",
+                  }}
+                />
+                <button
+                  onClick={handleLoadVideo}
+                  className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90"
+                  style={{
+                    backgroundColor: "var(--primary)",
+                    color: "white",
+                  }}
+                >
+                  {translations[language].load}
+                </button>
+              </div>
             </div>
           </div>
         )}
