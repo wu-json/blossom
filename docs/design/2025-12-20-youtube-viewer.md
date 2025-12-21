@@ -214,8 +214,9 @@ function getPlayerBounds(playerElement: HTMLElement): PlayerBounds {
 #### UX Considerations
 
 - **Permission dialog**: Browser shows a picker for which screen/window to share. Guide user to select the browser window with the video.
+- **Cropping accuracy**: The cropping logic uses player bounds relative to the browser window. If the user selects the entire screen or a different window instead, the crop will be incorrect. This is acceptable - users can retry with the correct selection.
 - **Sharing indicator**: While capturing, browser shows a "sharing" indicator. We stop the stream immediately after grabbing one frame to minimize this.
-- **First-time guidance**: Show a tooltip or modal explaining the capture flow on first use.
+- **First-time guidance**: Show a tooltip or modal explaining the capture flow on first use. Emphasize selecting the browser window (not entire screen).
 - **Error handling**: Handle `NotAllowedError` (user cancelled) gracefully with a friendly message.
 
 ```typescript
