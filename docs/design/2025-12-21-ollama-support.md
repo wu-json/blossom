@@ -150,11 +150,9 @@ import type { LLMProvider, LLMStreamOptions, LLMMessage } from "./types";
 export class OllamaProvider implements LLMProvider {
   name = "ollama";
   private baseUrl: string;
-  private model: string;
 
-  constructor(baseUrl: string = "http://localhost:11434", model: string = "gemma3:12b") {
+  constructor(baseUrl: string = "http://localhost:11434") {
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
-    this.model = model;
   }
 
   async *stream(options: LLMStreamOptions): AsyncIterable<string> {
@@ -164,7 +162,7 @@ export class OllamaProvider implements LLMProvider {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: options.model || this.model,
+        model: options.model,
         messages,
         stream: true,
       }),
@@ -209,7 +207,7 @@ export class OllamaProvider implements LLMProvider {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: options.model || this.model,
+        model: options.model,
         messages,
         stream: false,
       }),
@@ -255,11 +253,15 @@ export class OllamaProvider implements LLMProvider {
     // Convert messages, handling images
     for (const m of messages) {
       if (m.images?.length) {
-        // Ollama expects images as base64 in the 'images' array
+        // Ollama expects raw base64 WITHOUT the data URI prefix
+        // Strip "data:image/png;base64," or similar prefixes
+        const cleanedImages = m.images.map((img) =>
+          img.replace(/^data:image\/\w+;base64,/, "")
+        );
         result.push({
           role: m.role,
           content: m.content,
-          images: m.images, // base64 without data URI prefix
+          images: cleanedImages,
         });
       } else {
         result.push({ role: m.role, content: m.content });
@@ -288,14 +290,14 @@ import type { LLMProvider } from "./types";
 
 export type ProviderConfig =
   | { type: "anthropic"; apiKey: string }
-  | { type: "ollama"; baseUrl: string; model: string };
+  | { type: "ollama"; baseUrl: string };
 
 export function createProvider(config: ProviderConfig): LLMProvider {
   switch (config.type) {
     case "anthropic":
       return new AnthropicProvider(config.apiKey);
     case "ollama":
-      return new OllamaProvider(config.baseUrl, config.model);
+      return new OllamaProvider(config.baseUrl);
     default:
       throw new Error(`Unknown provider type: ${(config as any).type}`);
   }
@@ -420,6 +422,33 @@ Add endpoints for LLM settings and Ollama management:
 },
 ```
 
+### Provider Helper
+
+Create a helper to reduce boilerplate when creating providers:
+
+```typescript
+// src/lib/llm/get-provider.ts
+
+import { getLLMSettings } from "@/db/llm-settings";
+import { AnthropicProvider } from "./anthropic";
+import { OllamaProvider } from "./ollama";
+import type { LLMProvider } from "./types";
+
+export function getProvider(): LLMProvider | { error: string } {
+  const settings = getLLMSettings();
+
+  if (settings.provider === "ollama") {
+    return new OllamaProvider(settings.ollamaUrl);
+  }
+
+  const apiKey = Bun.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return { error: "Anthropic API key not configured" };
+  }
+  return new AnthropicProvider(apiKey);
+}
+```
+
 ### Refactoring Chat Endpoint
 
 Update `/api/chat` to use the provider abstraction:
@@ -432,7 +461,7 @@ Update `/api/chat` to use the provider abstraction:
     // Create provider based on settings
     let provider: LLMProvider;
     if (llmSettings.provider === "ollama") {
-      provider = new OllamaProvider(llmSettings.ollamaUrl, llmSettings.ollamaModel);
+      provider = new OllamaProvider(llmSettings.ollamaUrl);
     } else {
       const apiKey = Bun.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
@@ -441,10 +470,86 @@ Update `/api/chat` to use the provider abstraction:
       provider = new AnthropicProvider(apiKey);
     }
 
-    // ... rest of chat logic using provider.stream() ...
+    // Build messages from request...
+    const { messages, system } = buildChatContext(req);
+
+    // Stream response using chatModel
+    const stream = provider.stream({
+      model: llmSettings.chatModel,
+      messages,
+      system,
+      maxTokens: 4096,
+    });
+
+    // Convert to SSE response
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const text of stream) {
+            controller.enqueue(`data: ${JSON.stringify({ text })}\n\n`);
+          }
+          controller.enqueue("data: [DONE]\n\n");
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   },
 },
 ```
+
+### Refactoring Title Generation Endpoint
+
+Update `/api/conversations/:id/title` to use the provider abstraction:
+
+```typescript
+"/api/conversations/:id/title": {
+  POST: async (req, params) => {
+    const llmSettings = getLLMSettings();
+
+    // Create provider based on settings
+    let provider: LLMProvider;
+    if (llmSettings.provider === "ollama") {
+      provider = new OllamaProvider(llmSettings.ollamaUrl);
+    } else {
+      const apiKey = Bun.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        return Response.json({ error: "Anthropic API key not configured" }, { status: 400 });
+      }
+      provider = new AnthropicProvider(apiKey);
+    }
+
+    // Build title generation prompt from conversation...
+    const messages = buildTitlePrompt(params.id);
+
+    // Use titleModel for fast/cheap title generation
+    const title = await provider.complete({
+      model: llmSettings.titleModel,
+      messages,
+      system: "",
+      maxTokens: 50,
+    });
+
+    // Update conversation title in database
+    updateConversationTitle(params.id, title.trim());
+
+    return Response.json({ title: title.trim() });
+  },
+},
+```
+
+### Refactoring YouTube Translation Endpoint
+
+Update `/api/youtube/translate` similarly - uses `chatModel` since translation is the primary task.
 
 ### Settings UI
 
@@ -675,18 +780,41 @@ try {
     // ... handle streaming text
   }
 } catch (error) {
-  if (error.message.includes("ECONNREFUSED")) {
-    return Response.json({
-      error: "Cannot connect to Ollama. Make sure Ollama is running."
-    }, { status: 503 });
-  }
-  if (error.message.includes("model not found")) {
-    return Response.json({
-      error: `Model "${llmSettings.ollamaModel}" not found. Run: ollama pull ${llmSettings.ollamaModel}`
-    }, { status: 400 });
+  if (llmSettings.provider === "ollama") {
+    if (error.message.includes("ECONNREFUSED")) {
+      return Response.json({
+        error: "Cannot connect to Ollama. Make sure Ollama is running."
+      }, { status: 503 });
+    }
+    if (error.message.includes("model") && error.message.includes("not found")) {
+      return Response.json({
+        error: `Model "${llmSettings.chatModel}" not found. Run: ollama pull ${llmSettings.chatModel}`
+      }, { status: 400 });
+    }
   }
   throw error;
 }
+```
+
+#### Model Deletion Handling
+
+If a user deletes a model from Ollama after selecting it in settings:
+- **Don't validate on every request** - adds latency and complexity
+- **Let it fail at request time** - show clear error message with `ollama pull` command
+- **Settings UI re-validates on load** - when user opens settings, check Ollama status and show warning if selected model is missing
+
+```typescript
+// In Settings UI, after fetching Ollama models
+useEffect(() => {
+  if (ollamaStatus?.available && settings?.provider === "ollama") {
+    const chatModelExists = ollamaStatus.models.includes(settings.chatModel);
+    const titleModelExists = ollamaStatus.models.includes(settings.titleModel);
+
+    if (!chatModelExists || !titleModelExists) {
+      setModelWarning("One or more selected models are no longer available in Ollama.");
+    }
+  }
+}, [ollamaStatus, settings]);
 ```
 
 ### Translations
@@ -729,6 +857,7 @@ src/lib/llm/
 ├── types.ts          # LLMProvider interface, shared types
 ├── anthropic.ts      # Anthropic implementation
 ├── ollama.ts         # Ollama implementation
+├── get-provider.ts   # Helper to get configured provider
 └── index.ts          # Factory and exports
 
 src/db/
