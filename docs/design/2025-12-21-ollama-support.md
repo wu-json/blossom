@@ -314,8 +314,9 @@ Extend the database to store provider configuration:
 CREATE TABLE IF NOT EXISTS llm_settings (
   id INTEGER PRIMARY KEY CHECK (id = 1),  -- Singleton
   provider TEXT NOT NULL DEFAULT 'anthropic',  -- 'anthropic' | 'ollama'
+  chat_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-20250514',
+  title_model TEXT NOT NULL DEFAULT 'claude-haiku-4-5-20251001',
   ollama_url TEXT DEFAULT 'http://localhost:11434',
-  ollama_model TEXT DEFAULT 'gemma3:12b',
   updated_at INTEGER NOT NULL
 );
 ```
@@ -327,9 +328,20 @@ import { db } from "./database";
 
 export interface LLMSettings {
   provider: "anthropic" | "ollama";
+  chatModel: string;    // Used for chat & translation
+  titleModel: string;   // Used for title generation
   ollamaUrl: string;
-  ollamaModel: string;
 }
+
+const ANTHROPIC_DEFAULTS = {
+  chatModel: "claude-sonnet-4-20250514",
+  titleModel: "claude-haiku-4-5-20251001",
+};
+
+const OLLAMA_DEFAULTS = {
+  chatModel: "gemma3:12b",
+  titleModel: "gemma3:12b",
+};
 
 export function getLLMSettings(): LLMSettings {
   const row = db.query("SELECT * FROM llm_settings WHERE id = 1").get() as any;
@@ -337,15 +349,17 @@ export function getLLMSettings(): LLMSettings {
   if (!row) {
     return {
       provider: "anthropic",
+      chatModel: ANTHROPIC_DEFAULTS.chatModel,
+      titleModel: ANTHROPIC_DEFAULTS.titleModel,
       ollamaUrl: "http://localhost:11434",
-      ollamaModel: "gemma3:12b",
     };
   }
 
   return {
     provider: row.provider,
+    chatModel: row.chat_model,
+    titleModel: row.title_model,
     ollamaUrl: row.ollama_url,
-    ollamaModel: row.ollama_model,
   };
 }
 
@@ -354,15 +368,21 @@ export function updateLLMSettings(settings: Partial<LLMSettings>): void {
   const merged = { ...current, ...settings };
 
   db.run(
-    `INSERT INTO llm_settings (id, provider, ollama_url, ollama_model, updated_at)
-     VALUES (1, ?, ?, ?, ?)
+    `INSERT INTO llm_settings (id, provider, chat_model, title_model, ollama_url, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        provider = excluded.provider,
+       chat_model = excluded.chat_model,
+       title_model = excluded.title_model,
        ollama_url = excluded.ollama_url,
-       ollama_model = excluded.ollama_model,
        updated_at = excluded.updated_at`,
-    [merged.provider, merged.ollamaUrl, merged.ollamaModel, Date.now()]
+    [merged.provider, merged.chatModel, merged.titleModel, merged.ollamaUrl, Date.now()]
   );
+}
+
+// Helper to get defaults when switching providers
+export function getDefaultModels(provider: "anthropic" | "ollama") {
+  return provider === "anthropic" ? ANTHROPIC_DEFAULTS : OLLAMA_DEFAULTS;
 }
 ```
 
@@ -433,6 +453,22 @@ Add provider configuration to the Settings page:
 ```typescript
 // In src/features/settings/settings-page.tsx
 
+const ANTHROPIC_MODELS = [
+  "claude-sonnet-4-20250514",
+  "claude-haiku-4-5-20251001",
+];
+
+const DEFAULT_MODELS = {
+  anthropic: {
+    chatModel: "claude-sonnet-4-20250514",
+    titleModel: "claude-haiku-4-5-20251001",
+  },
+  ollama: {
+    chatModel: "gemma3:12b",
+    titleModel: "gemma3:12b",
+  },
+};
+
 function LLMProviderSettings() {
   const [settings, setSettings] = useState<LLMSettings | null>(null);
   const [ollamaStatus, setOllamaStatus] = useState<{ available: boolean; models: string[] } | null>(null);
@@ -467,9 +503,14 @@ function LLMProviderSettings() {
       });
   }, []);
 
-  // Handle provider change
+  // Handle provider change - reset models to defaults for the new provider
   const handleProviderChange = (provider: "anthropic" | "ollama") => {
-    updateSettings({ provider });
+    const defaults = DEFAULT_MODELS[provider];
+    updateSettings({
+      provider,
+      chatModel: defaults.chatModel,
+      titleModel: defaults.titleModel,
+    });
     // Immediately check Ollama health when switching to it
     if (provider === "ollama" && settings) {
       checkOllamaStatus(settings.ollamaUrl);
@@ -494,6 +535,23 @@ function LLMProviderSettings() {
         </RadioOption>
       </RadioGroup>
 
+      {settings?.provider === "anthropic" && (
+        <div className="space-y-3">
+          <Select
+            label="Chat & Translation Model"
+            value={settings.chatModel}
+            onChange={(model) => updateSettings({ chatModel: model })}
+            options={ANTHROPIC_MODELS.map((m) => ({ value: m, label: m }))}
+          />
+          <Select
+            label="Title Generation Model"
+            value={settings.titleModel}
+            onChange={(model) => updateSettings({ titleModel: model })}
+            options={ANTHROPIC_MODELS.map((m) => ({ value: m, label: m }))}
+          />
+        </div>
+      )}
+
       {settings?.provider === "ollama" && (
         <div className="space-y-3">
           <Input
@@ -514,13 +572,22 @@ function LLMProviderSettings() {
                 <CheckCircle size={16} />
                 Connected to Ollama
               </div>
-              <Select
-                label="Model"
-                value={settings.ollamaModel}
-                onChange={(model) => updateSettings({ ollamaModel: model })}
-                options={ollamaStatus.models.map((m) => ({ value: m, label: m }))}
-              />
-              {ollamaStatus.models.length === 0 && (
+              {ollamaStatus.models.length > 0 ? (
+                <>
+                  <Select
+                    label="Chat & Translation Model"
+                    value={settings.chatModel}
+                    onChange={(model) => updateSettings({ chatModel: model })}
+                    options={ollamaStatus.models.map((m) => ({ value: m, label: m }))}
+                  />
+                  <Select
+                    label="Title Generation Model"
+                    value={settings.titleModel}
+                    onChange={(model) => updateSettings({ titleModel: model })}
+                    options={ollamaStatus.models.map((m) => ({ value: m, label: m }))}
+                  />
+                </>
+              ) : (
                 <div className="text-warning">
                   No models found. Run: ollama pull gemma3:12b
                 </div>
@@ -699,6 +766,26 @@ src/db/
 3. **Model switching**: Change models mid-session
 4. **Image support**: Verify YouTube frame translation works with Gemma 3
 5. **Error handling**: Test various failure modes (connection refused, model not found, etc.)
+
+## Abstraction Trade-offs
+
+Features preserved in the abstraction:
+
+1. **Prompt caching** - Baked into `AnthropicProvider` implementation, transparent to callers. Ollama doesn't support this, so no loss there.
+
+2. **Image/vision support** - Both providers handle images, just with different message formats internally.
+
+3. **Streaming** - Both providers expose async iterables, hiding protocol differences.
+
+4. **Model-per-task configuration** - Both providers support separate models for chat/translation vs title generation. Users can configure this in Settings.
+
+Features lost or simplified:
+
+1. **Token usage reporting** - Anthropic returns token counts; Ollama doesn't consistently. Not currently shown in UI anyway.
+
+2. **Specific error types** - `Anthropic.APIError` provides structured errors (413, 429, etc.). Generic error handling is sufficient for our needs.
+
+3. **Tool use / function calling** - Not currently used. Would require provider-specific implementations if added later.
 
 ## Security Considerations
 
