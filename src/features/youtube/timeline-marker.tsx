@@ -113,7 +113,6 @@ export function TimelineMarker({
       onMouseLeave={handleMouseLeave}
       {...handlers}
     >
-      {/* Invisible hit area for easier grabbing */}
       <div
         style={{
           position: "absolute",
@@ -125,7 +124,6 @@ export function TimelineMarker({
         }}
       />
 
-      {/* Rhombus marker (rotated square) */}
       <div
         style={{
           width: `${size}px`,
@@ -137,7 +135,6 @@ export function TimelineMarker({
         }}
       />
 
-      {/* Preview tooltip - hidden by default, shown via DOM manipulation */}
       <div
         ref={previewRef}
         className="marker-preview"

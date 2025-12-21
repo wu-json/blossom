@@ -114,7 +114,6 @@ export function PetalCard({ petal }: PetalCardProps) {
       className="rounded-lg border overflow-hidden group"
       style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
     >
-      {/* YouTube frame image */}
       {hasFrameImage && (
         <div
           className="border-b"
@@ -134,7 +133,6 @@ export function PetalCard({ petal }: PetalCardProps) {
         </div>
       )}
 
-      {/* User context - original text/images (for chat petals) */}
       {!isYouTube && (hasImages || hasText) && (
         <div
           className="px-4 py-3 border-b"
@@ -161,7 +159,6 @@ export function PetalCard({ petal }: PetalCardProps) {
         </div>
       )}
 
-      {/* Full breakdown */}
       <div className="px-4 py-3 space-y-3">
         {loading ? (
           <div className="animate-pulse space-y-2">
@@ -175,7 +172,6 @@ export function PetalCard({ petal }: PetalCardProps) {
           </div>
         ) : translationData ? (
           <>
-            {/* Original Text */}
             <div>
               <div className="text-base font-medium" style={{ color: "var(--text)" }}>
                 {translationData.originalText}
@@ -187,7 +183,6 @@ export function PetalCard({ petal }: PetalCardProps) {
               )}
             </div>
 
-            {/* Translation */}
             <div
               className="px-3 py-2 rounded-lg"
               style={{ backgroundColor: "var(--background)" }}
@@ -200,7 +195,6 @@ export function PetalCard({ petal }: PetalCardProps) {
               </div>
             </div>
 
-            {/* Word Breakdown */}
             <div>
               <div className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>
                 Breakdown
@@ -217,7 +211,6 @@ export function PetalCard({ petal }: PetalCardProps) {
               </div>
             </div>
 
-            {/* Grammar Notes */}
             {translationData.grammarNotes && (
               <div
                 className="pt-3 border-t"
@@ -233,7 +226,6 @@ export function PetalCard({ petal }: PetalCardProps) {
             )}
           </>
         ) : (
-          // Fallback to basic petal info if translation not found
           <div className="space-y-1">
             <div className="flex items-baseline gap-2">
               <span className="font-medium" style={{ color: "var(--text)" }}>
@@ -256,7 +248,6 @@ export function PetalCard({ petal }: PetalCardProps) {
           </div>
         )}
 
-        {/* Actions + Date */}
         <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
           <button
             onClick={handleViewContext}

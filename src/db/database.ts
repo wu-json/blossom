@@ -3,7 +3,6 @@ import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
-// Get directory from BLOSSOM_DIR env var, default to ~/.blossom
 const envDataDir = Bun.env.BLOSSOM_DIR;
 const blossomDir = envDataDir
   ? (isAbsolute(envDataDir) ? envDataDir : resolve(envDataDir))
@@ -13,10 +12,8 @@ mkdirSync(blossomDir, { recursive: true });
 const dbPath = join(blossomDir, "sqlite.db");
 const db = new Database(dbPath);
 
-// Enable foreign keys
 db.run("PRAGMA foreign_keys = ON");
 
-// Conversations
 db.run(`
   CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
@@ -26,7 +23,6 @@ db.run(`
   )
 `);
 
-// Messages
 db.run(`
   CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
@@ -40,7 +36,6 @@ db.run(`
 `);
 db.run(`CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id)`);
 
-// Teacher settings (singleton)
 db.run(`
   CREATE TABLE IF NOT EXISTS teacher_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -51,7 +46,6 @@ db.run(`
   )
 `);
 
-// Petals (vocabulary)
 db.run(`
   CREATE TABLE IF NOT EXISTS petals (
     id TEXT PRIMARY KEY,
@@ -73,7 +67,6 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_petals_language ON petals(language)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_petals_word ON petals(word)`);
 db.run(`CREATE INDEX IF NOT EXISTS idx_petals_word_language ON petals(word, language)`);
 
-// YouTube translations
 db.run(`
   CREATE TABLE IF NOT EXISTS youtube_translations (
     id TEXT PRIMARY KEY,

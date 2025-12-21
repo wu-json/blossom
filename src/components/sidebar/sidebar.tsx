@@ -34,7 +34,6 @@ function NavItem({ icon, label, isActive, onClick, delay }: NavItemProps) {
         animation: `slideIn 0.3s ease-out ${delay}ms both`,
       }}
     >
-      {/* Active indicator line */}
       <div
         className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-full transition-all duration-200"
         style={{
@@ -44,7 +43,6 @@ function NavItem({ icon, label, isActive, onClick, delay }: NavItemProps) {
         }}
       />
 
-      {/* Soft background glow for active state */}
       <div
         className="absolute inset-0 rounded-xl transition-opacity duration-200"
         style={{
@@ -122,7 +120,6 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
           "hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
         )}
       >
-        {/* Active indicator */}
         <div
           className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] rounded-full transition-all duration-200"
           style={{
@@ -132,7 +129,6 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
           }}
         />
 
-        {/* Regular truncated title */}
         <span
           ref={textRef}
           className="text-sm truncate"
@@ -145,7 +141,6 @@ function ConversationItem({ conversation, isActive, onClick }: ConversationItemP
         </span>
       </button>
 
-      {/* Expanded title on hover - fixed position to escape overflow */}
       {showExpanded && (
         <div
           className="fixed text-sm whitespace-nowrap px-3 py-2 rounded-lg pointer-events-none"
@@ -245,10 +240,8 @@ export function Sidebar() {
         }}
       >
         <div style={{ minWidth: "240px" }}>
-        {/* Spacer matching header height */}
         <div className="h-[53px] flex-shrink-0" />
 
-        {/* New Chat Button */}
         <div className="px-3 pt-3">
           <button
             type="button"
@@ -269,7 +262,6 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="px-3 pt-3 space-y-1">
           {navItems.map((item, index) => (
             <NavItem
@@ -283,7 +275,6 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* Conversation History */}
         {conversations.length > 0 && (
           <div className="flex-1 px-3 pt-4 overflow-hidden flex flex-col">
             <div
@@ -306,7 +297,6 @@ export function Sidebar() {
         )}
         </div>
 
-        {/* Keyboard shortcut hint */}
         <div
           className="mt-auto px-4 py-3 text-xs"
           style={{ color: "var(--text-muted)", opacity: 0.6 }}

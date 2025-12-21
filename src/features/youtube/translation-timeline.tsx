@@ -39,7 +39,6 @@ export function TranslationTimeline({
     [videoDuration, onSeek]
   );
 
-  // Use DOM manipulation for drag state to avoid re-renders
   const handleDragStart = useCallback(() => {
     isDraggingRef.current = true;
     containerRef.current?.classList.add("is-dragging");
@@ -63,9 +62,6 @@ export function TranslationTimeline({
         if (!isDraggingRef.current) {
           setIsHovered(false);
         }
-      }}
-      style={{
-        // CSS handles the dragging expanded state via .is-dragging class
       }}
     >
       <style>{`
@@ -91,7 +87,6 @@ export function TranslationTimeline({
           transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
-        {/* Progress indicator - positioned at bottom */}
         <div
           className="timeline-progress"
           style={{
@@ -108,7 +103,6 @@ export function TranslationTimeline({
           }}
         />
 
-        {/* Translation markers */}
         {translations.map((t) => {
           const position = (t.timestampSeconds / videoDuration) * 100;
 

@@ -48,7 +48,6 @@ const translations: Record<Language, { title: string; description: string; place
   },
 };
 
-// YouTube URL parsing
 function parseYouTubeUrl(url: string): string | null {
   const patterns = [
     /youtube\.com\/watch\?v=([^&]+)/,
@@ -64,7 +63,6 @@ function parseYouTubeUrl(url: string): string | null {
   return null;
 }
 
-// Format timestamp for display
 function formatTimestamp(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
@@ -180,7 +178,6 @@ export function YouTubeViewer() {
   const playerRef = useRef<YTPlayer | null>(null);
   const apiLoadedRef = useRef(false);
 
-  // Timeline hooks
   const {
     translations: videoTranslations,
     addTranslation,
@@ -189,7 +186,6 @@ export function YouTubeViewer() {
   } = useVideoTranslations(videoId);
   const timelineActiveTranslation = useActiveTranslation(videoTranslations, currentPlaybackTime);
 
-  // Load YouTube IFrame API
   useEffect(() => {
     if (apiLoadedRef.current) return;
 
@@ -199,14 +195,12 @@ export function YouTubeViewer() {
     apiLoadedRef.current = true;
   }, []);
 
-  // Handle URL parameter navigation (from petal)
   useEffect(() => {
     if (translationId) {
       fetchTranslationRecord(translationId);
     }
   }, [translationId]);
 
-  // Handle URL params for shareable links (?v=VIDEO_ID&t=TIMESTAMP)
   useEffect(() => {
     if (urlVideoId && !translationId && urlVideoId !== videoId) {
       const url = `https://www.youtube.com/watch?v=${urlVideoId}`;
@@ -219,12 +213,10 @@ export function YouTubeViewer() {
     }
   }, [urlVideoId, translationId]);
 
-  // Handle timestamp from URL - seek if player is ready, otherwise it will be handled in onReady
   useEffect(() => {
     if (urlVideoId && !translationId && urlTimestamp) {
       const timestamp = parseFloat(urlTimestamp);
       setCurrentTimestamp(timestamp);
-      // If player is already ready, seek immediately
       if (playerReady && playerRef.current) {
         playerRef.current.seekTo(timestamp, true);
       }
@@ -264,18 +256,15 @@ export function YouTubeViewer() {
   useEffect(() => {
     if (!videoId || !containerRef.current) return;
 
-    // Clean up existing player
     if (playerRef.current) {
       playerRef.current.destroy();
       playerRef.current = null;
       setPlayerReady(false);
     }
 
-    // Wait for API to be ready
     const initPlayer = () => {
       if (!window.YT || !containerRef.current) return;
 
-      // Clear container
       containerRef.current.innerHTML = "";
       const playerDiv = document.createElement("div");
       containerRef.current.appendChild(playerDiv);
@@ -302,16 +291,13 @@ export function YouTubeViewer() {
               setVideo(videoUrl, videoId, data.title);
             }
 
-            // Get video duration for timeline
             const duration = event.target.getDuration();
             setVideoDuration(duration);
 
-            // Seek to timestamp if we have one from URL params
             if (currentTimestamp > 0) {
               event.target.seekTo(currentTimestamp, true);
             }
 
-            // Pre-cache the stream URL in the background
             fetch("/api/youtube/precache-stream", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -319,13 +305,11 @@ export function YouTubeViewer() {
             }).catch(() => {});
           },
           onError: (event) => {
-            // Error codes: 100 = not found, 101/150 = embedding disabled
             if ([100, 101, 150].includes(event.data)) {
               setVideoUnavailable(true);
             }
           },
           onStateChange: (event) => {
-            // 1 = playing, 2 = paused
             setIsPlaying(event.data === 1);
           },
         },
@@ -346,34 +330,30 @@ export function YouTubeViewer() {
     };
   }, [videoId]);
 
-  // Poll current time from player for timeline
   useEffect(() => {
     if (!playerReady || !playerRef.current) return;
 
     const interval = setInterval(() => {
       const time = playerRef.current?.getCurrentTime() ?? 0;
       setCurrentPlaybackTime(time);
-    }, 250); // Update 4x per second
+    }, 250);
 
     return () => clearInterval(interval);
   }, [playerReady]);
 
-  // Keyboard navigation for timeline
   useEffect(() => {
     if (!playerReady || videoTranslations.length === 0) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't handle if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
 
       if (e.key === " " || e.code === "Space") {
         e.preventDefault();
-        // Toggle play/pause
         if (playerRef.current) {
           const state = playerRef.current.getPlayerState();
-          if (state === 1) { // Playing
+          if (state === 1) {
             playerRef.current.pauseVideo();
           } else {
             playerRef.current.playVideo();
@@ -383,7 +363,6 @@ export function YouTubeViewer() {
 
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        // Translate current frame
         if (playerReady && !isExtracting && !isTranslating) {
           handleTranslateFrame();
         }
@@ -394,17 +373,13 @@ export function YouTubeViewer() {
         const currentTime = playerRef.current?.getCurrentTime() ?? 0;
 
         if (e.key === "ArrowRight") {
-          // Find next translation after current time
           const nextTranslation = videoTranslations.find(
-            (t) => t.timestampSeconds > currentTime + 0.5 // Small buffer to avoid staying on same
+            (t) => t.timestampSeconds > currentTime + 0.5
           );
           if (nextTranslation) {
             playerRef.current?.seekTo(nextTranslation.timestampSeconds, true);
           }
         } else {
-          // Find previous translation before current time
-          // If we're past the start of current translation by more than 2 seconds, go to its start
-          // Otherwise go to the previous one
           let targetTranslation: typeof videoTranslations[number] | null = null;
           for (let i = videoTranslations.length - 1; i >= 0; i--) {
             const t = videoTranslations[i];
@@ -416,7 +391,6 @@ export function YouTubeViewer() {
           if (targetTranslation) {
             playerRef.current?.seekTo(targetTranslation.timestampSeconds, true);
           } else {
-            // Go to first translation
             const first = videoTranslations[0];
             if (first) {
               playerRef.current?.seekTo(first.timestampSeconds, true);
@@ -430,7 +404,6 @@ export function YouTubeViewer() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [playerReady, videoTranslations, isExtracting, isTranslating]);
 
-  // Playback controls
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return;
     if (isPlaying) {
@@ -501,7 +474,6 @@ export function YouTubeViewer() {
     let frameFilename: string | null = null;
 
     try {
-      // Extract high-quality frame and save to disk
       const extractResponse = await fetch("/api/youtube/extract-frame", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -518,7 +490,6 @@ export function YouTubeViewer() {
       setExtracting(false);
       setTranslating(true);
 
-      // Translate frame (API compresses internally)
       const translateResponse = await fetch("/api/youtube/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -530,7 +501,6 @@ export function YouTubeViewer() {
         throw new Error(data.error || "Failed to translate");
       }
 
-      // Handle streaming response
       const reader = translateResponse.body?.getReader();
       if (!reader) throw new Error("No reader available");
 
@@ -562,10 +532,8 @@ export function YouTubeViewer() {
         }
       }
 
-      // Parse final translation
       const parsedContent = parseTranslationContent(fullContent);
       if (parsedContent.type === "translation") {
-        // Save translation to database with frame filename
         const saveResponse = await fetch("/api/youtube/translations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -578,12 +546,10 @@ export function YouTubeViewer() {
           }),
         });
 
-        // Set translation only once, with ID if save succeeded
         if (saveResponse.ok) {
           const savedTranslation = await saveResponse.json();
           setCurrentTranslation(parsedContent.data, savedTranslation.id);
 
-          // Add to timeline
           addTranslation({
             id: savedTranslation.id,
             videoId: videoId!,
@@ -602,8 +568,6 @@ export function YouTubeViewer() {
     } finally {
       setExtracting(false);
       setTranslating(false);
-      // Don't clear streamingContent here - it causes a flash
-      // It's cleared at the start of each new translation anyway
     }
   };
 
@@ -661,7 +625,6 @@ export function YouTubeViewer() {
     navigateToMeadow(word);
   };
 
-  // Timeline handlers
   const handleTimelineMarkerClick = useCallback((translation: YouTubeTranslation) => {
     playerRef.current?.seekTo(translation.timestampSeconds, true);
   }, []);
@@ -725,9 +688,7 @@ export function YouTubeViewer() {
     }
   }, []);
 
-  // Render translation content based on streaming state
   const renderTranslationContent = () => {
-    // If we have final translation data, show the final card
     if (currentTranslation) {
       return (
         <TranslationCard
@@ -740,7 +701,6 @@ export function YouTubeViewer() {
       );
     }
 
-    // Otherwise, parse streaming content to determine what to show
     if (!streamingContent) return <TranslationSkeleton />;
 
     const markers = hasTranslationMarkers(streamingContent);
@@ -765,7 +725,6 @@ export function YouTubeViewer() {
           );
         }
       }
-      // Still streaming
       const partialData = parseStreamingTranslation(streamingContent);
       if (partialData && hasAnyContent(partialData)) {
         return <StreamingTranslationCard data={partialData} />;
@@ -814,7 +773,6 @@ export function YouTubeViewer() {
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Main Content */}
       <div className="flex-1 overflow-auto relative">
-        {/* Error Display */}
         {error && (
           <div className="max-w-3xl mx-auto px-6 pt-4">
             <div
@@ -830,7 +788,6 @@ export function YouTubeViewer() {
           </div>
         )}
 
-        {/* Video Player or Unavailable State */}
         {videoId && (
           <div className="flex flex-col h-full">
             {videoUnavailable && currentFrameImage ? (
@@ -864,7 +821,6 @@ export function YouTubeViewer() {
                     Try on YouTube <ExternalLink size={14} />
                   </a>
                 </div>
-                {/* Show cached frame */}
                 <div className="relative">
                   <img
                     src={currentFrameImage}
@@ -884,7 +840,6 @@ export function YouTubeViewer() {
               </div>
             ) : (
               <>
-                {/* Video Title Bar */}
                 {!videoUnavailable && (
                   <div
                     className="flex items-center gap-3 px-4 py-2 border-b flex-shrink-0"
@@ -960,14 +915,12 @@ export function YouTubeViewer() {
                   </div>
                 )}
 
-                {/* Full-width Video */}
                 <div
                   ref={containerRef}
                   className="w-full aspect-video flex-shrink-0"
                   style={{ backgroundColor: "var(--surface)" }}
                 />
 
-                {/* Video Controls Bar */}
                 {playerReady && videoDuration > 0 && (
                   <div
                     className="flex flex-col gap-2 px-4 py-3"
@@ -976,9 +929,7 @@ export function YouTubeViewer() {
                       borderTop: "1px solid var(--border)",
                     }}
                   >
-                    {/* Top row: Play/Pause, Time, Volume, Fullscreen */}
                     <div className="flex items-center gap-3">
-                      {/* Play/Pause */}
                       <button
                         onClick={togglePlayPause}
                         className="p-1.5 rounded-lg transition-all hover:opacity-80"
@@ -988,7 +939,6 @@ export function YouTubeViewer() {
                         {isPlaying ? <Pause size={20} /> : <Play size={20} />}
                       </button>
 
-                      {/* Current Time / Duration */}
                       <span
                         className="text-sm font-medium tabular-nums"
                         style={{ color: "var(--text-muted)" }}
@@ -996,10 +946,8 @@ export function YouTubeViewer() {
                         {formatTimestamp(currentPlaybackTime)} / {formatTimestamp(videoDuration)}
                       </span>
 
-                      {/* Spacer */}
                       <div className="flex-1" />
 
-                      {/* Volume */}
                       <div className="flex items-center gap-2">
                         <button
                           onClick={toggleMute}
@@ -1023,7 +971,6 @@ export function YouTubeViewer() {
                         />
                       </div>
 
-                      {/* Fullscreen */}
                       <button
                         onClick={toggleFullscreen}
                         className="p-1.5 rounded-lg transition-all hover:opacity-80"
@@ -1034,7 +981,6 @@ export function YouTubeViewer() {
                       </button>
                     </div>
 
-                    {/* Bottom row: Full-width Timeline */}
                     {videoTranslations.length > 0 ? (
                       <TranslationTimeline
                         videoDuration={videoDuration}
@@ -1046,7 +992,6 @@ export function YouTubeViewer() {
                         onMarkerDrag={updateTranslationTimestamp}
                       />
                     ) : (
-                      /* Simple progress bar when no translations */
                       <div
                         className="relative h-2 rounded-full cursor-pointer"
                         style={{ backgroundColor: "var(--border)" }}
@@ -1070,7 +1015,6 @@ export function YouTubeViewer() {
               </>
             )}
 
-            {/* Translation Result - show streaming OR timeline active translation */}
             {(isTranslating || timelineActiveTranslation?.translationData) && (
               <div className="flex-1 overflow-auto px-4 pt-4 pb-16">
                 <div
@@ -1080,7 +1024,6 @@ export function YouTubeViewer() {
                     color: "var(--assistant-bubble-text)",
                   }}
                 >
-                  {/* Priority: streaming > timeline active */}
                   {isTranslating ? (
                     renderTranslationContent()
                   ) : timelineActiveTranslation?.translationData ? (
@@ -1098,7 +1041,6 @@ export function YouTubeViewer() {
           </div>
         )}
 
-        {/* Empty State with URL Input */}
         {!videoId && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 pb-10"
