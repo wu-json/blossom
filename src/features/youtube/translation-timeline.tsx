@@ -89,7 +89,6 @@ export function TranslationTimeline({
           borderRadius: isExpanded ? "6px" : "4px",
           cursor: "pointer",
           transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-          overflow: "hidden",
         }}
       >
         {/* Progress indicator - positioned at bottom */}
