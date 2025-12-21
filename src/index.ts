@@ -32,6 +32,8 @@ import {
   getYouTubeTranslationsByVideoId,
   updateYouTubeTranslation,
   updateYouTubeTranslationTimestamp,
+  getRecentlyTranslatedVideos,
+  getRecentlyTranslatedVideosCount,
 } from "./db/youtube-translations";
 import { extractAndSaveFrame, compressFrameForApi, framesDir, ensureVideoTools, precacheStreamUrl } from "./lib/video-tools";
 import { db, blossomDir } from "./db/database";
@@ -644,6 +646,22 @@ const server = Bun.serve({
         const contentType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
         return new Response(file, {
           headers: { "Content-Type": contentType },
+        });
+      },
+    },
+    "/api/youtube/recent-videos": {
+      GET: (req) => {
+        const url = new URL(req.url);
+        const limit = parseInt(url.searchParams.get("limit") || "10", 10);
+        const offset = parseInt(url.searchParams.get("offset") || "0", 10);
+
+        const videos = getRecentlyTranslatedVideos(Math.min(limit, 50), offset);
+        const total = getRecentlyTranslatedVideosCount();
+
+        return Response.json({
+          videos,
+          total,
+          hasMore: offset + videos.length < total,
         });
       },
     },
