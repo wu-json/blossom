@@ -51,6 +51,22 @@ import { assets, getAssetPath } from "./generated/embedded-assets";
 const uploadsDir = join(blossomDir, "uploads");
 await mkdir(uploadsDir, { recursive: true });
 
+// Extract sharp native bindings if running as compiled binary
+// Must happen before any code that uses sharp (image compression)
+const isCompiled = !process.execPath.includes("node_modules") && (
+  process.execPath.includes("$bunfs") ||
+  process.execPath.endsWith("/blossom") ||
+  process.execPath.endsWith("\\blossom.exe")
+);
+if (isCompiled) {
+  try {
+    const { extractSharpBindings } = await import("./generated/sharp-bindings");
+    await extractSharpBindings();
+  } catch (err) {
+    console.warn("Failed to extract sharp bindings:", err);
+  }
+}
+
 await ensureVideoTools();
 
 const languageNames: Record<string, string> = {
