@@ -8,9 +8,20 @@ Sharp is used for image compression before sending images to the Anthropic API (
 2. The `.node` file depends on `libvips-cpp.dylib` which must exist on disk
 3. The OS dynamic linker (`dlopen`) requires real filesystem paths
 
+## Investigation Findings
+
+- `require()` with absolute path works for `.node` files in compiled binaries
+- The `.node` file finds `libvips-cpp.dylib` via `@rpath` relative to its location
+- `NODE_PATH` modification does NOT work for scoped packages (`@img/...`) in Bun
+- `require.cache` injection works in dev but not in compiled binaries (different cache keys)
+
 ## Solution
 
-Embed the native binaries as base64 during build, extract them at runtime before importing sharp.
+**Hybrid approach:**
+1. Embed native bindings as base64 during build
+2. Extract at runtime to `~/.blossom/native/`
+3. Create a minimal wrapper that loads the native module directly (bypassing npm's sharp loader)
+4. Use wrapper in compiled mode, use npm sharp in dev mode
 
 ## Architecture
 
