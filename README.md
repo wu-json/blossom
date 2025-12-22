@@ -28,5 +28,9 @@ This project uses [aqua](https://aquaproj.github.io/) for package management and
 To start the development environment:
 
 ```bash
+# build embeddings
+just build
+
+# start dev servers
 curse
 ```
