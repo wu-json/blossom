@@ -612,6 +612,12 @@ function LLMProviderSettings() {
     }
   };
 
+  // Debounce URL input to avoid excessive API calls while typing
+  const debouncedCheckOllamaStatus = useMemo(
+    () => debounce(checkOllamaStatus, 500),
+    []
+  );
+
   // Fetch current settings on mount
   useEffect(() => {
     fetch("/api/llm/settings")
