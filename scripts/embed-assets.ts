@@ -15,7 +15,7 @@ import { join } from "node:path";
 
 const rootDir = join(import.meta.dir, "..");
 const viteBuildDir = join(rootDir, ".vite-build");
-const outputFile = join(rootDir, "src", "generated", "embedded-assets.ts");
+const outputFile = join(rootDir, "generated", "embedded-assets.ts");
 
 async function main() {
   console.log("Building frontend with Vite...");
@@ -57,7 +57,7 @@ async function main() {
     // Use index to guarantee unique identifiers (avoids collision from similar paths)
     const identifier = `_asset${i}`;
     const urlPath = "/" + file;
-    const importPath = `../../.vite-build/${file}`;
+    const importPath = `../.vite-build/${file}`;
 
     imports.push(
       `import ${identifier} from "${importPath}" with { type: "file" };`

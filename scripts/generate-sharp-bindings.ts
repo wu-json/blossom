@@ -32,9 +32,9 @@ import { mkdir, chmod } from "node:fs/promises";
 
 // Embed native files - Bun stores these in $bunfs, not JS heap
 // @ts-ignore - Bun-specific import with type: "file"
-import sharpNodePath from "../../node_modules/@img/sharp-${platformKey}/lib/sharp-${platformKey}.node" with { type: "file" };
+import sharpNodePath from "../node_modules/@img/sharp-${platformKey}/lib/sharp-${platformKey}.node" with { type: "file" };
 // @ts-ignore - Bun-specific import with type: "file"
-import libvipsPath from "../../node_modules/@img/sharp-libvips-${platformKey}/lib/${libvipsFilename}" with { type: "file" };
+import libvipsPath from "../node_modules/@img/sharp-libvips-${platformKey}/lib/${libvipsFilename}" with { type: "file" };
 
 const PLATFORM = "${platformKey}";
 const LIBVIPS_FILENAME = "${libvipsFilename}";
@@ -67,6 +67,6 @@ export async function extractSharpBindings(): Promise<void> {
 }
 `;
 
-const outPath = join(import.meta.dir, "../src/generated/sharp-bindings.ts");
+const outPath = join(import.meta.dir, "../generated/sharp-bindings.ts");
 writeFileSync(outPath, content);
 console.log(`Written to: ${outPath}`);

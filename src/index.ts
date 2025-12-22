@@ -46,7 +46,7 @@ import { mkdir, unlink, rm, rename } from "node:fs/promises";
 import archiver from "archiver";
 import unzipper from "unzipper";
 import { join } from "node:path";
-import { assets, getAssetPath } from "./generated/embedded-assets";
+import { assets, getAssetPath } from "../generated/embedded-assets";
 
 const uploadsDir = join(blossomDir, "uploads");
 await mkdir(uploadsDir, { recursive: true });
@@ -60,7 +60,7 @@ const isCompiled = !process.execPath.includes("node_modules") && (
 );
 if (isCompiled) {
   try {
-    const { extractSharpBindings } = await import("./generated/sharp-bindings");
+    const { extractSharpBindings } = await import("../generated/sharp-bindings");
     await extractSharpBindings();
   } catch (err) {
     console.warn("Failed to extract sharp bindings:", err);
