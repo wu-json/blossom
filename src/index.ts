@@ -1170,22 +1170,29 @@ For ALL other interactions (questions, conversation, requests for examples, clar
       pathname = "/index.html";
     }
 
-    // Try to serve embedded asset
-    const asset = assets[pathname];
-    if (asset) {
-      const body = asset.binary
-        ? Buffer.from(asset.content, "base64")
-        : asset.content;
-      return new Response(body, {
-        headers: { "Content-Type": asset.contentType },
+    // Try to serve embedded asset (assets contains file paths for Bun.file())
+    const assetPath = assets[pathname];
+    if (assetPath) {
+      // Hashed assets (in /assets/) can be cached forever
+      // index.html should not be cached (may reference new hashed assets)
+      const isHashedAsset = pathname.startsWith("/assets/");
+      const cacheControl = isHashedAsset
+        ? "public, max-age=31536000, immutable"
+        : "no-cache";
+
+      return new Response(Bun.file(assetPath), {
+        headers: { "Cache-Control": cacheControl },
       });
     }
 
     // SPA fallback - serve index.html for client-side routing
-    const indexAsset = assets["/index.html"];
-    if (indexAsset && !pathname.startsWith("/api/")) {
-      return new Response(indexAsset.content, {
-        headers: { "Content-Type": indexAsset.contentType },
+    const indexPath = assets["/index.html"];
+    if (indexPath && !pathname.startsWith("/api/")) {
+      return new Response(Bun.file(indexPath), {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-cache",
+        },
       });
     }
 

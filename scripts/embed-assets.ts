@@ -1,10 +1,13 @@
 /**
- * Build script that embeds frontend assets into a TypeScript module.
+ * Build script that embeds frontend assets using Bun's native file embedding.
  *
  * This script:
  * 1. Builds the frontend with Vite
- * 2. Reads all files from .vite-build/
- * 3. Generates src/generated/embedded-assets.ts with embedded content
+ * 2. Scans .vite-build/ for all output files
+ * 3. Generates src/generated/embedded-assets.ts with `import ... with { type: "file" }` statements
+ *
+ * When compiled with `bun build --compile`, these imports are embedded directly into the binary.
+ * No base64 encoding overhead - files are stored as raw bytes.
  */
 
 import { $ } from "bun";
@@ -14,97 +17,63 @@ const rootDir = join(import.meta.dir, "..");
 const viteBuildDir = join(rootDir, ".vite-build");
 const outputFile = join(rootDir, "src", "generated", "embedded-assets.ts");
 
-// Content type mapping
-const contentTypes: Record<string, string> = {
-  ".html": "text/html; charset=utf-8",
-  ".js": "application/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".ico": "image/x-icon",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-  ".ttf": "font/ttf",
-  ".eot": "application/vnd.ms-fontobject",
-};
-
-function getContentType(filename: string): string {
-  const ext = filename.substring(filename.lastIndexOf(".")).toLowerCase();
-  return contentTypes[ext] || "application/octet-stream";
-}
-
-async function getAllFiles(dir: string, baseDir: string = dir): Promise<string[]> {
-  const files: string[] = [];
-  const entries = await Array.fromAsync(new Bun.Glob("**/*").scan({ cwd: dir, dot: false }));
-
-  for (const entry of entries) {
-    const fullPath = join(dir, entry);
-    const stat = await Bun.file(fullPath).exists();
-    if (stat) {
-      const file = Bun.file(fullPath);
-      const size = file.size;
-      if (size > 0) {
-        files.push(entry);
-      }
-    }
-  }
-
-  return files;
-}
-
 async function main() {
   console.log("Building frontend with Vite...");
-  await $`bunx vite build`.cwd(rootDir);
+  const result = await $`bunx vite build`.cwd(rootDir).nothrow();
 
-  console.log("Reading built files...");
-  const files = await getAllFiles(viteBuildDir);
-
-  console.log(`Found ${files.length} files to embed`);
-
-  // Build the assets object
-  const assets: Record<string, { content: string; contentType: string; binary?: boolean }> = {};
-
-  for (const file of files) {
-    const filePath = join(viteBuildDir, file);
-    const urlPath = "/" + file;
-    const contentType = getContentType(file);
-
-    // Check if this is a binary file
-    const isBinary = !contentType.includes("text") &&
-                     !contentType.includes("javascript") &&
-                     !contentType.includes("json") &&
-                     !contentType.includes("svg") &&
-                     !contentType.includes("css");
-
-    if (isBinary) {
-      // Read as base64 for binary files
-      const buffer = await Bun.file(filePath).arrayBuffer();
-      const base64 = Buffer.from(buffer).toString("base64");
-      assets[urlPath] = {
-        content: base64,
-        contentType,
-        binary: true,
-      };
-    } else {
-      // Read as text for text files
-      const content = await Bun.file(filePath).text();
-      assets[urlPath] = {
-        content,
-        contentType,
-      };
-    }
-
-    console.log(`  ${urlPath} (${contentType})`);
+  if (result.exitCode !== 0) {
+    console.error("Vite build failed:");
+    console.error(result.stderr.toString());
+    process.exit(1);
   }
 
-  // Generate TypeScript module
+  console.log("Scanning built files...");
+  const files = await Array.fromAsync(
+    new Bun.Glob("**/*").scan({ cwd: viteBuildDir, dot: false })
+  );
+
+  // Filter to actual files (not directories)
+  const assetFiles: string[] = [];
+  for (const file of files) {
+    const fullPath = join(viteBuildDir, file);
+    const bunFile = Bun.file(fullPath);
+    if ((await bunFile.exists()) && bunFile.size > 0) {
+      assetFiles.push(file);
+    }
+  }
+
+  if (assetFiles.length === 0) {
+    console.error("No files found in .vite-build/ - build may have failed");
+    process.exit(1);
+  }
+
+  console.log(`Found ${assetFiles.length} files to embed`);
+
+  // Generate import statements with unique identifiers
+  const imports: string[] = [];
+  const mappings: string[] = [];
+
+  for (let i = 0; i < assetFiles.length; i++) {
+    const file = assetFiles[i];
+    // Use index to guarantee unique identifiers (avoids collision from similar paths)
+    const identifier = `_asset${i}`;
+    const urlPath = "/" + file;
+    const importPath = `../../.vite-build/${file}`;
+
+    imports.push(
+      `import ${identifier} from "${importPath}" with { type: "file" };`
+    );
+    mappings.push(`  "${urlPath}": ${identifier} as string,`);
+
+    console.log(`  ${urlPath}`);
+  }
+
   const output = `// Auto-generated by scripts/embed-assets.ts - do not edit
-export const assets: Record<string, { content: string; contentType: string; binary?: boolean }> = ${JSON.stringify(assets, null, 2)};
+${imports.join("\n")}
+
+export const assets: Record<string, string> = {
+${mappings.join("\n")}
+};
 `;
 
   await Bun.write(outputFile, output);
