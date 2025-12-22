@@ -46,7 +46,7 @@ import { mkdir, unlink, rm, rename } from "node:fs/promises";
 import archiver from "archiver";
 import unzipper from "unzipper";
 import { join } from "node:path";
-import { assets } from "./generated/embedded-assets";
+import { assets, getAssetPath } from "./generated/embedded-assets";
 
 const uploadsDir = join(blossomDir, "uploads");
 await mkdir(uploadsDir, { recursive: true });
@@ -1165,27 +1165,33 @@ For ALL other interactions (questions, conversation, requests for examples, clar
     const url = new URL(req.url);
     let pathname = url.pathname;
 
-    // Default to index.html for root
     if (pathname === "/") {
       pathname = "/index.html";
     }
 
-    // Try to serve embedded asset
+    // Try to serve embedded asset (assets contains file paths or HTMLBundle)
     const asset = assets[pathname];
     if (asset) {
-      const body = asset.binary
-        ? Buffer.from(asset.content, "base64")
-        : asset.content;
-      return new Response(body, {
-        headers: { "Content-Type": asset.contentType },
+      // Hashed assets (in /assets/) can be cached forever
+      // index.html should not be cached (may reference new hashed assets)
+      const isHashedAsset = pathname.startsWith("/assets/");
+      const cacheControl = isHashedAsset
+        ? "public, max-age=31536000, immutable"
+        : "no-cache";
+
+      return new Response(Bun.file(getAssetPath(asset)), {
+        headers: { "Cache-Control": cacheControl },
       });
     }
 
     // SPA fallback - serve index.html for client-side routing
     const indexAsset = assets["/index.html"];
     if (indexAsset && !pathname.startsWith("/api/")) {
-      return new Response(indexAsset.content, {
-        headers: { "Content-Type": indexAsset.contentType },
+      return new Response(Bun.file(getAssetPath(indexAsset)), {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-cache",
+        },
       });
     }
 
