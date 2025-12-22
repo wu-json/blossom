@@ -76,12 +76,16 @@ This structure matches sharp's rpath expectations (verified via `otool -l`).
 
 ### Step 1: Patch Sharp's Loader
 
-Install patch-package:
+Bun has built-in support for patching packages via `bun patch`.
+
+**Prepare the package for patching:**
 ```bash
-bun add -d patch-package
+bun patch sharp
 ```
 
-Modify `node_modules/sharp/lib/sharp.js`:
+This creates an unlinked clone in `node_modules/` that's safe to edit.
+
+**Modify `node_modules/sharp/lib/sharp.js`:**
 
 ```javascript
 // Before:
@@ -104,19 +108,17 @@ const paths = [
 ];
 ```
 
-Create the patch:
+**Commit the patch:**
 ```bash
-bunx patch-package sharp
+bun patch --commit sharp
 ```
 
-Add postinstall script to `package.json`:
-```json
-{
-  "scripts": {
-    "postinstall": "patch-package"
-  }
-}
-```
+This will:
+1. Generate a `.patch` file in `patches/sharp@0.34.5.patch`
+2. Add `"patchedDependencies"` to `package.json`
+3. Automatically apply the patch on future `bun install` runs
+
+No postinstall script needed - Bun applies patches automatically during install.
 
 ### Step 2: Create Native Embedding Module
 
@@ -204,13 +206,13 @@ builds:
 
 | File | Action |
 |------|--------|
-| `patches/sharp+0.34.5.patch` | Create (via patch-package) |
+| `patches/sharp@0.34.5.patch` | Create (via `bun patch --commit`) |
 | `src/native/darwin-arm64.ts` | Create |
 | `src/native/darwin-x64.ts` | Create |
 | `src/native/linux-x64.ts` | Create |
 | `src/native/linux-arm64.ts` | Create |
 | `src/index.ts` | Modify (add extraction on startup) |
-| `package.json` | Modify (add postinstall script) |
+| `package.json` | Auto-modified (adds `patchedDependencies`) |
 
 ## Why This Works
 
@@ -247,11 +249,12 @@ builds:
 
 ## Testing
 
-1. Apply patch: `bunx patch-package`
-2. Build: `just build`
-3. Copy binary to clean machine (no node_modules)
-4. Run binary
-5. Upload image >2MB in chat
-6. Verify:
+1. Create patch: `bun patch sharp`, edit file, `bun patch --commit sharp`
+2. Verify patch applies: `bun install` (should apply patch automatically)
+3. Build: `just build`
+4. Copy binary to clean machine (no node_modules)
+5. Run binary
+6. Upload image >2MB in chat
+7. Verify:
    - `~/.blossom/native/@img/` contains extracted files
    - Image is compressed successfully
