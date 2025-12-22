@@ -112,12 +112,10 @@ export class OllamaProvider implements LLMProvider {
   private convertMessages(messages: LLMMessage[], system: string): OllamaMessage[] {
     const result: OllamaMessage[] = [];
 
-    // Add system message first
     if (system) {
       result.push({ role: "system", content: system });
     }
 
-    // Convert messages, handling images
     for (const m of messages) {
       if (m.images?.length) {
         // Ollama expects raw base64 WITHOUT the data URI prefix

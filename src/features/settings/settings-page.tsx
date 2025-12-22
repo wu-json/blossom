@@ -228,13 +228,11 @@ export function SettingsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // LLM Settings state
   const [llmSettings, setLLMSettings] = useState<LLMSettings | null>(null);
   const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null);
   const [isCheckingOllama, setIsCheckingOllama] = useState(false);
   const [modelWarning, setModelWarning] = useState<string | null>(null);
 
-  // Check Ollama status
   const checkOllamaStatus = async (url: string) => {
     setIsCheckingOllama(true);
     try {
@@ -251,13 +249,11 @@ export function SettingsPage() {
     }
   };
 
-  // Debounced version of checkOllamaStatus
   const debouncedCheckOllamaStatus = useMemo(
     () => debounce(checkOllamaStatus, 500),
     []
   );
 
-  // Fetch LLM settings on mount
   useEffect(() => {
     fetch("/api/llm/settings")
       .then((r) => r.json())
@@ -269,7 +265,6 @@ export function SettingsPage() {
       });
   }, []);
 
-  // Check for model warnings when Ollama status updates
   useEffect(() => {
     if (ollamaStatus?.available && llmSettings?.provider === "ollama") {
       const chatModelExists = ollamaStatus.models.includes(llmSettings.chatModel);
@@ -284,7 +279,6 @@ export function SettingsPage() {
     }
   }, [ollamaStatus, llmSettings, t.modelWarning]);
 
-  // Save LLM settings to backend
   const updateLLMSettings = async (updates: Partial<LLMSettings>) => {
     const newSettings = { ...llmSettings, ...updates } as LLMSettings;
     setLLMSettings(newSettings);
@@ -295,7 +289,6 @@ export function SettingsPage() {
     });
   };
 
-  // Handle provider change
   const handleProviderChange = (provider: "anthropic" | "ollama") => {
     const defaults = DEFAULT_MODELS[provider];
     updateLLMSettings({
@@ -413,7 +406,6 @@ export function SettingsPage() {
             </div>
           </section>
 
-          {/* LLM Provider Section */}
           <section
             className="p-4 rounded-lg border"
             style={{
@@ -434,7 +426,6 @@ export function SettingsPage() {
               {t.llmProviderDesc}
             </p>
 
-            {/* Provider Selection */}
             <div className="space-y-3 mb-4">
               <label
                 className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
@@ -489,7 +480,6 @@ export function SettingsPage() {
               </label>
             </div>
 
-            {/* Anthropic Settings */}
             {llmSettings?.provider === "anthropic" && (
               <div className="space-y-4 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
                 <div className="flex items-center gap-2">
@@ -552,7 +542,6 @@ export function SettingsPage() {
               </div>
             )}
 
-            {/* Ollama Settings */}
             {llmSettings?.provider === "ollama" && (
               <div className="space-y-4 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
                 <div>
@@ -576,7 +565,6 @@ export function SettingsPage() {
                   />
                 </div>
 
-                {/* Ollama Status */}
                 {isCheckingOllama ? (
                   <div className="text-sm" style={{ color: "var(--text-muted)" }}>
                     {t.checkingOllama}
