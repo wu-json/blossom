@@ -681,7 +681,8 @@ function LLMProviderSettings() {
             value={settings.ollamaUrl}
             onChange={(e) => {
               updateSettings({ ollamaUrl: e.target.value });
-              checkOllamaStatus(e.target.value);
+              // Debounce the status check to avoid hammering server while typing
+              debouncedCheckOllamaStatus(e.target.value);
             }}
             placeholder="http://localhost:11434"
           />
