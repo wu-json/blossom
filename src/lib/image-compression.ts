@@ -1,10 +1,5 @@
 import sharp from "sharp";
 
-// Prevent memory accumulation from sharp's libvips backend
-// See: https://github.com/lovell/sharp/issues/3052
-sharp.cache(false);
-sharp.concurrency(1);
-
 export const IMAGE_COMPRESSION_THRESHOLD = 2 * 1024 * 1024; // 2MB
 
 export type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
