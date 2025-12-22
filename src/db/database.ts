@@ -80,4 +80,15 @@ db.run(`
 `);
 db.run(`CREATE INDEX IF NOT EXISTS idx_youtube_translations_video_id ON youtube_translations(video_id)`);
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS llm_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    provider TEXT NOT NULL DEFAULT 'anthropic',
+    chat_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-20250514',
+    title_model TEXT NOT NULL DEFAULT 'claude-haiku-4-5-20251001',
+    ollama_url TEXT DEFAULT 'http://localhost:11434',
+    updated_at INTEGER NOT NULL
+  )
+`);
+
 export { db, blossomDir };

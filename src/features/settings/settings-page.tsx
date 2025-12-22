@@ -1,10 +1,46 @@
 import * as React from "react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { HeaderControls } from "../../components/ui/header-controls";
 import { useChatStore } from "../../store/chat-store";
 import { version } from "../../generated/version";
 import type { Language } from "../../types/chat";
+
+interface LLMSettings {
+  provider: "anthropic" | "ollama";
+  chatModel: string;
+  titleModel: string;
+  ollamaUrl: string;
+}
+
+interface OllamaStatus {
+  available: boolean;
+  models: string[];
+}
+
+const ANTHROPIC_MODELS = [
+  "claude-sonnet-4-20250514",
+  "claude-haiku-4-5-20251001",
+];
+
+const DEFAULT_MODELS = {
+  anthropic: {
+    chatModel: "claude-sonnet-4-20250514",
+    titleModel: "claude-haiku-4-5-20251001",
+  },
+  ollama: {
+    chatModel: "gemma3:12b",
+    titleModel: "gemma3:12b",
+  },
+};
+
+function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number) {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), ms);
+  };
+}
 
 const translations: Record<Language, {
   dataStorage: string;
@@ -34,6 +70,20 @@ const translations: Record<Language, {
   importConfirmDesc: string;
   file: string;
   import: string;
+  llmProvider: string;
+  llmProviderDesc: string;
+  anthropicCloud: string;
+  anthropicCloudDesc: string;
+  ollamaLocal: string;
+  ollamaLocalDesc: string;
+  ollamaUrl: string;
+  checkingOllama: string;
+  connectedToOllama: string;
+  ollamaNotRunning: string;
+  noModelsFound: string;
+  chatModel: string;
+  titleModel: string;
+  modelWarning: string;
 }> = {
   ja: {
     dataStorage: "データ保存",
@@ -63,6 +113,20 @@ const translations: Record<Language, {
     importConfirmDesc: "バックアップファイルの内容で既存のデータをすべて置き換えます。この操作は取り消せません。",
     file: "ファイル:",
     import: "インポート",
+    llmProvider: "LLMプロバイダー",
+    llmProviderDesc: "翻訳とチャットに使用するAIモデルを選択してください。",
+    anthropicCloud: "Anthropic (Claude)",
+    anthropicCloudDesc: "APIキーが必要です",
+    ollamaLocal: "Ollama (ローカル)",
+    ollamaLocalDesc: "ローカルでモデルを実行",
+    ollamaUrl: "OllamaサーバーURL",
+    checkingOllama: "Ollama接続を確認中...",
+    connectedToOllama: "Ollamaに接続しました",
+    ollamaNotRunning: "Ollamaに接続できません。起動していることを確認してください。",
+    noModelsFound: "モデルが見つかりません。実行: ollama pull gemma3:12b",
+    chatModel: "チャット・翻訳モデル",
+    titleModel: "タイトル生成モデル",
+    modelWarning: "選択したモデルの一部がOllamaで利用できなくなっています。",
   },
   zh: {
     dataStorage: "数据存储",
@@ -92,6 +156,20 @@ const translations: Record<Language, {
     importConfirmDesc: "这将用备份文件的内容替换所有现有数据。此操作无法撤消。",
     file: "文件:",
     import: "导入",
+    llmProvider: "LLM提供商",
+    llmProviderDesc: "选择用于翻译和聊天的AI模型。",
+    anthropicCloud: "Anthropic (Claude)",
+    anthropicCloudDesc: "需要API密钥",
+    ollamaLocal: "Ollama (本地)",
+    ollamaLocalDesc: "在本地运行模型",
+    ollamaUrl: "Ollama服务器URL",
+    checkingOllama: "正在检查Ollama连接...",
+    connectedToOllama: "已连接到Ollama",
+    ollamaNotRunning: "无法连接到Ollama。请确保其正在运行。",
+    noModelsFound: "未找到模型。运行: ollama pull gemma3:12b",
+    chatModel: "聊天和翻译模型",
+    titleModel: "标题生成模型",
+    modelWarning: "部分选定的模型在Ollama中不再可用。",
   },
   ko: {
     dataStorage: "데이터 저장",
@@ -121,6 +199,20 @@ const translations: Record<Language, {
     importConfirmDesc: "백업 파일의 내용으로 기존 데이터를 모두 대체합니다. 이 작업은 취소할 수 없습니다.",
     file: "파일:",
     import: "가져오기",
+    llmProvider: "LLM 제공자",
+    llmProviderDesc: "번역 및 채팅에 사용할 AI 모델을 선택하세요.",
+    anthropicCloud: "Anthropic (Claude)",
+    anthropicCloudDesc: "API 키 필요",
+    ollamaLocal: "Ollama (로컬)",
+    ollamaLocalDesc: "로컬에서 모델 실행",
+    ollamaUrl: "Ollama 서버 URL",
+    checkingOllama: "Ollama 연결 확인 중...",
+    connectedToOllama: "Ollama에 연결됨",
+    ollamaNotRunning: "Ollama에 연결할 수 없습니다. 실행 중인지 확인하세요.",
+    noModelsFound: "모델을 찾을 수 없습니다. 실행: ollama pull gemma3:12b",
+    chatModel: "채팅 및 번역 모델",
+    titleModel: "제목 생성 모델",
+    modelWarning: "선택한 모델 중 일부가 Ollama에서 더 이상 사용할 수 없습니다.",
   },
 };
 
@@ -135,6 +227,86 @@ export function SettingsPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // LLM Settings state
+  const [llmSettings, setLLMSettings] = useState<LLMSettings | null>(null);
+  const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null);
+  const [isCheckingOllama, setIsCheckingOllama] = useState(false);
+  const [modelWarning, setModelWarning] = useState<string | null>(null);
+
+  // Check Ollama status
+  const checkOllamaStatus = async (url: string) => {
+    setIsCheckingOllama(true);
+    try {
+      const response = await fetch("/api/llm/ollama/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const status = await response.json();
+      setOllamaStatus(status);
+      return status;
+    } finally {
+      setIsCheckingOllama(false);
+    }
+  };
+
+  // Debounced version of checkOllamaStatus
+  const debouncedCheckOllamaStatus = useMemo(
+    () => debounce(checkOllamaStatus, 500),
+    []
+  );
+
+  // Fetch LLM settings on mount
+  useEffect(() => {
+    fetch("/api/llm/settings")
+      .then((r) => r.json())
+      .then((s: LLMSettings) => {
+        setLLMSettings(s);
+        if (s.provider === "ollama") {
+          checkOllamaStatus(s.ollamaUrl);
+        }
+      });
+  }, []);
+
+  // Check for model warnings when Ollama status updates
+  useEffect(() => {
+    if (ollamaStatus?.available && llmSettings?.provider === "ollama") {
+      const chatModelExists = ollamaStatus.models.includes(llmSettings.chatModel);
+      const titleModelExists = ollamaStatus.models.includes(llmSettings.titleModel);
+      if (!chatModelExists || !titleModelExists) {
+        setModelWarning(t.modelWarning);
+      } else {
+        setModelWarning(null);
+      }
+    } else {
+      setModelWarning(null);
+    }
+  }, [ollamaStatus, llmSettings, t.modelWarning]);
+
+  // Save LLM settings to backend
+  const updateLLMSettings = async (updates: Partial<LLMSettings>) => {
+    const newSettings = { ...llmSettings, ...updates } as LLMSettings;
+    setLLMSettings(newSettings);
+    await fetch("/api/llm/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+  };
+
+  // Handle provider change
+  const handleProviderChange = (provider: "anthropic" | "ollama") => {
+    const defaults = DEFAULT_MODELS[provider];
+    updateLLMSettings({
+      provider,
+      chatModel: defaults.chatModel,
+      titleModel: defaults.titleModel,
+    });
+    if (provider === "ollama" && llmSettings) {
+      checkOllamaStatus(llmSettings.ollamaUrl);
+    }
+  };
 
   const handleDeleteAllData = async () => {
     if (deleteInput !== "delete") return;
@@ -241,6 +413,7 @@ export function SettingsPage() {
             </div>
           </section>
 
+          {/* LLM Provider Section */}
           <section
             className="p-4 rounded-lg border"
             style={{
@@ -252,29 +425,235 @@ export function SettingsPage() {
               className="text-sm font-medium mb-2"
               style={{ color: "var(--text)" }}
             >
-              {t.aiProvider}
+              {t.llmProvider}
             </h2>
             <p
               className="text-sm mb-4"
               style={{ color: "var(--text-muted)" }}
             >
-              {t.aiProviderDesc}
+              {t.llmProviderDesc}
             </p>
-            <div className="flex items-center gap-2">
-              <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-                {t.anthropicApiKey}
-              </span>
-              <code
-                className="px-2 py-1 rounded text-sm font-mono"
+
+            {/* Provider Selection */}
+            <div className="space-y-3 mb-4">
+              <label
+                className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
                 style={{
-                  backgroundColor: "var(--background)",
-                  color: apiKeyPreview ? "var(--text)" : "var(--text-muted)",
-                  border: "1px solid var(--border)",
+                  borderColor: llmSettings?.provider === "anthropic" ? "var(--accent)" : "var(--border)",
+                  backgroundColor: llmSettings?.provider === "anthropic" ? "var(--accent-light)" : "transparent",
                 }}
               >
-                {apiKeyPreview || t.notConfigured}
-              </code>
+                <input
+                  type="radio"
+                  name="provider"
+                  value="anthropic"
+                  checked={llmSettings?.provider === "anthropic"}
+                  onChange={() => handleProviderChange("anthropic")}
+                  className="w-4 h-4"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                <div>
+                  <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                    {t.anthropicCloud}
+                  </div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    {t.anthropicCloudDesc}
+                  </div>
+                </div>
+              </label>
+
+              <label
+                className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
+                style={{
+                  borderColor: llmSettings?.provider === "ollama" ? "var(--accent)" : "var(--border)",
+                  backgroundColor: llmSettings?.provider === "ollama" ? "var(--accent-light)" : "transparent",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="provider"
+                  value="ollama"
+                  checked={llmSettings?.provider === "ollama"}
+                  onChange={() => handleProviderChange("ollama")}
+                  className="w-4 h-4"
+                  style={{ accentColor: "var(--accent)" }}
+                />
+                <div>
+                  <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                    {t.ollamaLocal}
+                  </div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    {t.ollamaLocalDesc}
+                  </div>
+                </div>
+              </label>
             </div>
+
+            {/* Anthropic Settings */}
+            {llmSettings?.provider === "anthropic" && (
+              <div className="space-y-4 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    {t.anthropicApiKey}
+                  </span>
+                  <code
+                    className="px-2 py-1 rounded text-sm font-mono"
+                    style={{
+                      backgroundColor: "var(--background)",
+                      color: apiKeyPreview ? "var(--text)" : "var(--text-muted)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    {apiKeyPreview || t.notConfigured}
+                  </code>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                      {t.chatModel}
+                    </label>
+                    <select
+                      value={llmSettings.chatModel}
+                      onChange={(e) => updateLLMSettings({ chatModel: e.target.value })}
+                      className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                      style={{
+                        backgroundColor: "var(--background)",
+                        borderColor: "var(--border)",
+                        color: "var(--text)",
+                      }}
+                    >
+                      {ANTHROPIC_MODELS.map((model) => (
+                        <option key={model} value={model}>{model}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                      {t.titleModel}
+                    </label>
+                    <select
+                      value={llmSettings.titleModel}
+                      onChange={(e) => updateLLMSettings({ titleModel: e.target.value })}
+                      className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                      style={{
+                        backgroundColor: "var(--background)",
+                        borderColor: "var(--border)",
+                        color: "var(--text)",
+                      }}
+                    >
+                      {ANTHROPIC_MODELS.map((model) => (
+                        <option key={model} value={model}>{model}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Ollama Settings */}
+            {llmSettings?.provider === "ollama" && (
+              <div className="space-y-4 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+                <div>
+                  <label className="block text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                    {t.ollamaUrl}
+                  </label>
+                  <input
+                    type="text"
+                    value={llmSettings.ollamaUrl}
+                    onChange={(e) => {
+                      updateLLMSettings({ ollamaUrl: e.target.value });
+                      debouncedCheckOllamaStatus(e.target.value);
+                    }}
+                    placeholder="http://localhost:11434"
+                    className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                    style={{
+                      backgroundColor: "var(--background)",
+                      borderColor: "var(--border)",
+                      color: "var(--text)",
+                    }}
+                  />
+                </div>
+
+                {/* Ollama Status */}
+                {isCheckingOllama ? (
+                  <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    {t.checkingOllama}
+                  </div>
+                ) : ollamaStatus?.available ? (
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      {t.connectedToOllama}
+                    </div>
+
+                    {ollamaStatus.models.length > 0 ? (
+                      <div className="space-y-3">
+                        {modelWarning && (
+                          <div className="text-sm text-amber-600 dark:text-amber-400">
+                            {modelWarning}
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                            {t.chatModel}
+                          </label>
+                          <select
+                            value={llmSettings.chatModel}
+                            onChange={(e) => updateLLMSettings({ chatModel: e.target.value })}
+                            className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                            style={{
+                              backgroundColor: "var(--background)",
+                              borderColor: "var(--border)",
+                              color: "var(--text)",
+                            }}
+                          >
+                            {ollamaStatus.models.map((model) => (
+                              <option key={model} value={model}>{model}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+                            {t.titleModel}
+                          </label>
+                          <select
+                            value={llmSettings.titleModel}
+                            onChange={(e) => updateLLMSettings({ titleModel: e.target.value })}
+                            className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                            style={{
+                              backgroundColor: "var(--background)",
+                              borderColor: "var(--border)",
+                              color: "var(--text)",
+                            }}
+                          >
+                            {ollamaStatus.models.map((model) => (
+                              <option key={model} value={model}>{model}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-amber-600 dark:text-amber-400">
+                        {t.noModelsFound}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    {t.ollamaNotRunning}
+                  </div>
+                )}
+              </div>
+            )}
           </section>
 
           <section
