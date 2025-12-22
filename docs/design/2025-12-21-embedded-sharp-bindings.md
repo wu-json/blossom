@@ -112,107 +112,169 @@ console.log(`  .node file: ${(nodeBuffer.byteLength / 1024).toFixed(0)}KB`);
 console.log(`  libvips: ${(libvipsBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
 ```
 
-### Step 2: Runtime Extraction Module
+### Step 2: Runtime Extraction & Native Wrapper
 
-Create `src/lib/sharp-loader.ts`:
+Create `src/lib/sharp-native.ts`:
 
 ```typescript
 /**
- * Extracts embedded sharp bindings at runtime and configures module resolution.
- * Must be called BEFORE importing sharp.
+ * Minimal sharp wrapper that loads native module directly.
+ * Used in compiled binary mode where npm's sharp can't load.
  */
 import { join } from "node:path";
-import { mkdir } from "node:fs/promises";
+import { mkdir, chmod } from "node:fs/promises";
 
-let extracted = false;
+let nativeModule: any = null;
+let extractionDone = false;
 
-export async function ensureSharpBindings(): Promise<boolean> {
-  if (extracted) return true;
+// Detect if running as compiled binary
+const isCompiled = (() => {
+  // Compiled binaries run from /$bunfs/...
+  return process.execPath.includes("$bunfs") ||
+         process.execPath.endsWith("/blossom");
+})();
 
-  // Only needed in compiled binary mode
-  // In dev, sharp loads from node_modules normally
-  const isCompiled = process.execPath.includes("blossom");
-  if (!isCompiled) {
-    extracted = true;
-    return true;
+async function ensureExtracted(): Promise<string | null> {
+  if (!isCompiled) return null; // Use npm sharp in dev
+  if (extractionDone) {
+    const blossomDir = process.env.BLOSSOM_DATA_DIR || join(process.env.HOME!, ".blossom");
+    return join(blossomDir, "native/@img/sharp-PLATFORM/lib/sharp-PLATFORM.node");
   }
 
   try {
-    // Dynamic import to avoid bundling in dev
     const bindings = await import("../generated/sharp-bindings");
-
     const blossomDir = process.env.BLOSSOM_DATA_DIR || join(process.env.HOME!, ".blossom");
     const nativeDir = join(blossomDir, "native", "@img");
 
     const sharpDir = join(nativeDir, `sharp-${bindings.SHARP_PLATFORM}`, "lib");
     const libvipsDir = join(nativeDir, `sharp-libvips-${bindings.SHARP_PLATFORM}`, "lib");
 
-    // Create directories
     await mkdir(sharpDir, { recursive: true });
     await mkdir(libvipsDir, { recursive: true });
 
     // Extract .node file
     const nodeFilePath = join(sharpDir, bindings.SHARP_NODE_FILENAME);
-    const nodeFile = Bun.file(nodeFilePath);
-    if (!(await nodeFile.exists())) {
-      const nodeBuffer = Buffer.from(bindings.SHARP_NODE_BASE64, "base64");
-      await Bun.write(nodeFilePath, nodeBuffer);
-      // Make executable
-      const { chmod } = await import("node:fs/promises");
+    if (!(await Bun.file(nodeFilePath).exists())) {
+      await Bun.write(nodeFilePath, Buffer.from(bindings.SHARP_NODE_BASE64, "base64"));
       await chmod(nodeFilePath, 0o755);
     }
 
     // Extract libvips
     const libvipsFilePath = join(libvipsDir, bindings.LIBVIPS_FILENAME);
-    const libvipsFile = Bun.file(libvipsFilePath);
-    if (!(await libvipsFile.exists())) {
-      const libvipsBuffer = Buffer.from(bindings.LIBVIPS_BASE64, "base64");
-      await Bun.write(libvipsFilePath, libvipsBuffer);
-      await (await import("node:fs/promises")).chmod(libvipsFilePath, 0o755);
+    if (!(await Bun.file(libvipsFilePath).exists())) {
+      await Bun.write(libvipsFilePath, Buffer.from(bindings.LIBVIPS_BASE64, "base64"));
+      await chmod(libvipsFilePath, 0o755);
     }
 
-    // Add to NODE_PATH so require('@img/sharp-...') resolves
-    const existingPath = process.env.NODE_PATH || "";
-    process.env.NODE_PATH = join(blossomDir, "native") +
-      (existingPath ? `:${existingPath}` : "");
-
-    // Force module resolution cache refresh
-    // @ts-ignore
-    require("module").Module._initPaths();
-
-    extracted = true;
-    return true;
+    extractionDone = true;
+    return nodeFilePath;
   } catch (err) {
     console.warn("Failed to extract sharp bindings:", err);
-    return false;
+    return null;
   }
 }
+
+function getNative() {
+  if (nativeModule) return nativeModule;
+  // Path set by ensureExtracted or pre-known
+  const blossomDir = process.env.BLOSSOM_DATA_DIR || join(process.env.HOME!, ".blossom");
+  // Platform detected at build time
+  const platform = process.env.SHARP_PLATFORM || "darwin-arm64"; // fallback
+  const nodePath = join(blossomDir, `native/@img/sharp-${platform}/lib/sharp-${platform}.node`);
+  nativeModule = require(nodePath);
+  return nativeModule;
+}
+
+// Minimal API matching what image-compression.ts needs
+export async function getMetadata(buffer: Buffer): Promise<{ width: number; height: number }> {
+  const native = getNative();
+  return new Promise((resolve, reject) => {
+    // Sharp native expects specific options structure
+    const options = {
+      input: buffer,
+      limitInputPixels: 268402689,
+      sequentialRead: true,
+    };
+    native.metadata(options, (err: Error, result: any) => {
+      if (err) reject(err);
+      else resolve({ width: result.width, height: result.height });
+    });
+  });
+}
+
+export async function processImage(
+  buffer: Buffer,
+  options: {
+    width?: number;
+    format: "jpeg" | "png" | "webp";
+    quality?: number;
+    compressionLevel?: number;
+  }
+): Promise<Buffer> {
+  const native = getNative();
+  return new Promise((resolve, reject) => {
+    const pipelineOpts: any = {
+      input: buffer,
+      limitInputPixels: 268402689,
+      sequentialRead: true,
+      // Output format
+      formatOut: options.format,
+      // Resize
+      width: options.width || -1,
+      height: -1,
+      canvas: "crop",
+      withoutEnlargement: true,
+      // Format-specific
+      jpegQuality: options.quality || 80,
+      pngCompressionLevel: options.compressionLevel || 6,
+      webpQuality: options.quality || 80,
+    };
+    native.pipeline(pipelineOpts, (err: Error, data: Buffer, info: any) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+}
+
+export { ensureExtracted, isCompiled };
 ```
 
-### Step 3: Modify Image Compression to Use Loader
+### Step 3: Modify Image Compression
 
-Update `src/lib/image-compression.ts`:
+Update `src/lib/image-compression.ts` to use the appropriate backend:
 
 ```typescript
-import { ensureSharpBindings } from "./sharp-loader";
+import { isCompiled, ensureExtracted, getMetadata, processImage } from "./sharp-native";
 
-let sharp: typeof import("sharp") | null = null;
-let sharpLoadAttempted = false;
+// For dev mode, dynamically import sharp
+let sharpModule: typeof import("sharp") | null = null;
 
 async function getSharp() {
-  if (sharpLoadAttempted) return sharp;
-  sharpLoadAttempted = true;
-
-  try {
-    await ensureSharpBindings();
-    sharp = (await import("sharp")).default;
-  } catch (err) {
-    console.warn("Sharp not available, image compression disabled:", err);
-  }
-  return sharp;
+  if (isCompiled) return null; // Use native wrapper instead
+  if (sharpModule) return sharpModule;
+  sharpModule = (await import("sharp")).default;
+  return sharpModule;
 }
 
-// Update compressImage and other functions to use getSharp()
+// Initialize - call at startup
+export async function initImageCompression() {
+  if (isCompiled) {
+    await ensureExtracted();
+  }
+}
+
+// Example usage in compressImage():
+async function compressImage(buffer: Buffer, ...): Promise<Buffer> {
+  const sharp = await getSharp();
+
+  if (sharp) {
+    // Dev mode: use npm sharp with its nice fluent API
+    return sharp(buffer).resize(width).jpeg({ quality }).toBuffer();
+  } else {
+    // Compiled mode: use native wrapper
+    return processImage(buffer, { width, format: "jpeg", quality });
+  }
+}
 ```
 
 ### Step 4: Update Build Process
@@ -254,13 +316,13 @@ builds:
 
 ### Step 5: Entry Point Initialization
 
-Add to `src/index.ts` at the very top (before any sharp imports):
+Add to `src/index.ts` at the very top:
 
 ```typescript
-import { ensureSharpBindings } from "./lib/sharp-loader";
+import { initImageCompression } from "./lib/image-compression";
 
-// Extract sharp bindings before anything else
-await ensureSharpBindings();
+// Initialize image compression (extracts native bindings if compiled)
+await initImageCompression();
 
 // ... rest of imports
 ```
@@ -270,12 +332,27 @@ await ensureSharpBindings();
 | File | Action |
 |------|--------|
 | `scripts/embed-sharp-bindings.ts` | Create |
-| `src/lib/sharp-loader.ts` | Create |
-| `src/lib/image-compression.ts` | Modify (async sharp loading) |
-| `src/index.ts` | Modify (add ensureSharpBindings call) |
+| `src/lib/sharp-native.ts` | Create (minimal native wrapper) |
+| `src/lib/image-compression.ts` | Modify (use wrapper in compiled mode) |
+| `src/index.ts` | Modify (add initImageCompression call) |
 | `src/generated/sharp-bindings.ts` | Generated at build time |
 | `justfile` | Modify |
 | `.goreleaser.yaml` | Modify |
+
+## Key Technical Findings
+
+1. **Absolute path require works**: `require("/path/to/sharp.node")` works in compiled binaries
+2. **rpath resolution works**: When the `.node` and `.dylib` are in the right relative positions, libvips loads correctly
+3. **NODE_PATH doesn't work**: Scoped packages (`@img/...`) can't be resolved via NODE_PATH in Bun
+4. **require.cache injection doesn't work in compiled binaries**: The cache keys differ between dev and compiled modes
+5. **Native API is complex**: Sharp's native module expects a large options object with many default values
+
+## Open Questions / Risks
+
+1. **Native API stability**: The native module's options format may change between sharp versions
+2. **Platform detection**: Need reliable way to detect platform at build time for goreleaser
+3. **Cross-compilation**: Building on macOS for Linux may not have Linux bindings available
+4. **Error handling**: Native module errors may be cryptic; need good fallback messaging
 
 ## Considerations
 
