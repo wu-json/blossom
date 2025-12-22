@@ -55,62 +55,49 @@ This structure matches sharp's rpath expectations (verified via `otool -l`).
 
 ## Implementation
 
-### Step 1: Build Script for Embedding Native Binaries
+### Step 1: Create Platform-Specific Embedding Modules
 
-Create `scripts/embed-sharp-bindings.ts`:
+For each platform, create a file that imports the native bindings. These are only imported during build for that platform.
+
+Create `src/native/darwin-arm64.ts`:
 
 ```typescript
-/**
- * Embeds platform-specific sharp native bindings as base64.
- * Run with: SHARP_PLATFORM=darwin-arm64 bun run scripts/embed-sharp-bindings.ts
- */
-import { join } from "node:path";
+// Bun embeds these files in the compiled binary via $bunfs
+// @ts-ignore
+import sharpNodePath from "../../node_modules/@img/sharp-darwin-arm64/lib/sharp-darwin-arm64.node" with { type: "file" };
+// @ts-ignore
+import libvipsPath from "../../node_modules/@img/sharp-libvips-darwin-arm64/lib/libvips-cpp.8.17.3.dylib" with { type: "file" };
 
-const platform = process.env.SHARP_PLATFORM;
-if (!platform) {
-  console.error("SHARP_PLATFORM environment variable required");
-  process.exit(1);
+export const PLATFORM = "darwin-arm64";
+export const SHARP_NODE_PATH = sharpNodePath;
+export const LIBVIPS_PATH = libvipsPath;
+export const SHARP_NODE_FILENAME = "sharp-darwin-arm64.node";
+export const LIBVIPS_FILENAME = "libvips-cpp.8.17.3.dylib";
+```
+
+Similarly for `darwin-x64.ts`, `linux-x64.ts`, `linux-arm64.ts`.
+
+Create `src/native/index.ts` (selects correct platform at build time):
+
+```typescript
+// This file is generated or conditionally imports based on build target
+// For now, use environment variable set by goreleaser
+const platform = process.env.SHARP_PLATFORM || "darwin-arm64";
+
+export async function getNativeBindings() {
+  switch (platform) {
+    case "darwin-arm64":
+      return import("./darwin-arm64");
+    case "darwin-x64":
+      return import("./darwin-x64");
+    case "linux-x64":
+      return import("./linux-x64");
+    case "linux-arm64":
+      return import("./linux-arm64");
+    default:
+      throw new Error(`Unsupported platform: ${platform}`);
+  }
 }
-
-const rootDir = join(import.meta.dir, "..");
-const nodeModules = join(rootDir, "node_modules", "@img");
-
-// Platform-specific package names
-const sharpPkg = `sharp-${platform}`;
-const libvipsPkg = `sharp-libvips-${platform}`;
-
-// Read the .node file
-const nodeFile = join(nodeModules, sharpPkg, "lib", `sharp-${platform}.node`);
-const nodeBuffer = await Bun.file(nodeFile).arrayBuffer();
-const nodeBase64 = Buffer.from(nodeBuffer).toString("base64");
-
-// Read the libvips dylib (name varies by platform)
-const libvipsDir = join(nodeModules, libvipsPkg, "lib");
-const libvipsFiles = await Array.fromAsync(
-  new Bun.Glob("libvips-cpp.*").scan({ cwd: libvipsDir })
-);
-const libvipsName = libvipsFiles[0]; // e.g., "libvips-cpp.8.17.3.dylib" or "libvips-cpp.so.8.17.3"
-const libvipsFile = join(libvipsDir, libvipsName);
-const libvipsBuffer = await Bun.file(libvipsFile).arrayBuffer();
-const libvipsBase64 = Buffer.from(libvipsBuffer).toString("base64");
-
-// Generate TypeScript module
-const output = `// Auto-generated - do not edit
-// Platform: ${platform}
-
-export const SHARP_PLATFORM = "${platform}";
-export const SHARP_NODE_FILENAME = "sharp-${platform}.node";
-export const LIBVIPS_FILENAME = "${libvipsName}";
-
-export const SHARP_NODE_BASE64 = "${nodeBase64}";
-export const LIBVIPS_BASE64 = "${libvipsBase64}";
-`;
-
-const outputFile = join(rootDir, "src", "generated", "sharp-bindings.ts");
-await Bun.write(outputFile, output);
-console.log(`Generated ${outputFile} for ${platform}`);
-console.log(`  .node file: ${(nodeBuffer.byteLength / 1024).toFixed(0)}KB`);
-console.log(`  libvips: ${(libvipsBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
 ```
 
 ### Step 2: Runtime Extraction & Native Wrapper
@@ -119,55 +106,57 @@ Create `src/lib/sharp-native.ts`:
 
 ```typescript
 /**
- * Minimal sharp wrapper that loads native module directly.
+ * Extracts embedded sharp bindings and loads native module.
  * Used in compiled binary mode where npm's sharp can't load.
  */
 import { join } from "node:path";
 import { mkdir, chmod } from "node:fs/promises";
 
 let nativeModule: any = null;
-let extractionDone = false;
+let extractedPath: string | null = null;
 
 // Detect if running as compiled binary
-const isCompiled = (() => {
-  // Compiled binaries run from /$bunfs/...
+export const isCompiled = (() => {
   return process.execPath.includes("$bunfs") ||
          process.execPath.endsWith("/blossom");
 })();
 
-async function ensureExtracted(): Promise<string | null> {
-  if (!isCompiled) return null; // Use npm sharp in dev
-  if (extractionDone) {
-    const blossomDir = process.env.BLOSSOM_DATA_DIR || join(process.env.HOME!, ".blossom");
-    return join(blossomDir, "native/@img/sharp-PLATFORM/lib/sharp-PLATFORM.node");
-  }
+export async function ensureExtracted(): Promise<string | null> {
+  if (!isCompiled) return null;
+  if (extractedPath) return extractedPath;
 
   try {
-    const bindings = await import("../generated/sharp-bindings");
+    // Import platform-specific bindings (embedded via $bunfs)
+    const bindings = await import("../native");
+    const { PLATFORM, SHARP_NODE_PATH, LIBVIPS_PATH, SHARP_NODE_FILENAME, LIBVIPS_FILENAME } =
+      await bindings.getNativeBindings();
+
     const blossomDir = process.env.BLOSSOM_DATA_DIR || join(process.env.HOME!, ".blossom");
     const nativeDir = join(blossomDir, "native", "@img");
 
-    const sharpDir = join(nativeDir, `sharp-${bindings.SHARP_PLATFORM}`, "lib");
-    const libvipsDir = join(nativeDir, `sharp-libvips-${bindings.SHARP_PLATFORM}`, "lib");
+    const sharpDir = join(nativeDir, `sharp-${PLATFORM}`, "lib");
+    const libvipsDir = join(nativeDir, `sharp-libvips-${PLATFORM}`, "lib");
 
     await mkdir(sharpDir, { recursive: true });
     await mkdir(libvipsDir, { recursive: true });
 
-    // Extract .node file
-    const nodeFilePath = join(sharpDir, bindings.SHARP_NODE_FILENAME);
+    // Extract .node file from $bunfs to real filesystem
+    const nodeFilePath = join(sharpDir, SHARP_NODE_FILENAME);
     if (!(await Bun.file(nodeFilePath).exists())) {
-      await Bun.write(nodeFilePath, Buffer.from(bindings.SHARP_NODE_BASE64, "base64"));
+      const data = await Bun.file(SHARP_NODE_PATH).arrayBuffer();
+      await Bun.write(nodeFilePath, data);
       await chmod(nodeFilePath, 0o755);
     }
 
-    // Extract libvips
-    const libvipsFilePath = join(libvipsDir, bindings.LIBVIPS_FILENAME);
+    // Extract libvips from $bunfs
+    const libvipsFilePath = join(libvipsDir, LIBVIPS_FILENAME);
     if (!(await Bun.file(libvipsFilePath).exists())) {
-      await Bun.write(libvipsFilePath, Buffer.from(bindings.LIBVIPS_BASE64, "base64"));
+      const data = await Bun.file(LIBVIPS_PATH).arrayBuffer();
+      await Bun.write(libvipsFilePath, data);
       await chmod(libvipsFilePath, 0o755);
     }
 
-    extractionDone = true;
+    extractedPath = nodeFilePath;
     return nodeFilePath;
   } catch (err) {
     console.warn("Failed to extract sharp bindings:", err);
@@ -177,12 +166,8 @@ async function ensureExtracted(): Promise<string | null> {
 
 function getNative() {
   if (nativeModule) return nativeModule;
-  // Path set by ensureExtracted or pre-known
-  const blossomDir = process.env.BLOSSOM_DATA_DIR || join(process.env.HOME!, ".blossom");
-  // Platform detected at build time
-  const platform = process.env.SHARP_PLATFORM || "darwin-arm64"; // fallback
-  const nodePath = join(blossomDir, `native/@img/sharp-${platform}/lib/sharp-${platform}.node`);
-  nativeModule = require(nodePath);
+  if (!extractedPath) throw new Error("Sharp bindings not extracted");
+  nativeModule = require(extractedPath);
   return nativeModule;
 }
 
@@ -190,13 +175,7 @@ function getNative() {
 export async function getMetadata(buffer: Buffer): Promise<{ width: number; height: number }> {
   const native = getNative();
   return new Promise((resolve, reject) => {
-    // Sharp native expects specific options structure
-    const options = {
-      input: buffer,
-      limitInputPixels: 268402689,
-      sequentialRead: true,
-    };
-    native.metadata(options, (err: Error, result: any) => {
+    native.metadata({ input: buffer }, (err: Error, result: any) => {
       if (err) reject(err);
       else resolve({ width: result.width, height: result.height });
     });
@@ -209,35 +188,24 @@ export async function processImage(
     width?: number;
     format: "jpeg" | "png" | "webp";
     quality?: number;
-    compressionLevel?: number;
   }
 ): Promise<Buffer> {
   const native = getNative();
   return new Promise((resolve, reject) => {
-    const pipelineOpts: any = {
+    native.pipeline({
       input: buffer,
-      limitInputPixels: 268402689,
-      sequentialRead: true,
-      // Output format
       formatOut: options.format,
-      // Resize
       width: options.width || -1,
       height: -1,
-      canvas: "crop",
       withoutEnlargement: true,
-      // Format-specific
       jpegQuality: options.quality || 80,
-      pngCompressionLevel: options.compressionLevel || 6,
       webpQuality: options.quality || 80,
-    };
-    native.pipeline(pipelineOpts, (err: Error, data: Buffer, info: any) => {
+    }, (err: Error, data: Buffer) => {
       if (err) reject(err);
       else resolve(data);
     });
   });
 }
-
-export { ensureExtracted, isCompiled };
 ```
 
 ### Step 3: Modify Image Compression
@@ -332,21 +300,24 @@ await initImageCompression();
 
 | File | Action |
 |------|--------|
-| `scripts/embed-sharp-bindings.ts` | Create |
-| `src/lib/sharp-native.ts` | Create (minimal native wrapper) |
+| `src/native/darwin-arm64.ts` | Create (embeds darwin-arm64 bindings) |
+| `src/native/darwin-x64.ts` | Create (embeds darwin-x64 bindings) |
+| `src/native/linux-x64.ts` | Create (embeds linux-x64 bindings) |
+| `src/native/linux-arm64.ts` | Create (embeds linux-arm64 bindings) |
+| `src/native/index.ts` | Create (platform selector) |
+| `src/lib/sharp-native.ts` | Create (extraction + native wrapper) |
 | `src/lib/image-compression.ts` | Modify (use wrapper in compiled mode) |
 | `src/index.ts` | Modify (add initImageCompression call) |
-| `src/generated/sharp-bindings.ts` | Generated at build time |
-| `justfile` | Modify |
-| `.goreleaser.yaml` | Modify |
+| `.goreleaser.yaml` | Modify (set SHARP_PLATFORM env var) |
 
 ## Key Technical Findings
 
-1. **Absolute path require works**: `require("/path/to/sharp.node")` works in compiled binaries
-2. **rpath resolution works**: When the `.node` and `.dylib` are in the right relative positions, libvips loads correctly
-3. **NODE_PATH doesn't work**: Scoped packages (`@img/...`) can't be resolved via NODE_PATH in Bun
-4. **require.cache injection doesn't work in compiled binaries**: The cache keys differ between dev and compiled modes
-5. **Native API is complex**: Sharp's native module expects a large options object with many default values
+1. **Bun's `import ... with { type: "file" }` works**: Embeds raw binary in executable, accessible via `$bunfs`
+2. **No memory bloat**: Files live in `$bunfs` virtual filesystem, not JS heap (unlike base64 strings)
+3. **Absolute path require works**: `require("/path/to/sharp.node")` works in compiled binaries
+4. **rpath resolution works**: When the `.node` and `.dylib` are in the right relative positions, libvips loads correctly
+5. **NODE_PATH doesn't work**: Scoped packages (`@img/...`) can't be resolved via NODE_PATH in Bun
+6. **require.cache injection doesn't work in compiled binaries**: The cache keys differ between dev and compiled modes
 
 ## Open Questions / Risks
 
