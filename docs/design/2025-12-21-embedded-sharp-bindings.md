@@ -17,11 +17,12 @@ Sharp is used for image compression before sending images to the Anthropic API (
 
 ## Solution
 
-**Hybrid approach:**
-1. Embed native bindings as base64 during build
-2. Extract at runtime to `~/.blossom/native/`
-3. Create a minimal wrapper that loads the native module directly (bypassing npm's sharp loader)
-4. Use wrapper in compiled mode, use npm sharp in dev mode
+**Use Bun's native file embedding:**
+1. Import native bindings with `import ... with { type: "file" }` - embeds raw binary in executable
+2. Files live in `$bunfs` virtual filesystem (not JS heap - no memory bloat)
+3. Extract at runtime to `~/.blossom/native/` on first launch
+4. Load native module with absolute path `require()`
+5. Use npm sharp in dev mode, extracted native in compiled mode
 
 ## Architecture
 
