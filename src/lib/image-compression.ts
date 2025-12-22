@@ -1,6 +1,18 @@
-import sharp from "sharp";
+import type SharpType from "sharp";
 
 export const IMAGE_COMPRESSION_THRESHOLD = 2 * 1024 * 1024; // 2MB
+
+type Sharp = typeof SharpType;
+type Metadata = SharpType.Metadata;
+
+// Lazy-load sharp to allow native bindings extraction before import
+let _sharp: Sharp | null = null;
+async function getSharp(): Promise<Sharp> {
+  if (!_sharp) {
+    _sharp = (await import("sharp")).default;
+  }
+  return _sharp;
+}
 
 export type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
@@ -39,7 +51,8 @@ async function compressImage(
   mediaType: ImageMediaType,
   sizeLimit: number = IMAGE_COMPRESSION_THRESHOLD
 ): Promise<{ buffer: Buffer; format: ImageMediaType }> {
-  const metadata = await sharp(buffer).metadata();
+  const sharpInstance = await getSharp();
+  const metadata = await sharpInstance(buffer).metadata();
 
   // Calculate initial scale factor based on size ratio
   const sizeRatio = sizeLimit / buffer.length;
@@ -71,11 +84,12 @@ async function compressImage(
 async function tryCompress(
   buffer: Buffer,
   mediaType: ImageMediaType,
-  metadata: sharp.Metadata,
+  metadata: Metadata,
   scale: number,
   quality: number
 ): Promise<{ buffer: Buffer; format: ImageMediaType }> {
-  let image = sharp(buffer);
+  const sharpInstance = await getSharp();
+  let image = sharpInstance(buffer);
 
   // Resize if dimensions are available
   if (metadata.width && metadata.height) {
