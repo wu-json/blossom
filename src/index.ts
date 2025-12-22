@@ -881,6 +881,8 @@ Respond using this EXACT JSON format wrapped in markers:
 }
 <<<TRANSLATION_END>>>
 
+Example breakdown entry${language === "ja" ? `: { "word": "日本", "reading": "にほん", "meaning": "Japan", "partOfSpeech": "noun" }` : language === "zh" ? `: { "word": "中国", "reading": "zhōngguó", "meaning": "China", "partOfSpeech": "noun" }` : ""}
+
 If there is no ${languageName} text visible in the image, respond with a brief message explaining that no text was found.`;
 
         try {
@@ -998,6 +1000,8 @@ When the user sends you ${languageName} text to translate or break down (includi
   "grammarNotes": "Brief explanation of any notable grammar patterns, conjugations, or usage notes"
 }
 <<<TRANSLATION_END>>>
+
+Example breakdown entry${language === "ja" ? `: { "word": "日本", "reading": "にほん", "meaning": "Japan", "partOfSpeech": "noun" }` : language === "zh" ? `: { "word": "中国", "reading": "zhōngguó", "meaning": "China", "partOfSpeech": "noun" }` : ""}
 
 For ALL other interactions (questions, conversation, requests for examples, clarifications, etc.), respond naturally in plain text WITHOUT this format.
 - If the user asks questions in ${languageName}, reply in ${languageName}.
