@@ -1165,7 +1165,6 @@ For ALL other interactions (questions, conversation, requests for examples, clar
     const url = new URL(req.url);
     let pathname = url.pathname;
 
-    // Default to index.html for root
     if (pathname === "/") {
       pathname = "/index.html";
     }

@@ -49,7 +49,6 @@ async function main() {
 
   console.log(`Found ${assetFiles.length} files to embed`);
 
-  // Generate import statements with unique identifiers
   const imports: string[] = [];
   const mappings: string[] = [];
 
