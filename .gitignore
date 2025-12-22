@@ -145,5 +145,8 @@ src/output.css
 # Build artifacts
 .vite-build/
 
+# Generated at build time (platform/build-specific)
+generated/
+
 # Blossom Dev Data Directory
 .blossom-dev/

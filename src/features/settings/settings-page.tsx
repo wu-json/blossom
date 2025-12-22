@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { HeaderControls } from "../../components/ui/header-controls";
 import { useChatStore } from "../../store/chat-store";
-import { version } from "../../generated/version";
+import { version } from "../../../generated/version";
 import type { Language } from "../../types/chat";
 
 interface LLMSettings {

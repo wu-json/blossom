@@ -3,7 +3,7 @@ import { AlertTriangle, ChevronDown, Pencil, Trash2, RefreshCw } from "lucide-re
 import { HeaderControls } from "../../components/ui/header-controls";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { useChatStore } from "../../store/chat-store";
-import { version } from "../../generated/version";
+import { version } from "../../../generated/version";
 
 export function Header() {
   const {

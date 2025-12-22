@@ -11,7 +11,7 @@ import { useVideoTranslations, type YouTubeTranslation } from "./hooks/use-video
 import { useActiveTranslation } from "./hooks/use-active-translation";
 import { MenuIcon } from "../../components/icons/menu-icon";
 import { HeaderControls } from "../../components/ui/header-controls";
-import { version } from "../../generated/version";
+import { version } from "../../../generated/version";
 import { RecentVideosGrid } from "./recent-videos-grid";
 import type { TranslationData, WordBreakdown, PartialTranslationData } from "../../types/translation";
 import type { Language } from "../../types/chat";

@@ -3,7 +3,7 @@ import { MenuIcon } from "../../components/icons/menu-icon";
 import { HeaderControls } from "../../components/ui/header-controls";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
-import { version } from "../../generated/version";
+import { version } from "../../../generated/version";
 import { FlowerList } from "./flower-list";
 import { PetalList } from "./petal-list";
 import { ArrowLeft } from "lucide-react";
