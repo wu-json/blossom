@@ -1232,16 +1232,12 @@ async function warmOllamaIfNeeded() {
   const settings = getLLMSettings();
   if (settings.provider !== "ollama") return;
 
-  console.log("   Warming Ollama models...");
   try {
     const provider = new OllamaProvider(settings.ollamaUrl);
 
     // Check if Ollama is available first
     const isAvailable = await provider.isAvailable();
-    if (!isAvailable) {
-      console.log("   Ollama not available, skipping warm-up\n");
-      return;
-    }
+    if (!isAvailable) return;
 
     // Send minimal request to load chatModel into memory
     await provider.complete({
@@ -1260,11 +1256,9 @@ async function warmOllamaIfNeeded() {
         maxTokens: 1,
       });
     }
-
-    console.log("   Ollama models ready\n");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.warn(`   Failed to warm Ollama: ${message}\n`);
+    console.warn(`Failed to warm Ollama: ${message}`);
   }
 }
 
