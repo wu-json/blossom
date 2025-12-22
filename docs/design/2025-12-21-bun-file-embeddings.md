@@ -7,6 +7,33 @@
 
 Replace the current base64-encoding approach in `scripts/embed-assets.ts` with Bun's native file embedding via `import ... with { type: "file" }`. This removes the encoding/decoding overhead and leverages Bun's built-in static file serving.
 
+## Development vs Production
+
+**Development mode:**
+- Vite dev server serves frontend (port 5173)
+- Bun serves API only (port 3000)
+- Embedded assets are NOT used - Vite handles hot reload
+
+**Production mode:**
+- `scripts/embed-assets.ts` runs Vite build, generates imports
+- `bun build --compile` embeds assets into binary
+- Single binary serves both API and frontend
+
+This design only affects production builds. Development workflow is unchanged.
+
+**Edge case:** In dev mode, `src/generated/embedded-assets.ts` imports from `.vite-build/` which may not exist. Two options:
+
+1. **Conditional import** - Check if running in compiled mode before using assets
+2. **Stub file** - Keep a minimal stub checked into git that gets overwritten on build
+
+Option 2 is simpler. The stub would be:
+```typescript
+// Stub for development - overwritten by scripts/embed-assets.ts on build
+export const assets: Record<string, string> = {};
+```
+
+In dev mode, `assets` is empty, so the server falls through to 404 (which is fine - Vite serves assets). In prod, the real file with imports is used.
+
 ## Current Approach (Problems)
 
 The existing `scripts/embed-assets.ts` works as follows:
@@ -229,7 +256,13 @@ const outputFile = join(rootDir, "src", "generated", "embedded-assets.ts");
 
 async function main() {
   console.log("Building frontend with Vite...");
-  await $`bunx vite build`.cwd(rootDir);
+  const result = await $`bunx vite build`.cwd(rootDir).nothrow();
+
+  if (result.exitCode !== 0) {
+    console.error("Vite build failed:");
+    console.error(result.stderr.toString());
+    process.exit(1);
+  }
 
   console.log("Scanning built files...");
   const files = await Array.fromAsync(
@@ -246,20 +279,26 @@ async function main() {
     }
   }
 
+  if (assetFiles.length === 0) {
+    console.error("No files found in .vite-build/ - build may have failed");
+    process.exit(1);
+  }
+
   console.log(`Found ${assetFiles.length} files to embed`);
 
-  // Generate import statements
+  // Generate import statements with unique identifiers
   const imports: string[] = [];
   const mappings: string[] = [];
 
-  for (const file of assetFiles) {
-    // Create valid identifier from path
-    const identifier = "_" + file.replace(/[^a-zA-Z0-9]/g, "_");
+  for (let i = 0; i < assetFiles.length; i++) {
+    const file = assetFiles[i];
+    // Use index to guarantee unique identifiers (avoids collision from similar paths)
+    const identifier = `_asset${i}`;
     const urlPath = "/" + file;
     const importPath = `../.vite-build/${file}`;
 
     imports.push(`import ${identifier} from "${importPath}" with { type: "file" };`);
-    mappings.push(`  "${urlPath}": ${identifier},`);
+    mappings.push(`  "${urlPath}": ${identifier}, // ${file}`);
 
     console.log(`  ${urlPath}`);
   }
@@ -296,50 +335,91 @@ if (pathname === "/") {
 
 const assetPath = assets[pathname];
 if (assetPath) {
-  return new Response(Bun.file(assetPath));
+  // Hashed assets (in /assets/) can be cached forever
+  // index.html should not be cached (may reference new hashed assets)
+  const isHashedAsset = pathname.startsWith("/assets/");
+  const cacheControl = isHashedAsset
+    ? "public, max-age=31536000, immutable"
+    : "no-cache";
+
+  return new Response(Bun.file(assetPath), {
+    headers: { "Cache-Control": cacheControl },
+  });
 }
 
-// SPA fallback
+// SPA fallback - serve index.html for client-side routes
 const indexPath = assets["/index.html"];
 if (indexPath && !pathname.startsWith("/api/")) {
   return new Response(Bun.file(indexPath), {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-cache",
+    },
   });
 }
 ```
 
 ### Phase 3: TypeScript Declaration
 
-Add type declaration for the import attribute:
+The generated file imports from `.vite-build/` which only exists after a production build. TypeScript needs to know these imports return strings.
 
+**Option A: Ambient declaration (may conflict with Vite in dev)**
 ```typescript
 // src/types/bun-file.d.ts
 declare module "*.html" {
   const path: string;
   export default path;
 }
-
-declare module "*.js" {
-  const path: string;
-  export default path;
-}
-
-declare module "*.css" {
-  const path: string;
-  export default path;
-}
-
-// ... etc for other file types
+// ... etc
 ```
+
+**Option B: Inline type assertion in generated file (recommended)**
+
+Generate the file with explicit types, avoiding global declarations:
+```typescript
+// Auto-generated - do not edit
+import _asset0 from "../.vite-build/index.html" with { type: "file" };
+import _asset1 from "../.vite-build/assets/index-abc.js" with { type: "file" };
+
+export const assets: Record<string, string> = {
+  "/index.html": _asset0 as string,
+  "/assets/index-abc.js": _asset1 as string,
+};
+```
+
+This avoids polluting the global module namespace and won't conflict with Vite's dev server handling.
+
+**Note:** Bun's TypeScript support already understands `with { type: "file" }` imports, so this may work without any declarations. Test before adding.
+
+## Build Integration
+
+The build flow in `justfile`:
+
+```bash
+build:
+  bun run scripts/embed-assets.ts    # 1. Vite build + generate imports
+  goreleaser build --clean --snapshot # 2. bun build --compile (embeds files)
+```
+
+**Critical dependency:** `scripts/embed-assets.ts` MUST run before goreleaser. The generated `src/generated/embedded-assets.ts` file must exist with valid imports pointing to `.vite-build/` files before `bun build --compile` runs.
+
+Goreleaser config (`.goreleaser.yaml`) uses:
+```yaml
+flags:
+  - --compile
+  - --minify
+```
+
+The `--compile` flag triggers Bun's file embedding for all `with { type: "file" }` imports.
 
 ## Testing Plan
 
-1. **Development mode**: Run `bun --hot ./src/index.ts` and verify assets serve correctly
-2. **Built binary**: Run `just build`, execute binary, verify assets serve correctly
+1. **Development mode**: Run `curse` (Vite + API) - assets served by Vite, not embedded
+2. **Production build**: Run `just build`, execute binary, verify assets serve correctly
 3. **Content-Types**: Check response headers for various file types
-4. **SPA routing**: Navigate to `/chat/123` and verify `index.html` is served
-5. **Binary files**: Verify images/fonts load correctly (no corruption from encoding)
-6. **Performance**: Compare response times vs base64 approach
+4. **Cache headers**: Verify `/assets/*` has `immutable`, `index.html` has `no-cache`
+5. **SPA routing**: Navigate to `/chat/123` and verify `index.html` is served
+6. **Binary files**: Verify images/fonts load correctly (no corruption from encoding)
 
 ## Risks & Mitigations
 
@@ -353,19 +433,21 @@ declare module "*.css" {
 ## Open Questions
 
 1. **Should we use `Bun.serve({ static })` or manual serving?**
-   - **Recommendation:** Start with manual serving in fetch handler (validated approach)
-   - Can optimize to `static` routes later if needed for performance
-   - Manual serving gives us full control over SPA fallback
+   - **Decision:** Manual serving in fetch handler
+   - Gives full control over SPA fallback and cache headers
+   - Can optimize to `static` routes later if profiling shows it's needed
 
-2. **How to handle cache headers?**
-   - Vite adds hashes to filenames for cache busting
-   - We should add `Cache-Control: max-age=31536000` for hashed assets in `/assets/`
-   - `index.html` should have `Cache-Control: no-cache`
+2. ~~**How to handle cache headers?**~~ **Resolved**
+   - Implementation added in Phase 2 code above
 
 3. **Is `Bun.embeddedFiles` needed as fallback?**
    - Not needed for primary implementation
-   - Useful for debugging to verify files are embedded correctly
-   - Could be used as runtime fallback if mapping fails
+   - Useful for debugging: `console.log(Bun.embeddedFiles)` to verify files embedded
+
+4. **Content-Type for .js files**
+   - Bun returns `text/javascript;charset=utf-8`
+   - Modern standard prefers `application/javascript`
+   - Both work in browsers - not a blocking issue
 
 ## References
 
