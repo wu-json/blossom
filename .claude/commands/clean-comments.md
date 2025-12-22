@@ -1,6 +1,5 @@
 ---
 allowed-tools: Bash(git diff:*), Read, Edit, Glob
-model: claude-haiku-4-5-20251001
 description: Remove useless comments that just echo what the code already says
 ---
 

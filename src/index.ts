@@ -1,5 +1,4 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { MessageParam, ContentBlockParam } from "@anthropic-ai/sdk/resources/messages";
 import {
   createConversation,
   getConversations,
@@ -8,6 +7,10 @@ import {
   updateConversationTimestamp,
   deleteConversation,
 } from "./db/conversations";
+import { getLLMSettings, updateLLMSettings } from "./db/llm-settings";
+import { getProvider } from "./lib/llm/get-provider";
+import { OllamaProvider } from "./lib/llm/ollama";
+import type { LLMMessage } from "./lib/llm/types";
 import { createMessage, getMessagesByConversationId, updateMessageContent, getMessageById } from "./db/messages";
 import { parseTranslationContent } from "./lib/parse-translation";
 import {
@@ -45,37 +48,6 @@ import unzipper from "unzipper";
 import { join } from "node:path";
 import { assets } from "./generated/embedded-assets";
 
-function addCacheControlToMessages(messages: MessageParam[]): MessageParam[] {
-  if (messages.length === 0) return messages;
-
-  // Find the last assistant message
-  const lastAssistantIndex = messages.findLastIndex((m) => m.role === "assistant");
-  if (lastAssistantIndex === -1) return messages;
-
-  return messages.map((msg, index) => {
-    if (index !== lastAssistantIndex) return msg;
-
-    // Convert string content to array if needed
-    let content: ContentBlockParam[];
-    if (typeof msg.content === "string") {
-      content = [{ type: "text", text: msg.content }];
-    } else {
-      content = [...msg.content] as ContentBlockParam[];
-    }
-
-    // Add cache_control to the last block
-    const lastBlock = content.at(-1);
-    if (lastBlock && (lastBlock.type === "text" || lastBlock.type === "image")) {
-      content[content.length - 1] = {
-        ...lastBlock,
-        cache_control: { type: "ephemeral" },
-      } as ContentBlockParam;
-    }
-
-    return { ...msg, content };
-  });
-}
-
 const uploadsDir = join(blossomDir, "uploads");
 await mkdir(uploadsDir, { recursive: true });
 
@@ -91,14 +63,51 @@ const server = Bun.serve({
   idleTimeout: 120, // 120 seconds for streaming responses
   routes: {
     "/api/status": {
-      GET: () => {
+      GET: async () => {
         const apiKey = Bun.env.ANTHROPIC_API_KEY;
         const maskedKey = apiKey ? `...${apiKey.slice(-6)}` : null;
+        const llmSettings = getLLMSettings();
+
+        let ollamaAvailable = false;
+        if (llmSettings.provider === "ollama") {
+          const provider = new OllamaProvider(llmSettings.ollamaUrl);
+          ollamaAvailable = await provider.isAvailable();
+        }
+
         return Response.json({
+          llmProvider: llmSettings.provider,
+          chatModel: llmSettings.chatModel,
+          titleModel: llmSettings.titleModel,
           anthropicConfigured: !!apiKey,
           anthropicKeyPreview: maskedKey,
+          ollamaUrl: llmSettings.ollamaUrl,
+          ollamaAvailable,
           dataDir: blossomDir,
         });
+      },
+    },
+    "/api/llm/settings": {
+      GET: () => {
+        const settings = getLLMSettings();
+        return Response.json(settings);
+      },
+      PUT: async (req) => {
+        const body = await req.json();
+        updateLLMSettings(body);
+        return Response.json({ success: true });
+      },
+    },
+    "/api/llm/ollama/status": {
+      POST: async (req) => {
+        const { url } = await req.json();
+        try {
+          const provider = new OllamaProvider(url);
+          const available = await provider.isAvailable();
+          const models = available ? await provider.listModels() : [];
+          return Response.json({ available, models });
+        } catch (error) {
+          return Response.json({ available: false, models: [], error: String(error) });
+        }
       },
     },
     "/api/conversations": {
@@ -134,10 +143,13 @@ const server = Bun.serve({
     },
     "/api/conversations/:id/title": {
       POST: async (req) => {
-        const apiKey = Bun.env.ANTHROPIC_API_KEY;
-        if (!apiKey) {
-          return Response.json({ error: "API key not configured" }, { status: 401 });
+        const llmSettings = getLLMSettings();
+        const providerResult = getProvider();
+
+        if ("error" in providerResult) {
+          return Response.json({ error: providerResult.error }, { status: 401 });
         }
+        const provider = providerResult;
 
         const id = req.params.id;
         const conversation = getConversationById(id);
@@ -151,20 +163,17 @@ const server = Bun.serve({
           if (body.language) language = body.language;
         } catch {}
 
-        const languageNames: Record<string, string> = {
+        const languageNameMap: Record<string, string> = {
           ja: "Japanese",
           zh: "Chinese",
           ko: "Korean",
         };
-        const languageName = languageNames[language] || "Japanese";
+        const languageName = languageNameMap[language] || "Japanese";
 
         const messages = getMessagesByConversationId(id);
         if (messages.length === 0) {
           return Response.json({ error: "No messages in conversation" }, { status: 400 });
         }
-
-        // Generate title using Haiku with full conversation context (including images)
-        const anthropic = new Anthropic({ apiKey });
 
         // Filter messages with content or images
         const filteredMessages = messages.filter((m) => {
@@ -173,74 +182,111 @@ const server = Bun.serve({
           return hasContent || hasImages;
         });
 
-        // Transform messages to include images
-        const transformedMessages = await Promise.all(
+        // Transform messages to LLM format with images as base64
+        const llmMessages: LLMMessage[] = await Promise.all(
           filteredMessages.map(async (m) => {
-            if (!m.images || m.images.length === 0) {
-              return { role: m.role as "user" | "assistant", content: m.content || "" };
-            }
+            const images: string[] = [];
 
-            const contentBlocks: Array<
-              | { type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } }
-              | { type: "text"; text: string }
-            > = [];
+            if (m.images && m.images.length > 0) {
+              for (const imageUrl of m.images) {
+                const filename = imageUrl.replace("/api/uploads/", "");
+                const filepath = join(uploadsDir, filename);
+                const result = await getImageForApi(filepath, filename);
 
-            for (const imageUrl of m.images) {
-              const filename = imageUrl.replace("/api/uploads/", "");
-              const filepath = join(uploadsDir, filename);
-              const result = await getImageForApi(filepath, filename);
-
-              if (result) {
-                contentBlocks.push({
-                  type: "image",
-                  source: { type: "base64", media_type: result.mediaType, data: result.base64 },
-                });
+                if (result) {
+                  images.push(`data:${result.mediaType};base64,${result.base64}`);
+                }
               }
             }
 
-            if (m.content && m.content.trim()) {
-              contentBlocks.push({ type: "text", text: m.content });
-            }
-
-            return { role: m.role as "user" | "assistant", content: contentBlocks.length > 0 ? contentBlocks : "" };
+            return {
+              role: m.role as "user" | "assistant",
+              content: m.content || "",
+              images: images.length > 0 ? images : undefined,
+            };
           })
         );
 
         // Filter out messages with empty content
-        const validMessages = transformedMessages.filter(m => {
-          if (typeof m.content === "string") return m.content.length > 0;
-          return Array.isArray(m.content) && m.content.length > 0;
-        });
+        const validMessages = llmMessages.filter(m => m.content.length > 0 || (m.images && m.images.length > 0));
 
         // Apply compaction
-        const { messages: compactedMessages } = compactMessages("", validMessages);
+        const { messages: compactedMessages } = compactMessages("", validMessages.map(m => ({
+          role: m.role,
+          content: m.images?.length
+            ? [
+                ...m.images.map(img => {
+                  const match = img.match(/^data:(image\/\w+);base64,(.+)$/);
+                  return {
+                    type: "image" as const,
+                    source: {
+                      type: "base64" as const,
+                      media_type: (match?.[1] || "image/png") as ImageMediaType,
+                      data: match?.[2] || img,
+                    },
+                  };
+                }),
+                { type: "text" as const, text: m.content },
+              ]
+            : m.content,
+        })));
 
-        // Build final messages for title generation
-        const titleMessages: Array<{ role: "user" | "assistant"; content: string | Array<{ type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } } | { type: "text"; text: string }> }> = [];
-
-        for (const m of compactedMessages) {
-          titleMessages.push({
+        // Convert compacted messages back to LLMMessage format
+        const compactedLLMMessages: LLMMessage[] = compactedMessages.map(m => {
+          if (typeof m.content === "string") {
+            return { role: m.role as "user" | "assistant", content: m.content };
+          }
+          const images: string[] = [];
+          let text = "";
+          for (const block of m.content as Array<{ type: string; source?: { media_type: string; data: string }; text?: string }>) {
+            if (block.type === "image" && block.source) {
+              images.push(`data:${block.source.media_type};base64,${block.source.data}`);
+            } else if (block.type === "text" && block.text) {
+              text = block.text;
+            }
+          }
+          return {
             role: m.role as "user" | "assistant",
-            content: m.content as string | Array<{ type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } } | { type: "text"; text: string }>,
-          });
-        }
+            content: text,
+            images: images.length > 0 ? images : undefined,
+          };
+        });
 
         // Add the title generation instruction as the final user message
-        titleMessages.push({
+        compactedLLMMessages.push({
           role: "user",
           content: `Based on this conversation, generate a short, concise title (max 5 words) in ${languageName}. Focus primarily on the most recent messages to capture the current topic. Return ONLY the title, no quotes or punctuation.`,
         });
 
-        const response = await anthropic.messages.create({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 50,
-          messages: titleMessages,
-        });
+        try {
+          const title = await provider.complete({
+            model: llmSettings.titleModel,
+            messages: compactedLLMMessages,
+            system: "",
+            maxTokens: 50,
+          });
 
-        const title = (response.content[0] as { type: string; text: string }).text.trim();
-        updateConversationTitle(id, title);
+          const cleanTitle = title.trim();
+          updateConversationTitle(id, cleanTitle);
 
-        return Response.json({ title });
+          return Response.json({ title: cleanTitle });
+        } catch (error) {
+          console.error("Title generation error:", error);
+
+          // Handle Ollama-specific errors
+          if (llmSettings.provider === "ollama") {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes("ECONNREFUSED") || errorMessage.includes("fetch failed")) {
+              return Response.json(
+                { error: "Cannot connect to Ollama. Make sure Ollama is running." },
+                { status: 503 }
+              );
+            }
+          }
+
+          const message = error instanceof Error ? error.message : "Unknown error";
+          return Response.json({ error: message }, { status: 500 });
+        }
       },
       PUT: async (req) => {
         const id = req.params.id;
@@ -751,10 +797,13 @@ const server = Bun.serve({
     },
     "/api/youtube/translate": {
       POST: async (req) => {
-        const apiKey = Bun.env.ANTHROPIC_API_KEY;
-        if (!apiKey) {
-          return Response.json({ error: "API key not configured" }, { status: 401 });
+        const llmSettings = getLLMSettings();
+        const providerResult = getProvider();
+
+        if ("error" in providerResult) {
+          return Response.json({ error: providerResult.error }, { status: 401 });
         }
+        const provider = providerResult;
 
         const { filename, language } = await req.json();
 
@@ -768,6 +817,11 @@ const server = Bun.serve({
 
         const languageName = languageNames[language] || "Japanese";
         const subtextName = language === "ja" ? "kana (hiragana/katakana readings)" : language === "zh" ? "pinyin" : "romanization";
+        const readingInstruction = language === "ja"
+          ? "hiragana reading (e.g., にほん, いく, たべる)"
+          : language === "zh"
+          ? "pinyin with tone marks"
+          : "romanization";
 
         const systemPrompt = `You are a language learning assistant helping users understand text in video frames.
 
@@ -786,7 +840,7 @@ Respond using this EXACT JSON format wrapped in markers:
   "breakdown": [
     {
       "word": "each word/particle",
-      "reading": "pronunciation in ${subtextName}",
+      "reading": "${readingInstruction}",
       "meaning": "English meaning",
       "partOfSpeech": "noun|verb|adjective|particle|adverb|conjunction|auxiliary|etc"
     }
@@ -795,50 +849,39 @@ Respond using this EXACT JSON format wrapped in markers:
 }
 <<<TRANSLATION_END>>>
 
+Example breakdown entry${language === "ja" ? `: { "word": "日本", "reading": "にほん", "meaning": "Japan", "partOfSpeech": "noun" }` : language === "zh" ? `: { "word": "中国", "reading": "zhōngguó", "meaning": "China", "partOfSpeech": "noun" }` : ""}
+
+Omit punctuation (commas, periods, exclamation points, etc.) from the breakdown.
+
 If there is no ${languageName} text visible in the image, respond with a brief message explaining that no text was found.`;
 
-        const anthropic = new Anthropic({ apiKey });
-
         try {
-          const stream = anthropic.messages.stream({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 4096,
-            system: [
-              {
-                type: "text",
-                text: systemPrompt,
-                cache_control: { type: "ephemeral" },
-              },
-            ],
+          const stream = provider.stream({
+            model: llmSettings.chatModel,
             messages: [
               {
                 role: "user",
-                content: [
-                  {
-                    type: "image",
-                    source: {
-                      type: "base64",
-                      media_type: "image/jpeg",
-                      data: imageBase64,
-                    },
-                  },
-                  {
-                    type: "text",
-                    text: `Please analyze this video frame and translate any ${languageName} text you see.`,
-                  },
-                ],
+                content: `Please analyze this video frame and translate any ${languageName} text you see.`,
+                images: [`data:image/jpeg;base64,${imageBase64}`],
               },
             ],
+            system: systemPrompt,
+            maxTokens: 4096,
           });
 
           const encoder = new TextEncoder();
           const readable = new ReadableStream({
             async start(controller) {
               try {
-                for await (const event of stream) {
+                for await (const text of stream) {
                   if (controller.desiredSize === null) {
                     break;
                   }
+                  // Emit in Anthropic-compatible format for frontend compatibility
+                  const event = {
+                    type: "content_block_delta",
+                    delta: { type: "text_delta", text },
+                  };
                   const data = `data: ${JSON.stringify(event)}\n\n`;
                   controller.enqueue(encoder.encode(data));
                 }
@@ -864,6 +907,18 @@ If there is no ${languageName} text visible in the image, respond with a brief m
           });
         } catch (error: unknown) {
           console.error("YouTube translate API error:", error);
+
+          // Handle Ollama-specific errors
+          if (llmSettings.provider === "ollama") {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes("ECONNREFUSED") || errorMessage.includes("fetch failed")) {
+              return Response.json(
+                { error: "Cannot connect to Ollama. Make sure Ollama is running." },
+                { status: 503 }
+              );
+            }
+          }
+
           const message = error instanceof Error ? error.message : "Unknown error";
           return Response.json({ error: message }, { status: 500 });
         }
@@ -871,10 +926,13 @@ If there is no ${languageName} text visible in the image, respond with a brief m
     },
     "/api/chat": {
       POST: async (req) => {
-        const apiKey = Bun.env.ANTHROPIC_API_KEY;
-        if (!apiKey) {
-          return Response.json({ error: "API key not configured" }, { status: 401 });
+        const llmSettings = getLLMSettings();
+        const providerResult = getProvider();
+
+        if ("error" in providerResult) {
+          return Response.json({ error: providerResult.error }, { status: 401 });
         }
+        const provider = providerResult;
 
         const { messages, language } = await req.json();
         const teacherSettings = getTeacherSettings();
@@ -882,6 +940,11 @@ If there is no ${languageName} text visible in the image, respond with a brief m
 
         const personality = teacherSettings.personality || "Warm and encouraging. Be patient, explain concepts clearly with examples, correct mistakes gently, and celebrate progress.";
         const subtextName = language === "ja" ? "kana (hiragana/katakana readings)" : language === "zh" ? "pinyin" : "romanization";
+        const readingInstruction = language === "ja"
+          ? "hiragana reading (e.g., にほん, いく, たべる)"
+          : language === "zh"
+          ? "pinyin with tone marks"
+          : "romanization";
         const systemPrompt = `You are ${teacherSettings.name}, a ${languageName} language teacher with the following personality:
 
 <personality>
@@ -899,7 +962,7 @@ When the user sends you ${languageName} text to translate or break down (includi
   "breakdown": [
     {
       "word": "each word/particle",
-      "reading": "pronunciation in ${subtextName}",
+      "reading": "${readingInstruction}",
       "meaning": "English meaning",
       "partOfSpeech": "noun|verb|adjective|particle|adverb|conjunction|auxiliary|etc"
     }
@@ -908,13 +971,15 @@ When the user sends you ${languageName} text to translate or break down (includi
 }
 <<<TRANSLATION_END>>>
 
+Example breakdown entry${language === "ja" ? `: { "word": "日本", "reading": "にほん", "meaning": "Japan", "partOfSpeech": "noun" }` : language === "zh" ? `: { "word": "中国", "reading": "zhōngguó", "meaning": "China", "partOfSpeech": "noun" }` : ""}
+
+Omit punctuation (commas, periods, exclamation points, etc.) from the breakdown.
+
 For ALL other interactions (questions, conversation, requests for examples, clarifications, etc.), respond naturally in plain text WITHOUT this format.
 - If the user asks questions in ${languageName}, reply in ${languageName}.
 - Otherwise, use English.
 - When analyzing images containing ${languageName} text, extract the text and provide translation/breakdown.
 </instructions>`;
-
-        const anthropic = new Anthropic({ apiKey });
 
         // Filter out messages with empty content (except allow final assistant message to be empty)
         const filteredMessages = messages.filter((m: { role: string; content: string; images?: string[] }, index: number) => {
@@ -925,50 +990,54 @@ For ALL other interactions (questions, conversation, requests for examples, clar
           return hasContent || hasImages || (isLastMessage && m.role === 'assistant');
         });
 
-        // Transform messages to include images in Claude format
-        const transformedMessages = await Promise.all(
+        // Transform messages to LLM format with images as base64
+        const llmMessages: LLMMessage[] = await Promise.all(
           filteredMessages.map(async (m: { role: string; content: string; images?: string[] }) => {
-            // If no images, return simple text message
-            if (!m.images || m.images.length === 0) {
-              return { role: m.role, content: m.content };
-            }
+            const images: string[] = [];
 
-            // Build content array with images and text
-            const contentBlocks: Array<
-              | { type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } }
-              | { type: "text"; text: string }
-            > = [];
+            if (m.images && m.images.length > 0) {
+              for (const imageUrl of m.images) {
+                const filename = imageUrl.replace("/api/uploads/", "");
+                const filepath = join(uploadsDir, filename);
+                const result = await getImageForApi(filepath, filename);
 
-            // Add images first
-            for (const imageUrl of m.images) {
-              const filename = imageUrl.replace("/api/uploads/", "");
-              const filepath = join(uploadsDir, filename);
-              const result = await getImageForApi(filepath, filename);
-
-              if (result) {
-                contentBlocks.push({
-                  type: "image",
-                  source: {
-                    type: "base64",
-                    media_type: result.mediaType,
-                    data: result.base64,
-                  },
-                });
+                if (result) {
+                  // Include data URI prefix for the provider to parse
+                  images.push(`data:${result.mediaType};base64,${result.base64}`);
+                }
               }
             }
 
-            // Add text content last (or a default prompt if no text)
-            const text = m.content.trim() || "Please translate any text in this image.";
-            contentBlocks.push({ type: "text", text });
+            const content = m.content.trim() || (images.length > 0 ? "Please translate any text in this image." : "");
 
-            return { role: m.role, content: contentBlocks };
+            return {
+              role: m.role as "user" | "assistant",
+              content,
+              images: images.length > 0 ? images : undefined,
+            };
           })
         );
 
-        // Compact messages to fit within API size limits (pure transformation, does not modify stored data)
-        const compactionResult = compactMessages(systemPrompt, transformedMessages);
-        // Add cache control to conversation history for prompt caching
-        const finalMessages = addCacheControlToMessages(compactionResult.messages as MessageParam[]);
+        // Compact messages to fit within API size limits
+        const compactionResult = compactMessages(systemPrompt, llmMessages.map(m => ({
+          role: m.role,
+          content: m.images?.length
+            ? [
+                ...m.images.map(img => {
+                  const match = img.match(/^data:(image\/\w+);base64,(.+)$/);
+                  return {
+                    type: "image" as const,
+                    source: {
+                      type: "base64" as const,
+                      media_type: (match?.[1] || "image/png") as ImageMediaType,
+                      data: match?.[2] || img,
+                    },
+                  };
+                }),
+                { type: "text" as const, text: m.content },
+              ]
+            : m.content,
+        })));
 
         if (compactionResult.wasCompacted) {
           console.log(
@@ -977,29 +1046,49 @@ For ALL other interactions (questions, conversation, requests for examples, clar
           );
         }
 
+        // Convert compacted messages back to LLMMessage format
+        const compactedLLMMessages: LLMMessage[] = compactionResult.messages.map(m => {
+          if (typeof m.content === "string") {
+            return { role: m.role as "user" | "assistant", content: m.content };
+          }
+          // Extract images and text from content blocks
+          const images: string[] = [];
+          let text = "";
+          for (const block of m.content as Array<{ type: string; source?: { media_type: string; data: string }; text?: string }>) {
+            if (block.type === "image" && block.source) {
+              images.push(`data:${block.source.media_type};base64,${block.source.data}`);
+            } else if (block.type === "text" && block.text) {
+              text = block.text;
+            }
+          }
+          return {
+            role: m.role as "user" | "assistant",
+            content: text,
+            images: images.length > 0 ? images : undefined,
+          };
+        });
+
         try {
-          const stream = anthropic.messages.stream({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 4096,
-            system: [
-              {
-                type: "text",
-                text: systemPrompt,
-                cache_control: { type: "ephemeral" },
-              },
-            ],
-            messages: finalMessages,
+          const stream = provider.stream({
+            model: llmSettings.chatModel,
+            messages: compactedLLMMessages,
+            system: systemPrompt,
+            maxTokens: 4096,
           });
 
           const encoder = new TextEncoder();
           const readable = new ReadableStream({
             async start(controller) {
               try {
-                for await (const event of stream) {
+                for await (const text of stream) {
                   if (controller.desiredSize === null) {
-                    // Controller is closed, stop processing
                     break;
                   }
+                  // Emit in Anthropic-compatible format for frontend compatibility
+                  const event = {
+                    type: "content_block_delta",
+                    delta: { type: "text_delta", text },
+                  };
                   const data = `data: ${JSON.stringify(event)}\n\n`;
                   controller.enqueue(encoder.encode(data));
                 }
@@ -1044,6 +1133,23 @@ For ALL other interactions (questions, conversation, requests for examples, clar
                   message: "Too many requests. Please wait a moment and try again.",
                 },
                 { status: 429 }
+              );
+            }
+          }
+
+          // Handle Ollama-specific errors
+          if (llmSettings.provider === "ollama") {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes("ECONNREFUSED") || errorMessage.includes("fetch failed")) {
+              return Response.json(
+                { error: "Cannot connect to Ollama. Make sure Ollama is running." },
+                { status: 503 }
+              );
+            }
+            if (errorMessage.includes("model") && errorMessage.includes("not found")) {
+              return Response.json(
+                { error: `Model "${llmSettings.chatModel}" not found. Run: ollama pull ${llmSettings.chatModel}` },
+                { status: 400 }
               );
             }
           }
@@ -1096,3 +1202,41 @@ const reset = "\x1b[0m";
 
 console.log(`\n🌸 ${pink}Blossom${reset} - language as a meadow`);
 console.log(`   Server running at ${pink}http://localhost:${server.port}${reset}\n`);
+
+// Warm up Ollama models if configured
+async function warmOllamaIfNeeded() {
+  const settings = getLLMSettings();
+  if (settings.provider !== "ollama") return;
+
+  try {
+    const provider = new OllamaProvider(settings.ollamaUrl);
+
+    // Check if Ollama is available first
+    const isAvailable = await provider.isAvailable();
+    if (!isAvailable) return;
+
+    // Send minimal request to load chatModel into memory
+    await provider.complete({
+      model: settings.chatModel,
+      messages: [{ role: "user", content: "hi" }],
+      system: "",
+      maxTokens: 1,
+    });
+
+    // Also warm titleModel if different
+    if (settings.titleModel !== settings.chatModel) {
+      await provider.complete({
+        model: settings.titleModel,
+        messages: [{ role: "user", content: "hi" }],
+        system: "",
+        maxTokens: 1,
+      });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`Failed to warm Ollama: ${message}`);
+  }
+}
+
+// Run warm-up in background (non-blocking)
+warmOllamaIfNeeded();
