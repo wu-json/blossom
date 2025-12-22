@@ -849,6 +849,11 @@ const server = Bun.serve({
 
         const languageName = languageNames[language] || "Japanese";
         const subtextName = language === "ja" ? "kana (hiragana/katakana readings)" : language === "zh" ? "pinyin" : "romanization";
+        const readingInstruction = language === "ja"
+          ? "hiragana reading (e.g., にほん, いく, たべる)"
+          : language === "zh"
+          ? "pinyin with tone marks"
+          : "romanization";
 
         const systemPrompt = `You are a language learning assistant helping users understand text in video frames.
 
@@ -867,7 +872,7 @@ Respond using this EXACT JSON format wrapped in markers:
   "breakdown": [
     {
       "word": "each word/particle",
-      "reading": "pronunciation in ${subtextName}",
+      "reading": "${readingInstruction}",
       "meaning": "English meaning",
       "partOfSpeech": "noun|verb|adjective|particle|adverb|conjunction|auxiliary|etc"
     }
@@ -963,6 +968,11 @@ If there is no ${languageName} text visible in the image, respond with a brief m
 
         const personality = teacherSettings.personality || "Warm and encouraging. Be patient, explain concepts clearly with examples, correct mistakes gently, and celebrate progress.";
         const subtextName = language === "ja" ? "kana (hiragana/katakana readings)" : language === "zh" ? "pinyin" : "romanization";
+        const readingInstruction = language === "ja"
+          ? "hiragana reading (e.g., にほん, いく, たべる)"
+          : language === "zh"
+          ? "pinyin with tone marks"
+          : "romanization";
         const systemPrompt = `You are ${teacherSettings.name}, a ${languageName} language teacher with the following personality:
 
 <personality>
@@ -980,7 +990,7 @@ When the user sends you ${languageName} text to translate or break down (includi
   "breakdown": [
     {
       "word": "each word/particle",
-      "reading": "pronunciation in ${subtextName}",
+      "reading": "${readingInstruction}",
       "meaning": "English meaning",
       "partOfSpeech": "noun|verb|adjective|particle|adverb|conjunction|auxiliary|etc"
     }
