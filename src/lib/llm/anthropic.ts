@@ -47,7 +47,9 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   private convertMessages(messages: LLMMessage[]): Anthropic.MessageParam[] {
-    return messages.map((m) => ({
+    type ContentBlockParam = Anthropic.MessageCreateParams["messages"][number]["content"];
+
+    const result: Anthropic.MessageParam[] = messages.map((m) => ({
       role: m.role,
       content: m.images?.length
         ? [
@@ -66,6 +68,24 @@ export class AnthropicProvider implements LLMProvider {
           ]
         : m.content,
     }));
+
+    // Add cache_control to last content block of last message
+    const lastMsg = result.at(-1);
+    if (lastMsg) {
+      if (typeof lastMsg.content === "string") {
+        lastMsg.content = [
+          { type: "text", text: lastMsg.content, cache_control: { type: "ephemeral" } },
+        ] as ContentBlockParam;
+      } else if (Array.isArray(lastMsg.content) && lastMsg.content.length > 0) {
+        const lastBlock = lastMsg.content.at(-1)!;
+        lastMsg.content[lastMsg.content.length - 1] = {
+          ...lastBlock,
+          cache_control: { type: "ephemeral" },
+        } as (typeof lastMsg.content)[number];
+      }
+    }
+
+    return result;
   }
 
   private parseImage(img: string): { mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif"; data: string } {
