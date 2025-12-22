@@ -60,7 +60,7 @@ const isCompiled = !process.execPath.includes("node_modules") && (
 );
 if (isCompiled) {
   try {
-    const { extractSharpBindings } = await import("./native/sharp-bindings");
+    const { extractSharpBindings } = await import("./generated/sharp-bindings");
     await extractSharpBindings();
   } catch (err) {
     console.warn("Failed to extract sharp bindings:", err);
