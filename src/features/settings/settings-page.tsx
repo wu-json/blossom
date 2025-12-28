@@ -266,18 +266,29 @@ export function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (ollamaStatus?.available && llmSettings?.provider === "ollama") {
+    if (ollamaStatus?.available && llmSettings?.provider === "ollama" && ollamaStatus.models.length > 0) {
       const chatModelExists = ollamaStatus.models.includes(llmSettings.chatModel);
       const titleModelExists = ollamaStatus.models.includes(llmSettings.titleModel);
+
+      // Auto-fix invalid model selections by selecting the first available model
       if (!chatModelExists || !titleModelExists) {
-        setModelWarning(t.modelWarning);
+        const firstModel = ollamaStatus.models[0];
+        const updates: Partial<LLMSettings> = {};
+        if (!chatModelExists) updates.chatModel = firstModel;
+        if (!titleModelExists) updates.titleModel = firstModel;
+
+        // Only update if there are actual changes needed
+        if (Object.keys(updates).length > 0) {
+          updateLLMSettings(updates);
+        }
+        setModelWarning(null);
       } else {
         setModelWarning(null);
       }
     } else {
       setModelWarning(null);
     }
-  }, [ollamaStatus, llmSettings, t.modelWarning]);
+  }, [ollamaStatus?.available, ollamaStatus?.models, llmSettings?.provider, llmSettings?.chatModel, llmSettings?.titleModel, t.modelWarning]);
 
   const updateLLMSettings = async (updates: Partial<LLMSettings>) => {
     const newSettings = { ...llmSettings, ...updates } as LLMSettings;
@@ -591,7 +602,7 @@ export function SettingsPage() {
                             {t.chatModel}
                           </label>
                           <select
-                            value={llmSettings.chatModel}
+                            value={ollamaStatus.models.includes(llmSettings.chatModel) ? llmSettings.chatModel : ollamaStatus.models[0]}
                             onChange={(e) => updateLLMSettings({ chatModel: e.target.value })}
                             className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
                             style={{
@@ -611,7 +622,7 @@ export function SettingsPage() {
                             {t.titleModel}
                           </label>
                           <select
-                            value={llmSettings.titleModel}
+                            value={ollamaStatus.models.includes(llmSettings.titleModel) ? llmSettings.titleModel : ollamaStatus.models[0]}
                             onChange={(e) => updateLLMSettings({ titleModel: e.target.value })}
                             className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
                             style={{
