@@ -192,6 +192,7 @@ export function YouTubeViewer() {
   const layoutContainerRef = useRef<HTMLDivElement>(null);
   const isResizingRef = useRef(false);
   const isResizingHeightRef = useRef(false);
+  const translationRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [isResizing, setIsResizing] = useState(false);
   const [isResizingHeight, setIsResizingHeight] = useState(false);
 
@@ -202,6 +203,16 @@ export function YouTubeViewer() {
     refetch: refetchTranslations,
   } = useVideoTranslations(videoId);
   const timelineActiveTranslation = useActiveTranslation(videoTranslations, currentPlaybackTime);
+
+  // Auto-scroll to active translation in the history list
+  useEffect(() => {
+    if (!timelineActiveTranslation) return;
+
+    const el = translationRefs.current.get(timelineActiveTranslation.id);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [timelineActiveTranslation?.id]);
 
   useEffect(() => {
     if (apiLoadedRef.current) return;
@@ -1135,6 +1146,10 @@ export function YouTubeViewer() {
                         {videoTranslations.map((t) => (
                           <button
                             key={t.id}
+                            ref={(el) => {
+                              if (el) translationRefs.current.set(t.id, el);
+                              else translationRefs.current.delete(t.id);
+                            }}
                             onClick={() => handleTimelineMarkerClick(t)}
                             className="w-full text-left px-3 py-2 rounded-lg transition-all hover:opacity-80"
                             style={{
