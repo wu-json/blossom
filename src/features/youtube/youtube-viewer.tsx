@@ -1203,7 +1203,7 @@ export function YouTubeViewer() {
                 transition: isResizing ? "none" : "width 0.2s ease-out, opacity 0.15s ease-out, border 0.2s ease-out",
               }}
             >
-              <div style={{ minWidth: "280px" }}>
+              <div className="flex-1 flex flex-col min-h-0" style={{ minWidth: "280px" }}>
                 <div
                   className="flex items-center justify-between px-3 py-2 flex-shrink-0"
                   style={{ borderBottom: "1px solid var(--border)" }}
