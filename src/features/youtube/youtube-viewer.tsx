@@ -603,6 +603,10 @@ export function YouTubeViewer() {
     // Pause the video
     playerRef.current.pauseVideo();
 
+    // Show loading state immediately
+    setIsAdjustingRegion(true);
+    setAdjustmentFrameUrl(null);
+
     // Extract current frame
     const timestamp = playerRef.current.getCurrentTime();
 
@@ -617,10 +621,10 @@ export function YouTubeViewer() {
 
       const { filename } = await response.json();
 
-      // Set frame URL and open selector
+      // Set frame URL to show the selector
       setAdjustmentFrameUrl(`/api/youtube/frames/${filename}`);
-      setIsAdjustingRegion(true);
     } catch {
+      setIsAdjustingRegion(false);
       setError("Failed to capture frame for region selection");
     }
   };
@@ -1529,19 +1533,36 @@ export function YouTubeViewer() {
       </div>
 
       {/* Region selector modal */}
-      {isAdjustingRegion && adjustmentFrameUrl && (
-        <RegionSelector
-          frameImageUrl={adjustmentFrameUrl}
-          initialRegion={currentVideoRegion}
-          language={language}
-          translations={{
-            selectRegion: translations[language].selectRegion,
-            selectRegionDesc: translations[language].selectRegionDesc,
-            regionTooSmall: translations[language].regionTooSmall,
-          }}
-          onConfirm={handleRegionConfirm}
-          onCancel={handleRegionCancel}
-        />
+      {isAdjustingRegion && (
+        adjustmentFrameUrl ? (
+          <RegionSelector
+            frameImageUrl={adjustmentFrameUrl}
+            initialRegion={currentVideoRegion}
+            language={language}
+            translations={{
+              selectRegion: translations[language].selectRegion,
+              selectRegionDesc: translations[language].selectRegionDesc,
+              regionTooSmall: translations[language].regionTooSmall,
+            }}
+            onConfirm={handleRegionConfirm}
+            onCancel={handleRegionCancel}
+          />
+        ) : (
+          <div
+            className="fixed inset-0 flex items-center justify-center z-50"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+          >
+            <div
+              className="flex flex-col items-center gap-4 p-8 rounded-xl"
+              style={{ backgroundColor: "var(--surface)" }}
+            >
+              <Loader2 size={32} className="animate-spin" style={{ color: "var(--primary)" }} />
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                {translations[language].extracting}
+              </p>
+            </div>
+          </div>
+        )
       )}
     </div>
   );
