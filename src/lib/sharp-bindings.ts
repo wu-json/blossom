@@ -142,10 +142,10 @@ async function downloadAndExtract(
   await Bun.write(destPath, fileData);
   await chmod(destPath, 0o755);
 
-  // On macOS, remove code signature to avoid Team ID mismatch when loading
-  // from a signed app bundle
+  // On macOS, ad-hoc sign native binaries to allow loading from a signed app
+  // (removes original Team ID while keeping a valid signature)
   if (process.platform === "darwin" && destPath.endsWith(".node")) {
-    const codesignProc = Bun.spawn(["codesign", "--remove-signature", destPath], {
+    const codesignProc = Bun.spawn(["codesign", "--force", "--sign", "-", destPath], {
       stdout: "pipe",
       stderr: "pipe",
     });
