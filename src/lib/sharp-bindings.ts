@@ -4,15 +4,15 @@ import { blossomDir } from "../db/database";
 
 const VERSIONS = {
   sharp: "0.34.5",
-  libvips: "1.1.0",
+  libvips: "1.2.4",
 } as const;
 
 // libvips dynamic library filename varies by platform
 const LIBVIPS_FILENAMES: Record<string, string> = {
-  "darwin-arm64": "libvips-cpp.8.16.1.dylib",
-  "darwin-x64": "libvips-cpp.8.16.1.dylib",
-  "linux-arm64": "libvips-cpp.so.8.16.1",
-  "linux-x64": "libvips-cpp.so.8.16.1",
+  "darwin-arm64": "libvips-cpp.8.17.3.dylib",
+  "darwin-x64": "libvips-cpp.8.17.3.dylib",
+  "linux-arm64": "libvips-cpp.so.8.17.3",
+  "linux-x64": "libvips-cpp.so.8.17.3",
 };
 
 interface VersionManifest {
