@@ -232,10 +232,25 @@ export function YouTubeViewer() {
   const [drawingRegion, setDrawingRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [drawStartPoint, setDrawStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [regionFlashVisible, setRegionFlashVisible] = useState(false);
+  const [regionBoxInvalidated, setRegionBoxInvalidated] = useState(false);
   const prevRegionEnabledRef = useRef(translateRegionEnabled);
 
   // Get the current video's region (if any)
   const currentVideoRegion = videoId ? videoRegions[videoId] : undefined;
+
+  // Invalidate region box when video plays during translation (frame has moved)
+  useEffect(() => {
+    if (isPlaying && (isExtracting || isTranslating)) {
+      setRegionBoxInvalidated(true);
+    }
+  }, [isPlaying, isExtracting, isTranslating]);
+
+  // Reset region box invalidation when starting a new translation
+  useEffect(() => {
+    if (isExtracting) {
+      setRegionBoxInvalidated(false);
+    }
+  }, [isExtracting]);
 
   // Flash animation when region is enabled
   useEffect(() => {
@@ -956,6 +971,76 @@ export function YouTubeViewer() {
     }
   }, []);
 
+  // Number key shortcuts for saving/removing petals
+  useEffect(() => {
+    if (!playerReady) return;
+
+    const handleNumberKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Only active when a translation is visible and not streaming
+      const displayedTranslation = timelineActiveTranslation?.translationData || currentTranslation;
+      const displayedTranslationId = timelineActiveTranslation?.id || currentTranslationId;
+      const displayedSavedWords = timelineActiveTranslation
+        ? (timelineSavedWords[timelineActiveTranslation.id] || [])
+        : savedWords;
+
+      if (
+        displayedTranslation &&
+        displayedTranslationId &&
+        !isTranslating &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ) {
+        // Use e.code for keyboard-layout independence
+        const digitMatch = e.code.match(/^Digit(\d)$/);
+        if (digitMatch && digitMatch[1]) {
+          const digit = parseInt(digitMatch[1], 10);
+          let index: number;
+
+          if (e.shiftKey) {
+            // Shift+1-9 = items 10-18 (index 9-17)
+            // Shift+0 = item 19 (index 18)
+            index = digit === 0 ? 18 : digit + 8;
+          } else {
+            // 1-9 = items 1-9 (index 0-8)
+            // 0 without shift = no action
+            if (digit === 0) return;
+            index = digit - 1;
+          }
+
+          const breakdown = displayedTranslation.breakdown;
+          const word = breakdown[index];
+          if (word) {
+            e.preventDefault();
+
+            if (displayedSavedWords.includes(word.word)) {
+              // Remove the word
+              if (timelineActiveTranslation?.id) {
+                handleTimelineRemoveWord(timelineActiveTranslation.id, word.word);
+              } else {
+                handleRemoveWord(word.word);
+              }
+            } else {
+              // Save the word
+              if (timelineActiveTranslation?.id) {
+                handleTimelineSaveWord(timelineActiveTranslation.id, word);
+              } else {
+                handleSaveWord(word);
+              }
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleNumberKeyDown);
+    return () => window.removeEventListener("keydown", handleNumberKeyDown);
+  }, [playerReady, isTranslating, currentTranslation, currentTranslationId, savedWords, timelineActiveTranslation, timelineSavedWords, handleSaveWord, handleRemoveWord, handleTimelineSaveWord, handleTimelineRemoveWord]);
+
   const renderTranslationContent = () => {
     if (currentTranslation) {
       return (
@@ -965,6 +1050,7 @@ export function YouTubeViewer() {
           onRemoveWord={currentTranslationId ? handleRemoveWord : undefined}
           onViewFlower={currentTranslationId ? handleViewFlower : undefined}
           savedWords={savedWords}
+          showShortcuts
         />
       );
     }
@@ -989,6 +1075,7 @@ export function YouTubeViewer() {
               onRemoveWord={currentTranslationId ? handleRemoveWord : undefined}
               onViewFlower={currentTranslationId ? handleViewFlower : undefined}
               savedWords={savedWords}
+              showShortcuts
             />
           );
         }
@@ -1309,8 +1396,8 @@ export function YouTubeViewer() {
                     </div>
                   )}
 
-                  {/* Active region indicator during translation or flash */}
-                  {currentVideoRegion && (((isExtracting || isTranslating) && translateRegionEnabled) || regionFlashVisible) && (
+                  {/* Active region indicator during translation or flash (hide once video plays) */}
+                  {currentVideoRegion && (((isExtracting || isTranslating) && translateRegionEnabled && !regionBoxInvalidated) || regionFlashVisible) && (
                     <div
                       className="absolute border-2 rounded z-10 pointer-events-none"
                       style={{
@@ -1564,6 +1651,7 @@ export function YouTubeViewer() {
                           onRemoveWord={(word) => handleTimelineRemoveWord(timelineActiveTranslation.id, word)}
                           onViewFlower={handleViewFlower}
                           savedWords={timelineSavedWords[timelineActiveTranslation.id] || []}
+                          showShortcuts
                         />
                       ) : null}
                     </div>
@@ -1617,6 +1705,7 @@ export function YouTubeViewer() {
                       onRemoveWord={(word) => handleTimelineRemoveWord(timelineActiveTranslation.id, word)}
                       onViewFlower={handleViewFlower}
                       savedWords={timelineSavedWords[timelineActiveTranslation.id] || []}
+                      showShortcuts
                     />
                   ) : null}
                 </div>
