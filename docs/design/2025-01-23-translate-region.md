@@ -55,11 +55,10 @@ Add a "Translate Region" mode with:
 
 ### State Management
 
-Extend the YouTube store to track region settings per video:
+Extend the YouTube store to track region settings per video. Follow the existing store pattern in `src/store/youtube-store.ts`:
 
 ```typescript
-// src/store/youtube-store.ts
-
+// Types to add
 interface TranslateRegion {
   x: number;      // Left offset (0-1, percentage of frame width)
   y: number;      // Top offset (0-1, percentage of frame height)
@@ -71,12 +70,19 @@ interface VideoRegionSettings {
   [videoId: string]: TranslateRegion;
 }
 
+// Add to YouTubeState interface
 interface YouTubeState {
-  // ... existing state ...
+  // ... existing state (videoUrl, videoId, isExtracting, isTranslating, etc.) ...
 
+  // New region state
   translateRegionEnabled: boolean;
-  videoRegions: VideoRegionSettings;
-  isAdjustingRegion: boolean;
+  videoRegions: VideoRegionSettings;  // Persisted
+  isAdjustingRegion: boolean;         // Transient UI state
+}
+
+// Add to YouTubeActions interface
+interface YouTubeActions {
+  // ... existing actions ...
 
   setTranslateRegionEnabled: (enabled: boolean) => void;
   setVideoRegion: (videoId: string, region: TranslateRegion) => void;
@@ -89,67 +95,130 @@ Using normalized coordinates (0-1) ensures the region scales correctly regardles
 
 ### Persistence
 
-Region settings are persisted to localStorage via Zustand's persist middleware (existing pattern). The `videoRegions` map uses video IDs as keys, so each video can have its own region.
+Region settings are persisted to localStorage via Zustand's persist middleware. Update the `partialize` function to include region data:
+
+```typescript
+// In useYouTubeStore create()
+persist(
+  (set) => ({ /* ... */ }),
+  {
+    name: "blossom-youtube-ui",
+    partialize: (state) => ({
+      // Existing persisted fields
+      translationBarWidth: state.translationBarWidth,
+      translationBarCollapsed: state.translationBarCollapsed,
+      playerHeight: state.playerHeight,
+      // New persisted fields
+      translateRegionEnabled: state.translateRegionEnabled,
+      videoRegions: state.videoRegions,
+    }),
+  }
+)
+```
+
+The `videoRegions` map uses video IDs as keys, so each video can have its own region.
+
+### Internationalization
+
+Add translation strings to the `translations` record in `youtube-viewer.tsx`:
+
+```typescript
+const translations: Record<Language, { /* existing */ region: string; setRegion: string; adjustRegion: string; selectRegion: string; selectRegionDesc: string; regionTooSmall: string; }> = {
+  ja: {
+    // ... existing strings ...
+    region: "領域",
+    setRegion: "領域を設定",
+    adjustRegion: "領域を調整",
+    selectRegion: "翻訳領域を選択",
+    selectRegionDesc: "翻訳したいテキストの周りにボックスを描く",
+    regionTooSmall: "領域が小さすぎます",
+  },
+  zh: {
+    region: "区域",
+    setRegion: "设置区域",
+    adjustRegion: "调整区域",
+    selectRegion: "选择翻译区域",
+    selectRegionDesc: "在要翻译的文字周围画一个框",
+    regionTooSmall: "区域太小",
+  },
+  ko: {
+    region: "영역",
+    setRegion: "영역 설정",
+    adjustRegion: "영역 조정",
+    selectRegion: "번역 영역 선택",
+    selectRegionDesc: "번역할 텍스트 주위에 상자를 그리세요",
+    regionTooSmall: "영역이 너무 작습니다",
+  },
+};
+```
 
 ### UI Components
 
 #### Control Bar
 
-Add toggle and adjust button near the "Translate Frame" button:
+Add region toggle and adjust button in the controls bar (alongside Share and Translate buttons). The codebase uses inline styles with CSS variables combined with Tailwind utility classes:
 
 ```
 +------------------------------------------+
-|  [Translate Region: ON/OFF]  [Adjust]    |
-|            [ Translate Frame ]           |
+| [X] Title  [Region: ON] [Adjust] [Share] [Translate] |
 +------------------------------------------+
 ```
 
 ```typescript
-// In youtube-viewer.tsx controls section
+// In youtube-viewer.tsx controls section, add before the Share button
 
-<div className="translate-controls">
-  <div className="region-toggle">
-    <Switch
-      checked={translateRegionEnabled}
-      onCheckedChange={setTranslateRegionEnabled}
-      disabled={!currentVideoRegion} // Disabled if no region set
-    />
-    <label>Translate Region</label>
-  </div>
-
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={() => setIsAdjustingRegion(true)}
+{/* Region toggle - only show when a region is set */}
+{currentVideoRegion && (
+  <button
+    onClick={() => setTranslateRegionEnabled(!translateRegionEnabled)}
+    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium transition-all"
+    style={{
+      backgroundColor: translateRegionEnabled ? "var(--primary)" : "var(--surface)",
+      color: translateRegionEnabled ? "white" : "var(--text-muted)",
+      border: translateRegionEnabled ? "none" : "1px solid var(--border)",
+    }}
+    title={translateRegionEnabled ? "Region cropping enabled" : "Region cropping disabled"}
   >
-    <Crop className="w-4 h-4 mr-2" />
-    {currentVideoRegion ? "Adjust Region" : "Set Region"}
-  </Button>
-</div>
+    <Crop size={14} />
+    {translations[language].region}
+  </button>
+)}
 
-<Button onClick={handleTranslateFrame}>
-  <Languages className="w-4 h-4 mr-2" />
-  Translate Frame
-</Button>
+{/* Set/Adjust region button */}
+<button
+  onClick={handleAdjustRegion}
+  disabled={isExtracting || isTranslating}
+  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-80 disabled:opacity-50"
+  style={{
+    backgroundColor: "var(--surface)",
+    color: "var(--text-muted)",
+    border: "1px solid var(--border)",
+  }}
+>
+  <ScanLine size={14} />
+  {currentVideoRegion ? translations[language].adjustRegion : translations[language].setRegion}
+</button>
 ```
+
+Icons to import from `lucide-react`: `Crop`, `ScanLine` (or `Focus`, `Scan`).
 
 #### Region Selection Overlay
 
-A modal overlay that displays the current frame and allows drawing a bounding box:
+A modal overlay that displays the current frame and allows drawing a bounding box. Create as `src/features/youtube/region-selector.tsx`:
 
 ```typescript
-// src/features/youtube/region-selector.tsx
-
 interface RegionSelectorProps {
-  frameImageBase64: string;
+  frameImageUrl: string;  // URL from /api/youtube/frames/:filename
   initialRegion?: TranslateRegion;
+  language: Language;
   onConfirm: (region: TranslateRegion) => void;
   onCancel: () => void;
 }
 
 function RegionSelector({
-  frameImageBase64,
+  frameImageUrl,
   initialRegion,
+  language,
   onConfirm,
   onCancel
 }: RegionSelectorProps) {
@@ -158,8 +227,10 @@ function RegionSelector({
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // Use pointer events for mouse + touch support (pattern from use-draggable-marker.ts)
+  const handlePointerDown = (e: React.PointerEvent) => {
     if (!containerRef.current) return;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
 
     const rect = containerRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
@@ -170,14 +241,13 @@ function RegionSelector({
     setRegion(null);
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDrawing || !startPoint || !containerRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
-    const currentX = (e.clientX - rect.left) / rect.width;
-    const currentY = (e.clientY - rect.top) / rect.height;
+    const currentX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const currentY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
 
-    // Calculate region from start to current (handle negative drag)
     setRegion({
       x: Math.min(startPoint.x, currentX),
       y: Math.min(startPoint.y, currentY),
@@ -186,53 +256,96 @@ function RegionSelector({
     });
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = () => {
     setIsDrawing(false);
     setStartPoint(null);
   };
 
+  const isRegionValid = region && region.width >= 0.05 && region.height >= 0.05;
+
   return (
-    <div className="region-selector-overlay">
-      <div className="region-selector-modal">
-        <div className="region-selector-header">
-          <h3>Select Translation Region</h3>
-          <p>Draw a box around the text you want to translate</p>
+    <div
+      className="fixed inset-0 flex items-center justify-center z-50"
+      style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
+    >
+      <div
+        className="flex flex-col max-w-[90vw] max-h-[90vh] rounded-xl overflow-hidden"
+        style={{ backgroundColor: "var(--surface)" }}
+      >
+        {/* Header */}
+        <div
+          className="px-5 py-4 border-b"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <h3
+            className="text-lg font-semibold"
+            style={{ color: "var(--text)" }}
+          >
+            {translations[language].selectRegion}
+          </h3>
+          <p
+            className="text-sm mt-1"
+            style={{ color: "var(--text-muted)" }}
+          >
+            {translations[language].selectRegionDesc}
+          </p>
         </div>
 
+        {/* Canvas */}
         <div
           ref={containerRef}
-          className="region-selector-canvas"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
+          className="relative cursor-crosshair select-none touch-none"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
         >
-          <img src={`data:image/png;base64,${frameImageBase64}`} alt="Video frame" />
+          <img
+            src={frameImageUrl}
+            alt="Video frame"
+            className="block max-w-full max-h-[70vh]"
+            draggable={false}
+          />
 
-          {/* Darkened overlay outside selection */}
+          {/* Darkened mask with cutout for selection */}
           {region && (
-            <div className="region-mask">
-              <div
-                className="region-selection"
-                style={{
-                  left: `${region.x * 100}%`,
-                  top: `${region.y * 100}%`,
-                  width: `${region.width * 100}%`,
-                  height: `${region.height * 100}%`,
-                }}
-              />
-            </div>
+            <div
+              className="absolute border-2 rounded"
+              style={{
+                left: `${region.x * 100}%`,
+                top: `${region.y * 100}%`,
+                width: `${region.width * 100}%`,
+                height: `${region.height * 100}%`,
+                borderColor: "var(--primary)",
+                boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.5)",
+              }}
+            />
           )}
         </div>
 
-        <div className="region-selector-actions">
-          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
-          <Button
+        {/* Actions */}
+        <div
+          className="flex justify-end gap-3 px-5 py-4 border-t"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
+            style={{ color: "var(--text-muted)" }}
+          >
+            Cancel
+          </button>
+          <button
             onClick={() => region && onConfirm(region)}
-            disabled={!region || region.width < 0.05 || region.height < 0.05}
+            disabled={!isRegionValid}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-40"
+            style={{
+              backgroundColor: "var(--primary)",
+              color: "white",
+            }}
           >
             Confirm
-          </Button>
+          </button>
         </div>
       </div>
     </div>
@@ -261,74 +374,123 @@ When the toggle is ON and a region is set, show a subtle indicator on the video 
 
 ### Frame Capture Flow
 
-Modify the translation flow to handle region cropping:
+The existing flow extracts frames server-side via yt-dlp/ffmpeg and saves them to `~/.blossom/frames/`. The translate endpoint receives a filename, not base64. Modify to handle region cropping:
 
 ```typescript
-// In youtube-viewer.tsx
+// In youtube-viewer.tsx - modify handleTranslateFrame()
 
-async function handleTranslateFrame() {
-  const timestamp = playerRef.current?.getCurrentTime() ?? 0;
+const handleTranslateFrame = async () => {
+  if (!videoId || !playerRef.current) return;
 
-  // 1. Extract full frame from video
-  const { imageBase64: fullFrameBase64 } = await extractFrame(videoId, timestamp);
+  const timestamp = playerRef.current.getCurrentTime();
+  setCurrentTimestamp(timestamp);
+  setExtracting(true);
+  setError(null);
 
-  // 2. Determine what to send to LLM
-  let llmImageBase64 = fullFrameBase64;
+  let frameFilename: string | null = null;
 
-  if (translateRegionEnabled && currentVideoRegion) {
-    // Crop the image to the selected region
-    llmImageBase64 = await cropImage(fullFrameBase64, currentVideoRegion);
+  try {
+    // 1. Extract full frame (existing behavior - saves to disk)
+    const extractResponse = await fetch("/api/youtube/extract-frame", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ videoId, timestamp }),
+    });
+
+    if (!extractResponse.ok) {
+      throw new Error((await extractResponse.json()).error || "Failed to extract frame");
+    }
+
+    const extractData = await extractResponse.json();
+    frameFilename = extractData.filename;
+    setExtracting(false);
+    setTranslating(true);
+
+    // 2. Get current region for this video (if enabled)
+    const currentVideoRegion = videoRegions[videoId];
+    const shouldCrop = translateRegionEnabled && currentVideoRegion;
+
+    // 3. Send to translate endpoint with optional region
+    const translateResponse = await fetch("/api/youtube/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: frameFilename,
+        language,
+        // NEW: Pass region for server-side cropping before LLM call
+        region: shouldCrop ? currentVideoRegion : undefined,
+      }),
+    });
+
+    // ... rest of streaming/parsing logic unchanged ...
+
+    // 4. Save to database with FULL frame filename (not cropped)
+    const saveResponse = await fetch("/api/youtube/translations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        videoId,
+        videoTitle,
+        timestampSeconds: timestamp,
+        frameFilename,  // Always the full frame
+        translationData: parsedContent.data,
+      }),
+    });
+
+    // ... rest unchanged ...
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "An error occurred");
+  } finally {
+    setExtracting(false);
+    setTranslating(false);
   }
-
-  // 3. Send cropped (or full) image to LLM for translation
-  const translation = await translateImage(llmImageBase64, language);
-
-  // 4. Save to database with FULL frame (not cropped)
-  await saveYouTubeTranslation({
-    videoId,
-    videoTitle,
-    timestampSeconds: timestamp,
-    frameImage: fullFrameBase64, // Always save full frame
-    translationData: translation,
-  });
-
-  // 5. Display translation
-  setCurrentTranslation(translation);
-}
+};
 ```
 
 ### Image Cropping
 
-Server-side cropping using sharp (already a dependency for image compression):
+Since frames are stored on disk and the translate endpoint already loads them server-side, cropping should happen in the translate route. Modify `POST /api/youtube/translate` in `src/index.ts`:
 
 ```typescript
-// POST /api/youtube/crop-image
+// In the translate route handler
 
-interface CropImageRequest {
-  imageBase64: string;
-  region: TranslateRegion;
+interface TranslateRequest {
+  filename: string;
+  language: Language;
+  region?: TranslateRegion;  // NEW: optional crop region
 }
 
-interface CropImageResponse {
-  croppedImageBase64: string;
+// Inside the route handler:
+const { filename, language, region } = await req.json();
+
+// Load frame from disk
+const framePath = join(framesDir, filename);
+let frameBuffer = await Bun.file(framePath).arrayBuffer();
+
+// If region provided, crop before sending to LLM
+if (region) {
+  frameBuffer = await cropFrameBuffer(Buffer.from(frameBuffer), region);
 }
+
+// Continue with existing compression and LLM call...
 ```
 
-```typescript
-// src/lib/image-crop.ts
+Add cropping utility to `src/lib/video-tools.ts` (or create `src/lib/image-crop.ts`):
 
+```typescript
 import sharp from "sharp";
 
 interface CropRegion {
-  x: number;      // 0-1
-  y: number;      // 0-1
-  width: number;  // 0-1
-  height: number; // 0-1
+  x: number;      // 0-1 normalized
+  y: number;      // 0-1 normalized
+  width: number;  // 0-1 normalized
+  height: number; // 0-1 normalized
 }
 
-async function cropImage(imageBase64: string, region: CropRegion): Promise<string> {
-  const imageBuffer = Buffer.from(imageBase64, "base64");
-
+export async function cropFrameBuffer(
+  imageBuffer: Buffer,
+  region: CropRegion
+): Promise<Buffer> {
   // Get image dimensions
   const metadata = await sharp(imageBuffer).metadata();
   const imgWidth = metadata.width!;
@@ -340,72 +502,54 @@ async function cropImage(imageBase64: string, region: CropRegion): Promise<strin
   const width = Math.round(region.width * imgWidth);
   const height = Math.round(region.height * imgHeight);
 
-  // Crop the image
-  const croppedBuffer = await sharp(imageBuffer)
+  // Crop and return
+  return sharp(imageBuffer)
     .extract({ left, top, width, height })
     .toBuffer();
-
-  return croppedBuffer.toString("base64");
 }
 ```
 
-Alternatively, perform cropping client-side using Canvas API to avoid an extra server round-trip:
-
-```typescript
-// src/lib/crop-image-client.ts
-
-async function cropImageClient(
-  imageBase64: string,
-  region: TranslateRegion
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d")!;
-
-      // Calculate pixel coordinates
-      const sx = region.x * img.width;
-      const sy = region.y * img.height;
-      const sw = region.width * img.width;
-      const sh = region.height * img.height;
-
-      canvas.width = sw;
-      canvas.height = sh;
-
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-
-      // Return as base64 (remove data URL prefix)
-      const dataUrl = canvas.toDataURL("image/png");
-      resolve(dataUrl.replace(/^data:image\/png;base64,/, ""));
-    };
-    img.onerror = reject;
-    img.src = `data:image/png;base64,${imageBase64}`;
-  });
-}
-```
-
-**Recommendation**: Use client-side cropping to reduce latency and server load. The cropped image only needs to go to the LLM anyway.
+Note: Sharp is already used in `src/lib/image-compression.ts`, so no new dependency needed.
 
 ### Region Adjustment Flow
 
-When user clicks "Adjust Region":
+When user clicks "Set Region" or "Adjust Region":
 
 ```typescript
-async function handleAdjustRegion() {
+// Add state for the adjustment frame
+const [adjustmentFrameUrl, setAdjustmentFrameUrl] = useState<string | null>(null);
+
+const handleAdjustRegion = async () => {
+  if (!videoId || !playerRef.current) return;
+
   // 1. Pause the video
-  playerRef.current?.pauseVideo();
+  playerRef.current.pauseVideo();
 
-  // 2. Capture current frame for display
-  const timestamp = playerRef.current?.getCurrentTime() ?? 0;
-  const { imageBase64 } = await extractFrame(videoId, timestamp);
+  // 2. Extract current frame (reuse existing extraction)
+  const timestamp = playerRef.current.getCurrentTime();
 
-  // 3. Store frame and open selector
-  setAdjustmentFrame(imageBase64);
-  setIsAdjustingRegion(true);
-}
+  try {
+    const response = await fetch("/api/youtube/extract-frame", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ videoId, timestamp }),
+    });
 
-function handleRegionConfirm(region: TranslateRegion) {
+    if (!response.ok) throw new Error("Failed to extract frame");
+
+    const { filename } = await response.json();
+
+    // 3. Set frame URL and open selector
+    setAdjustmentFrameUrl(`/api/youtube/frames/${filename}`);
+    setIsAdjustingRegion(true);
+  } catch (err) {
+    setError("Failed to capture frame for region selection");
+  }
+};
+
+const handleRegionConfirm = (region: TranslateRegion) => {
+  if (!videoId) return;
+
   // Save region for this video
   setVideoRegion(videoId, region);
 
@@ -414,36 +558,54 @@ function handleRegionConfirm(region: TranslateRegion) {
 
   // Close selector
   setIsAdjustingRegion(false);
-  setAdjustmentFrame(null);
-}
+  setAdjustmentFrameUrl(null);
+};
+
+const handleRegionCancel = () => {
+  setIsAdjustingRegion(false);
+  setAdjustmentFrameUrl(null);
+};
+```
+
+Render the selector when adjusting:
+
+```typescript
+{isAdjustingRegion && adjustmentFrameUrl && (
+  <RegionSelector
+    frameImageUrl={adjustmentFrameUrl}
+    initialRegion={videoId ? videoRegions[videoId] : undefined}
+    language={language}
+    onConfirm={handleRegionConfirm}
+    onCancel={handleRegionCancel}
+  />
+)}
 ```
 
 ## UI Layout
 
 ### With Region Controls
 
+The region controls integrate into the existing header controls bar:
+
 ```
-+------------------------------------------+
-|  [YouTube URL input field]    [Load]     |
-+------------------------------------------+
-|                                          |
-|         YouTube Video Player             |
-|    +---------------------------+         |
-|    |   [region indicator]     |         |
-|    +---------------------------+         |
-|                                          |
-+------------------------------------------+
-| [●══]  [●═══════]   [●══]  [●═══]-----→ |
-| 0:00                              12:34  |
-+------------------------------------------+
-| [Translate Region: ON] [Adjust Region]   |
-|          [ Translate Frame ]             |
-+------------------------------------------+
-|                                          |
-|         Translation Card                 |
-|                                          |
-+------------------------------------------+
++------------------------------------------------------------------+
+| [X] Video Title    [Region] [Set Region] [Share] [Translate ⌘↵]  |
++------------------------------------------------------------------+
+|                                                                  |
+|              YouTube Video Player                                |
+|         +---------------------------+                            |
+|         |   [region indicator]     |  <- dashed border overlay   |
+|         +---------------------------+                            |
+|                                                                  |
++------------------------------------------------------------------+
+|  [▶] 1:23 / 5:45                              [🔊━━━━] [⛶]      |
+|  [●══]  [●═══════]   [●══]  [●═══]------------------------→     |
++------------------------------------------------------------------+
 ```
+
+- **[Region]** button: Only shown when a region is set; toggles cropping on/off
+- **[Set Region]** / **[Adjust Region]**: Opens the region selector modal
+- **Region indicator**: Dashed border overlay on the player (only when enabled)
 
 ### Region Selector Modal
 
@@ -473,8 +635,8 @@ The darkened area (████) represents the masked region; the clear box is 
 
 ### No Region Set
 
-- Toggle is disabled (grayed out) until a region is set
-- "Set Region" button text instead of "Adjust Region"
+- Region toggle button is hidden (not rendered) until a region is set
+- Button shows "Set Region" text instead of "Adjust Region"
 - Clicking "Translate Frame" sends full frame (current behavior)
 
 ### Region Too Small
@@ -497,25 +659,70 @@ For edge cases where saved region might be problematic (video aspect ratio chang
 
 ## Styling Notes
 
-All styling uses Tailwind CSS classes (project standard). Key visual elements:
+The codebase uses a **hybrid approach**: Tailwind CSS utility classes for layout/spacing/positioning, combined with **inline styles using CSS variables** for colors and theming. This pattern is consistent throughout `youtube-viewer.tsx`.
 
-- **Controls bar**: Flexbox row with gap, border-bottom separator
-- **Region indicator on video**: Absolute positioned, dashed border, low-opacity accent background, `pointer-events-none`
-- **Selector overlay**: Fixed fullscreen with `bg-black/80`, centered flex container
-- **Selector modal**: Rounded card with max-width/height constraints, overflow hidden
-- **Selection box**: Uses `box-shadow: 0 0 0 9999px` trick to darken everything outside the selection (may need a small custom utility or inline style for this effect)
+**Pattern example:**
+```typescript
+<button
+  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium transition-all"
+  style={{
+    backgroundColor: "var(--surface)",
+    color: "var(--text-muted)",
+    border: "1px solid var(--border)",
+  }}
+>
+```
+
+**CSS variables used** (defined in theme):
+- `--primary`, `--primary-hover` - accent color
+- `--surface` - elevated surface background
+- `--border` - border color
+- `--text`, `--text-muted` - text colors
+
+**Key visual elements:**
+- **Region toggle button**: Pill-style button that changes background from `var(--surface)` to `var(--primary)` when enabled
+- **Region indicator on player**: Absolute positioned `div` with dashed `var(--primary)` border, low opacity background, `pointer-events-none`
+- **Selector overlay**: Fixed fullscreen with `rgba(0, 0, 0, 0.8)` background
+- **Selection box**: Uses `box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5)` trick to darken everything outside the selection while keeping the selected area clear
 
 ## Implementation Steps
 
-1. **Store extension**: Add region state to `youtube-store.ts`
-2. **UI controls**: Add toggle and adjust button to viewer
-3. **Region selector**: Create `RegionSelector` component
-4. **Client-side cropping**: Implement `cropImageClient()` utility
-5. **Translation flow**: Modify `handleTranslateFrame()` to crop when enabled
-6. **Visual indicator**: Add region overlay on video player
-7. **Persistence**: Ensure Zustand persists region settings
-8. **Edge cases**: Handle no-region and too-small validation
-9. **Styling**: Apply CSS for all new components
+1. **Store extension** (`src/store/youtube-store.ts`):
+   - Add `TranslateRegion` type
+   - Add state: `translateRegionEnabled`, `videoRegions`, `isAdjustingRegion`
+   - Add actions: `setTranslateRegionEnabled`, `setVideoRegion`, `clearVideoRegion`, `setIsAdjustingRegion`
+   - Update `partialize` to persist `translateRegionEnabled` and `videoRegions`
+
+2. **Server-side cropping** (`src/lib/video-tools.ts` or new `src/lib/image-crop.ts`):
+   - Add `cropFrameBuffer(buffer, region)` function using sharp
+
+3. **Translate endpoint** (`src/index.ts`):
+   - Modify `POST /api/youtube/translate` to accept optional `region` parameter
+   - Crop frame buffer before compression/LLM call if region provided
+
+4. **i18n strings** (`youtube-viewer.tsx`):
+   - Add region-related strings to `translations` record
+
+5. **Region selector component** (`src/features/youtube/region-selector.tsx`):
+   - Create modal component with pointer event handling
+   - Support touch and mouse interactions
+
+6. **UI controls** (`youtube-viewer.tsx`):
+   - Add region toggle button (shown when region exists)
+   - Add "Set Region" / "Adjust Region" button
+   - Add state for `adjustmentFrameUrl`
+   - Add handlers: `handleAdjustRegion`, `handleRegionConfirm`, `handleRegionCancel`
+
+7. **Translation flow** (`youtube-viewer.tsx`):
+   - Modify `handleTranslateFrame` to pass region to translate endpoint when enabled
+
+8. **Visual indicator** (`youtube-viewer.tsx`):
+   - Add optional region overlay on the video player container
+
+9. **Testing**:
+   - Test region selection on various video aspect ratios
+   - Test persistence across page reloads
+   - Test toggle behavior when switching videos
 
 ## Future Enhancements
 
@@ -527,12 +734,12 @@ All styling uses Tailwind CSS classes (project standard). Key visual elements:
 
 ## Design Decisions
 
-1. **Normalized coordinates**: Using 0-1 values ensures regions work regardless of extraction resolution and scale with the display.
+1. **Normalized coordinates**: Using 0-1 values ensures regions work regardless of extraction resolution and scale correctly when the frame is displayed at different sizes.
 
-2. **Client-side cropping**: Reduces server round-trips since the cropped image is only needed for the LLM call, not storage.
+2. **Server-side cropping**: Since frames are already stored on disk and loaded server-side for the translate endpoint, cropping happens there before compression and LLM submission. This avoids sending extra data to the client just to crop and send back.
 
-3. **Full frame storage**: The database always stores the complete frame so users can see the full context when reviewing translations later. The crop is purely an LLM optimization.
+3. **Full frame storage**: The database always stores the complete frame filename so users can see the full context when reviewing translations later. The crop is purely an optimization for the LLM call - it sees only the relevant text region.
 
-4. **Per-video regions**: Each video can have its own region since subtitle placement varies. The toggle state is global (user intent to use regions) but the actual region is video-specific.
+4. **Per-video regions**: Each video can have its own region since subtitle placement varies (some videos have subs at the top, some at the bottom, some have multiple text areas). The toggle state is global (user intent to use regions) but the actual region coordinates are video-specific.
 
-5. **LocalStorage persistence**: Regions are stored in Zustand with localStorage persistence, not in the database. This keeps them local to the device and avoids schema changes. If a user wants to sync regions across devices, this could be revisited.
+5. **Zustand persistence**: Regions are stored in the YouTube store with Zustand's `persist` middleware (same pattern as `translationBarWidth`, `playerHeight`). This keeps region settings local to the device and requires no database schema changes. The existing `partialize` function is extended to include region data.
