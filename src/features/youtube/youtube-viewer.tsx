@@ -1115,9 +1115,9 @@ export function YouTubeViewer() {
                             onClick={() => setTranslateRegionEnabled(!translateRegionEnabled)}
                             className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium transition-all flex-shrink-0"
                             style={{
-                              backgroundColor: translateRegionEnabled ? "var(--primary)" : "var(--surface)",
-                              color: translateRegionEnabled ? "white" : "var(--text-muted)",
-                              border: translateRegionEnabled ? "none" : "1px solid var(--border)",
+                              backgroundColor: "var(--surface)",
+                              color: translateRegionEnabled ? "var(--primary)" : "var(--text-muted)",
+                              border: translateRegionEnabled ? "1.5px solid var(--primary)" : "1px solid var(--border)",
                             }}
                             title={translateRegionEnabled ? "Region cropping enabled (R)" : "Region cropping disabled (R)"}
                           >
@@ -1126,11 +1126,11 @@ export function YouTubeViewer() {
                             <kbd
                               className="ml-1 px-1.5 py-0.5 rounded text-xs"
                               style={{
-                                backgroundColor: translateRegionEnabled ? "rgba(255,255,255,0.2)" : "var(--border)",
+                                backgroundColor: "var(--border)",
                                 fontFamily: "inherit",
                               }}
                             >
-                              R
+                              r
                             </kbd>
                           </button>
                         )}
@@ -1155,7 +1155,7 @@ export function YouTubeViewer() {
                               fontFamily: "inherit",
                             }}
                           >
-                            E
+                            e
                           </kbd>
                         </button>
 
