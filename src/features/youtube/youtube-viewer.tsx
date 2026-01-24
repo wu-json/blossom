@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearch, useLocation } from "wouter";
-import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check, Play, Pause, Volume2, VolumeX, Maximize, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check, Play, Pause, Volume2, VolumeX, Maximize, PanelRightClose, PanelRightOpen, Crop, ScanLine } from "lucide-react";
 import { useYouTubeStore } from "../../store/youtube-store";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -13,10 +13,27 @@ import { MenuIcon } from "../../components/icons/menu-icon";
 import { HeaderControls } from "../../components/ui/header-controls";
 import { version } from "../../../generated/version";
 import { RecentVideosGrid } from "./recent-videos-grid";
+import { RegionSelector } from "./region-selector";
 import type { TranslationData, WordBreakdown, PartialTranslationData } from "../../types/translation";
 import type { Language } from "../../types/chat";
 
-const translations: Record<Language, { title: string; description: string; placeholder: string; load: string; translate: string; extracting: string; translating: string; share: string; copied: string }> = {
+const translations: Record<Language, {
+  title: string;
+  description: string;
+  placeholder: string;
+  load: string;
+  translate: string;
+  extracting: string;
+  translating: string;
+  share: string;
+  copied: string;
+  region: string;
+  setRegion: string;
+  adjustRegion: string;
+  selectRegion: string;
+  selectRegionDesc: string;
+  regionTooSmall: string;
+}> = {
   ja: {
     title: "YouTube翻訳",
     description: "YouTube動画のフレームからテキストを翻訳",
@@ -27,6 +44,12 @@ const translations: Record<Language, { title: string; description: string; place
     translating: "翻訳中...",
     share: "共有",
     copied: "コピー済",
+    region: "領域",
+    setRegion: "領域を設定",
+    adjustRegion: "領域を調整",
+    selectRegion: "翻訳領域を選択",
+    selectRegionDesc: "翻訳したいテキストの周りにボックスを描く",
+    regionTooSmall: "領域が小さすぎます",
   },
   zh: {
     title: "YouTube翻译",
@@ -38,6 +61,12 @@ const translations: Record<Language, { title: string; description: string; place
     translating: "翻译中...",
     share: "分享",
     copied: "已复制",
+    region: "区域",
+    setRegion: "设置区域",
+    adjustRegion: "调整区域",
+    selectRegion: "选择翻译区域",
+    selectRegionDesc: "在要翻译的文字周围画一个框",
+    regionTooSmall: "区域太小",
   },
   ko: {
     title: "YouTube 번역",
@@ -49,6 +78,12 @@ const translations: Record<Language, { title: string; description: string; place
     translating: "번역 중...",
     share: "공유",
     copied: "복사됨",
+    region: "영역",
+    setRegion: "영역 설정",
+    adjustRegion: "영역 조정",
+    selectRegion: "번역 영역 선택",
+    selectRegionDesc: "번역할 텍스트 주위에 상자를 그리세요",
+    regionTooSmall: "영역이 너무 작습니다",
   },
 };
 
@@ -154,6 +189,9 @@ export function YouTubeViewer() {
     translationBarWidth,
     translationBarCollapsed,
     playerHeight,
+    translateRegionEnabled,
+    videoRegions,
+    isAdjustingRegion,
     setVideoUrl,
     setVideo,
     setExtracting,
@@ -167,6 +205,9 @@ export function YouTubeViewer() {
     setTranslationBarWidth,
     toggleTranslationBarCollapsed,
     setPlayerHeight,
+    setTranslateRegionEnabled,
+    setVideoRegion,
+    setIsAdjustingRegion,
   } = useYouTubeStore();
 
   const language = useChatStore((state) => state.language);
@@ -185,6 +226,10 @@ export function YouTubeViewer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(100);
   const [isMuted, setIsMuted] = useState(false);
+  const [adjustmentFrameUrl, setAdjustmentFrameUrl] = useState<string | null>(null);
+
+  // Get the current video's region (if any)
+  const currentVideoRegion = videoId ? videoRegions[videoId] : undefined;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -552,6 +597,53 @@ export function YouTubeViewer() {
     }
   };
 
+  const handleAdjustRegion = async () => {
+    if (!videoId || !playerRef.current) return;
+
+    // Pause the video
+    playerRef.current.pauseVideo();
+
+    // Extract current frame
+    const timestamp = playerRef.current.getCurrentTime();
+
+    try {
+      const response = await fetch("/api/youtube/extract-frame", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId, timestamp }),
+      });
+
+      if (!response.ok) throw new Error("Failed to extract frame");
+
+      const { filename } = await response.json();
+
+      // Set frame URL and open selector
+      setAdjustmentFrameUrl(`/api/youtube/frames/${filename}`);
+      setIsAdjustingRegion(true);
+    } catch {
+      setError("Failed to capture frame for region selection");
+    }
+  };
+
+  const handleRegionConfirm = (region: { x: number; y: number; width: number; height: number }) => {
+    if (!videoId) return;
+
+    // Save region for this video
+    setVideoRegion(videoId, region);
+
+    // Auto-enable the toggle
+    setTranslateRegionEnabled(true);
+
+    // Close selector
+    setIsAdjustingRegion(false);
+    setAdjustmentFrameUrl(null);
+  };
+
+  const handleRegionCancel = () => {
+    setIsAdjustingRegion(false);
+    setAdjustmentFrameUrl(null);
+  };
+
   const handleTranslateFrame = async () => {
     if (!videoId || !playerRef.current) return;
 
@@ -582,10 +674,17 @@ export function YouTubeViewer() {
       setExtracting(false);
       setTranslating(true);
 
+      // Get current region for this video (if enabled)
+      const shouldCrop = translateRegionEnabled && currentVideoRegion;
+
       const translateResponse = await fetch("/api/youtube/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: frameFilename, language }),
+        body: JSON.stringify({
+          filename: frameFilename,
+          language,
+          region: shouldCrop ? currentVideoRegion : undefined,
+        }),
       });
 
       if (!translateResponse.ok) {
@@ -961,6 +1060,38 @@ export function YouTubeViewer() {
                     )}
                     {playerReady && (
                       <>
+                        {/* Region toggle - only show when a region is set */}
+                        {currentVideoRegion && (
+                          <button
+                            onClick={() => setTranslateRegionEnabled(!translateRegionEnabled)}
+                            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium transition-all flex-shrink-0"
+                            style={{
+                              backgroundColor: translateRegionEnabled ? "var(--primary)" : "var(--surface)",
+                              color: translateRegionEnabled ? "white" : "var(--text-muted)",
+                              border: translateRegionEnabled ? "none" : "1px solid var(--border)",
+                            }}
+                            title={translateRegionEnabled ? "Region cropping enabled" : "Region cropping disabled"}
+                          >
+                            <Crop size={14} />
+                            {translations[language].region}
+                          </button>
+                        )}
+
+                        {/* Set/Adjust region button */}
+                        <button
+                          onClick={handleAdjustRegion}
+                          disabled={isExtracting || isTranslating}
+                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-80 disabled:opacity-50 flex-shrink-0"
+                          style={{
+                            backgroundColor: "var(--surface)",
+                            color: "var(--text-muted)",
+                            border: "1px solid var(--border)",
+                          }}
+                        >
+                          <ScanLine size={14} />
+                          {currentVideoRegion ? translations[language].adjustRegion : translations[language].setRegion}
+                        </button>
+
                         <button
                           onClick={handleShare}
                           className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-80 flex-shrink-0"
@@ -1396,6 +1527,22 @@ export function YouTubeViewer() {
           </div>
         )}
       </div>
+
+      {/* Region selector modal */}
+      {isAdjustingRegion && adjustmentFrameUrl && (
+        <RegionSelector
+          frameImageUrl={adjustmentFrameUrl}
+          initialRegion={currentVideoRegion}
+          language={language}
+          translations={{
+            selectRegion: translations[language].selectRegion,
+            selectRegionDesc: translations[language].selectRegionDesc,
+            regionTooSmall: translations[language].regionTooSmall,
+          }}
+          onConfirm={handleRegionConfirm}
+          onCancel={handleRegionCancel}
+        />
+      )}
     </div>
   );
 }

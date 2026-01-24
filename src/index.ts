@@ -38,7 +38,8 @@ import {
   getRecentlyTranslatedVideos,
   getRecentlyTranslatedVideosCount,
 } from "./db/youtube-translations";
-import { extractAndSaveFrame, compressFrameForApi, framesDir, ensureVideoTools, precacheStreamUrl } from "./lib/video-tools";
+import { extractAndSaveFrame, compressFrameForApi, compressFrameBufferForApi, framesDir, ensureVideoTools, precacheStreamUrl } from "./lib/video-tools";
+import { cropFrameBuffer, type CropRegion } from "./lib/image-compression";
 import { db, blossomDir } from "./db/database";
 import { compactMessages } from "./lib/message-compaction";
 import { getImageForApi, type ImageMediaType } from "./lib/image-compression";
@@ -821,14 +822,28 @@ const server = Bun.serve({
         }
         const provider = providerResult;
 
-        const { filename, language } = await req.json();
+        const { filename, language, region } = (await req.json()) as {
+          filename: string;
+          language: string;
+          region?: CropRegion;
+        };
 
         if (!filename) {
           return Response.json({ error: "Missing filename" }, { status: 400 });
         }
 
-        // Compress the frame for API (smaller file = faster + cheaper)
-        const compressedBuffer = await compressFrameForApi(filename);
+        // Load and optionally crop the frame, then compress for API
+        let compressedBuffer: Buffer;
+        if (region) {
+          // Crop the frame first, then compress
+          const filepath = join(framesDir, filename);
+          const fullFrameBuffer = Buffer.from(await Bun.file(filepath).arrayBuffer());
+          const croppedBuffer = await cropFrameBuffer(fullFrameBuffer, region);
+          compressedBuffer = await compressFrameBufferForApi(croppedBuffer);
+        } else {
+          // No region - compress full frame
+          compressedBuffer = await compressFrameForApi(filename);
+        }
         const imageBase64 = compressedBuffer.toString("base64");
 
         const languageName = languageNames[language] || "Japanese";

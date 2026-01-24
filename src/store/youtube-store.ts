@@ -12,6 +12,18 @@ export interface YouTubeTranslation {
   createdAt: Date;
 }
 
+// Region for cropping frames before translation
+export interface TranslateRegion {
+  x: number;      // Left offset (0-1, percentage of frame width)
+  y: number;      // Top offset (0-1, percentage of frame height)
+  width: number;  // Region width (0-1, percentage)
+  height: number; // Region height (0-1, percentage)
+}
+
+interface VideoRegionSettings {
+  [videoId: string]: TranslateRegion;
+}
+
 interface YouTubeState {
   videoUrl: string;
   videoId: string | null;
@@ -29,6 +41,11 @@ interface YouTubeState {
   translationBarWidth: number;
   translationBarCollapsed: boolean;
   playerHeight: number; // vh percentage
+  // Region settings (persisted)
+  translateRegionEnabled: boolean;
+  videoRegions: VideoRegionSettings;
+  // Transient UI state
+  isAdjustingRegion: boolean;
 }
 
 interface YouTubeActions {
@@ -48,6 +65,11 @@ interface YouTubeActions {
   setTranslationBarWidth: (width: number) => void;
   toggleTranslationBarCollapsed: () => void;
   setPlayerHeight: (height: number) => void;
+  // Region settings
+  setTranslateRegionEnabled: (enabled: boolean) => void;
+  setVideoRegion: (videoId: string, region: TranslateRegion) => void;
+  clearVideoRegion: (videoId: string) => void;
+  setIsAdjustingRegion: (isAdjusting: boolean) => void;
 }
 
 export type YouTubeStore = YouTubeState & YouTubeActions;
@@ -69,6 +91,11 @@ const initialState: YouTubeState = {
   translationBarWidth: 35,
   translationBarCollapsed: false,
   playerHeight: 50,
+  // Region settings (persisted)
+  translateRegionEnabled: false,
+  videoRegions: {},
+  // Transient UI state
+  isAdjustingRegion: false,
 };
 
 export const useYouTubeStore = create<YouTubeStore>()(
@@ -130,6 +157,23 @@ export const useYouTubeStore = create<YouTubeStore>()(
 
       setPlayerHeight: (height: number) =>
         set({ playerHeight: Math.max(25, Math.min(75, height)) }),
+
+      setTranslateRegionEnabled: (enabled: boolean) =>
+        set({ translateRegionEnabled: enabled }),
+
+      setVideoRegion: (videoId: string, region: TranslateRegion) =>
+        set((state) => ({
+          videoRegions: { ...state.videoRegions, [videoId]: region },
+        })),
+
+      clearVideoRegion: (videoId: string) =>
+        set((state) => {
+          const { [videoId]: _, ...rest } = state.videoRegions;
+          return { videoRegions: rest };
+        }),
+
+      setIsAdjustingRegion: (isAdjusting: boolean) =>
+        set({ isAdjustingRegion: isAdjusting }),
     }),
     {
       name: "blossom-youtube-ui",
@@ -137,6 +181,8 @@ export const useYouTubeStore = create<YouTubeStore>()(
         translationBarWidth: state.translationBarWidth,
         translationBarCollapsed: state.translationBarCollapsed,
         playerHeight: state.playerHeight,
+        translateRegionEnabled: state.translateRegionEnabled,
+        videoRegions: state.videoRegions,
       }),
     }
   )
