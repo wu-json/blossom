@@ -1243,6 +1243,20 @@ export function YouTubeViewer() {
                       </div>
                     </div>
                   )}
+
+                  {/* Active region indicator during translation */}
+                  {(isExtracting || isTranslating) && translateRegionEnabled && currentVideoRegion && (
+                    <div
+                      className="absolute border-2 rounded z-10 pointer-events-none"
+                      style={{
+                        left: `${currentVideoRegion.x * 100}%`,
+                        top: `${currentVideoRegion.y * 100}%`,
+                        width: `${currentVideoRegion.width * 100}%`,
+                        height: `${currentVideoRegion.height * 100}%`,
+                        borderColor: "var(--primary)",
+                      }}
+                    />
+                  )}
                   </div>
                 </div>
 
