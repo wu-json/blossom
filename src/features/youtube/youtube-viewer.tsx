@@ -231,9 +231,21 @@ export function YouTubeViewer() {
   const [isMuted, setIsMuted] = useState(false);
   const [drawingRegion, setDrawingRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [drawStartPoint, setDrawStartPoint] = useState<{ x: number; y: number } | null>(null);
+  const [regionFlashVisible, setRegionFlashVisible] = useState(false);
+  const prevRegionEnabledRef = useRef(translateRegionEnabled);
 
   // Get the current video's region (if any)
   const currentVideoRegion = videoId ? videoRegions[videoId] : undefined;
+
+  // Flash animation when region is enabled
+  useEffect(() => {
+    if (translateRegionEnabled && !prevRegionEnabledRef.current && currentVideoRegion) {
+      setRegionFlashVisible(true);
+      const timer = setTimeout(() => setRegionFlashVisible(false), 1200);
+      return () => clearTimeout(timer);
+    }
+    prevRegionEnabledRef.current = translateRegionEnabled;
+  }, [translateRegionEnabled, currentVideoRegion]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -1297,8 +1309,8 @@ export function YouTubeViewer() {
                     </div>
                   )}
 
-                  {/* Active region indicator during translation */}
-                  {(isExtracting || isTranslating) && translateRegionEnabled && currentVideoRegion && (
+                  {/* Active region indicator during translation or flash */}
+                  {currentVideoRegion && (((isExtracting || isTranslating) && translateRegionEnabled) || regionFlashVisible) && (
                     <div
                       className="absolute border-2 rounded z-10 pointer-events-none"
                       style={{
@@ -1307,6 +1319,8 @@ export function YouTubeViewer() {
                         width: `${currentVideoRegion.width * 100}%`,
                         height: `${currentVideoRegion.height * 100}%`,
                         borderColor: "var(--primary)",
+                        backgroundColor: "rgba(255, 255, 255, 0.1)",
+                        animation: regionFlashVisible ? "regionFlash 1.2s ease-out forwards" : "none",
                       }}
                     />
                   )}

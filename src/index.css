@@ -160,3 +160,12 @@ body {
     transform: scale(1.05);
   }
 }
+
+@keyframes regionFlash {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
