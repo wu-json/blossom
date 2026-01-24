@@ -1381,8 +1381,8 @@ export function YouTubeViewer() {
                     </div>
                   )}
 
-                  {/* Active region indicator during translation or flash */}
-                  {currentVideoRegion && (((isExtracting || isTranslating) && translateRegionEnabled) || regionFlashVisible) && (
+                  {/* Active region indicator during translation or flash (hide when video is playing) */}
+                  {currentVideoRegion && (((isExtracting || isTranslating) && translateRegionEnabled && !isPlaying) || regionFlashVisible) && (
                     <div
                       className="absolute border-2 rounded z-10 pointer-events-none"
                       style={{
