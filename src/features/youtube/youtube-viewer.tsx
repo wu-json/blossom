@@ -13,7 +13,6 @@ import { MenuIcon } from "../../components/icons/menu-icon";
 import { HeaderControls } from "../../components/ui/header-controls";
 import { version } from "../../../generated/version";
 import { RecentVideosGrid } from "./recent-videos-grid";
-import { RegionSelector } from "./region-selector";
 import type { TranslationData, WordBreakdown, PartialTranslationData } from "../../types/translation";
 import type { Language } from "../../types/chat";
 
@@ -226,7 +225,8 @@ export function YouTubeViewer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(100);
   const [isMuted, setIsMuted] = useState(false);
-  const [adjustmentFrameUrl, setAdjustmentFrameUrl] = useState<string | null>(null);
+  const [drawingRegion, setDrawingRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [drawStartPoint, setDrawStartPoint] = useState<{ x: number; y: number } | null>(null);
 
   // Get the current video's region (if any)
   const currentVideoRegion = videoId ? videoRegions[videoId] : undefined;
@@ -597,56 +597,65 @@ export function YouTubeViewer() {
     }
   };
 
-  const handleAdjustRegion = async () => {
+  const handleAdjustRegion = () => {
     if (!videoId || !playerRef.current) return;
 
-    // Pause the video
+    // Pause the video and enter selection mode
     playerRef.current.pauseVideo();
-
-    // Show loading state immediately
     setIsAdjustingRegion(true);
-    setAdjustmentFrameUrl(null);
-
-    // Extract current frame
-    const timestamp = playerRef.current.getCurrentTime();
-
-    try {
-      const response = await fetch("/api/youtube/extract-frame", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId, timestamp }),
-      });
-
-      if (!response.ok) throw new Error("Failed to extract frame");
-
-      const { filename } = await response.json();
-
-      // Set frame URL to show the selector
-      setAdjustmentFrameUrl(`/api/youtube/frames/${filename}`);
-    } catch {
-      setIsAdjustingRegion(false);
-      setError("Failed to capture frame for region selection");
-    }
   };
 
-  const handleRegionConfirm = (region: { x: number; y: number; width: number; height: number }) => {
-    if (!videoId) return;
+  const handleRegionConfirm = () => {
+    if (!videoId || !drawingRegion) return;
 
     // Save region for this video
-    setVideoRegion(videoId, region);
+    setVideoRegion(videoId, drawingRegion);
 
     // Auto-enable the toggle
     setTranslateRegionEnabled(true);
 
     // Close selector
     setIsAdjustingRegion(false);
-    setAdjustmentFrameUrl(null);
+    setDrawingRegion(null);
   };
 
   const handleRegionCancel = () => {
     setIsAdjustingRegion(false);
-    setAdjustmentFrameUrl(null);
+    setDrawingRegion(null);
   };
+
+  const handleRegionPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    target.setPointerCapture(e.pointerId);
+
+    const rect = target.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+
+    setDrawStartPoint({ x, y });
+    setDrawingRegion(null);
+  };
+
+  const handleRegionPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drawStartPoint) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const currentX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const currentY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+    setDrawingRegion({
+      x: Math.min(drawStartPoint.x, currentX),
+      y: Math.min(drawStartPoint.y, currentY),
+      width: Math.abs(currentX - drawStartPoint.x),
+      height: Math.abs(currentY - drawStartPoint.y),
+    });
+  };
+
+  const handleRegionPointerUp = () => {
+    setDrawStartPoint(null);
+  };
+
+  const isDrawingRegionValid = drawingRegion && drawingRegion.width >= 0.05 && drawingRegion.height >= 0.05;
 
   const handleTranslateFrame = async () => {
     if (!videoId || !playerRef.current) return;
@@ -1149,14 +1158,73 @@ export function YouTubeViewer() {
                 )}
 
                 <div
-                  ref={containerRef}
-                  className="w-full aspect-video flex-shrink-0 max-h-[50vh]"
+                  className="relative w-full aspect-video flex-shrink-0 max-h-[50vh]"
                   style={{
-                    backgroundColor: "var(--surface)",
                     maxHeight: `${playerHeight}vh`,
                     transition: isResizingHeight ? "none" : "max-height 0.2s ease-out",
                   }}
-                />
+                >
+                  <div
+                    ref={containerRef}
+                    className="absolute inset-0"
+                    style={{ backgroundColor: "var(--surface)" }}
+                  />
+
+                  {/* Region selection overlay */}
+                  {isAdjustingRegion && (
+                    <div
+                      className="absolute inset-0 z-10 cursor-crosshair select-none touch-none"
+                      style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
+                      onPointerDown={handleRegionPointerDown}
+                      onPointerMove={handleRegionPointerMove}
+                      onPointerUp={handleRegionPointerUp}
+                      onPointerLeave={handleRegionPointerUp}
+                    >
+                      {/* Drawing region box */}
+                      {drawingRegion && (
+                        <div
+                          className="absolute border-2 rounded"
+                          style={{
+                            left: `${drawingRegion.x * 100}%`,
+                            top: `${drawingRegion.y * 100}%`,
+                            width: `${drawingRegion.width * 100}%`,
+                            height: `${drawingRegion.height * 100}%`,
+                            borderColor: isDrawingRegionValid ? "var(--primary)" : "#ef4444",
+                            backgroundColor: "rgba(255, 255, 255, 0.1)",
+                          }}
+                        />
+                      )}
+
+                      {/* Instructions and actions */}
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
+                        <div
+                          className="px-3 py-2 rounded-lg text-sm"
+                          style={{ backgroundColor: "rgba(0, 0, 0, 0.8)", color: "white" }}
+                        >
+                          {drawingRegion
+                            ? (isDrawingRegionValid ? translations[language].selectRegion : translations[language].regionTooSmall)
+                            : translations[language].selectRegionDesc}
+                        </div>
+                        <button
+                          onClick={handleRegionCancel}
+                          className="px-3 py-2 rounded-lg text-sm font-medium"
+                          style={{ backgroundColor: "rgba(0, 0, 0, 0.8)", color: "white" }}
+                        >
+                          Cancel
+                        </button>
+                        {drawingRegion && isDrawingRegionValid && (
+                          <button
+                            onClick={handleRegionConfirm}
+                            className="px-3 py-2 rounded-lg text-sm font-medium"
+                            style={{ backgroundColor: "var(--primary)", color: "white" }}
+                          >
+                            Confirm
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Height resize handle - only on large screens */}
                 <div
@@ -1531,39 +1599,6 @@ export function YouTubeViewer() {
           </div>
         )}
       </div>
-
-      {/* Region selector modal */}
-      {isAdjustingRegion && (
-        adjustmentFrameUrl ? (
-          <RegionSelector
-            frameImageUrl={adjustmentFrameUrl}
-            initialRegion={currentVideoRegion}
-            language={language}
-            translations={{
-              selectRegion: translations[language].selectRegion,
-              selectRegionDesc: translations[language].selectRegionDesc,
-              regionTooSmall: translations[language].regionTooSmall,
-            }}
-            onConfirm={handleRegionConfirm}
-            onCancel={handleRegionCancel}
-          />
-        ) : (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-50"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.8)" }}
-          >
-            <div
-              className="flex flex-col items-center gap-4 p-8 rounded-xl"
-              style={{ backgroundColor: "var(--surface)" }}
-            >
-              <Loader2 size={32} className="animate-spin" style={{ color: "var(--primary)" }} />
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                {translations[language].extracting}
-              </p>
-            </div>
-          </div>
-        )
-      )}
     </div>
   );
 }
