@@ -439,6 +439,34 @@ export function YouTubeViewer() {
     return () => window.removeEventListener("blur", handleWindowBlur);
   }, [playerReady]);
 
+  const handleAdjustRegion = useCallback(() => {
+    if (!videoId || !playerRef.current) return;
+
+    // Pause the video and enter selection mode
+    playerRef.current.pauseVideo();
+    setIsAdjustingRegion(true);
+  }, [videoId, setIsAdjustingRegion]);
+
+  const handleRegionConfirm = useCallback(() => {
+    if (!videoId || !drawingRegion) return;
+    if (drawingRegion.width < 0.05 || drawingRegion.height < 0.05) return;
+
+    // Save region for this video
+    setVideoRegion(videoId, drawingRegion);
+
+    // Auto-enable the toggle
+    setTranslateRegionEnabled(true);
+
+    // Close selector
+    setIsAdjustingRegion(false);
+    setDrawingRegion(null);
+  }, [videoId, drawingRegion, setVideoRegion, setTranslateRegionEnabled, setIsAdjustingRegion]);
+
+  const handleRegionCancel = useCallback(() => {
+    setIsAdjustingRegion(false);
+    setDrawingRegion(null);
+  }, [setIsAdjustingRegion]);
+
   useEffect(() => {
     if (!playerReady) return;
 
@@ -482,11 +510,35 @@ export function YouTubeViewer() {
         e.preventDefault();
         toggleTranslationBarCollapsed();
       }
+
+      // Region toggle (R) - only when region exists
+      if (e.key === "r" && !e.metaKey && !e.ctrlKey && currentVideoRegion) {
+        e.preventDefault();
+        setTranslateRegionEnabled(!translateRegionEnabled);
+      }
+
+      // Set/adjust region (E)
+      if (e.key === "e" && !e.metaKey && !e.ctrlKey && !isExtracting && !isTranslating && !isAdjustingRegion) {
+        e.preventDefault();
+        handleAdjustRegion();
+      }
+
+      // Region selection: Enter to confirm, Escape to cancel
+      if (isAdjustingRegion) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleRegionConfirm();
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          handleRegionCancel();
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playerReady, isExtracting, isTranslating, toggleTranslationBarCollapsed]);
+  }, [playerReady, isExtracting, isTranslating, isAdjustingRegion, toggleTranslationBarCollapsed, currentVideoRegion, translateRegionEnabled, setTranslateRegionEnabled, handleAdjustRegion, handleRegionConfirm, handleRegionCancel]);
 
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return;
@@ -603,33 +655,6 @@ export function YouTubeViewer() {
     } else {
       setError("Invalid YouTube URL");
     }
-  };
-
-  const handleAdjustRegion = () => {
-    if (!videoId || !playerRef.current) return;
-
-    // Pause the video and enter selection mode
-    playerRef.current.pauseVideo();
-    setIsAdjustingRegion(true);
-  };
-
-  const handleRegionConfirm = () => {
-    if (!videoId || !drawingRegion) return;
-
-    // Save region for this video
-    setVideoRegion(videoId, drawingRegion);
-
-    // Auto-enable the toggle
-    setTranslateRegionEnabled(true);
-
-    // Close selector
-    setIsAdjustingRegion(false);
-    setDrawingRegion(null);
-  };
-
-  const handleRegionCancel = () => {
-    setIsAdjustingRegion(false);
-    setDrawingRegion(null);
   };
 
   const handleRegionPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1094,10 +1119,19 @@ export function YouTubeViewer() {
                               color: translateRegionEnabled ? "white" : "var(--text-muted)",
                               border: translateRegionEnabled ? "none" : "1px solid var(--border)",
                             }}
-                            title={translateRegionEnabled ? "Region cropping enabled" : "Region cropping disabled"}
+                            title={translateRegionEnabled ? "Region cropping enabled (R)" : "Region cropping disabled (R)"}
                           >
                             <Crop size={14} />
                             {translations[language].region}
+                            <kbd
+                              className="ml-1 px-1.5 py-0.5 rounded text-xs"
+                              style={{
+                                backgroundColor: translateRegionEnabled ? "rgba(255,255,255,0.2)" : "var(--border)",
+                                fontFamily: "inherit",
+                              }}
+                            >
+                              R
+                            </kbd>
                           </button>
                         )}
 
@@ -1114,6 +1148,15 @@ export function YouTubeViewer() {
                         >
                           <ScanLine size={14} />
                           {currentVideoRegion ? translations[language].adjustRegion : translations[language].setRegion}
+                          <kbd
+                            className="ml-1 px-1.5 py-0.5 rounded text-xs"
+                            style={{
+                              backgroundColor: "var(--border)",
+                              fontFamily: "inherit",
+                            }}
+                          >
+                            E
+                          </kbd>
                         </button>
 
                         <button
