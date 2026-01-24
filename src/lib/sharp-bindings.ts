@@ -141,4 +141,14 @@ async function downloadAndExtract(
   // Write extracted file
   await Bun.write(destPath, fileData);
   await chmod(destPath, 0o755);
+
+  // On macOS, remove code signature to avoid Team ID mismatch when loading
+  // from a signed app bundle
+  if (process.platform === "darwin" && destPath.endsWith(".node")) {
+    const codesignProc = Bun.spawn(["codesign", "--remove-signature", destPath], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    await codesignProc.exited;
+  }
 }
