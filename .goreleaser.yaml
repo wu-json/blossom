@@ -16,9 +16,6 @@ builds:
       - --minify
       - --external
       - "@aws-sdk/client-s3"
-    # Note: Sharp native bindings are embedded per-platform.
-    # Cross-platform builds require matrix CI where each platform
-    # runs `bun install` to get its native deps before building.
 notarize:
   macos:
     - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'

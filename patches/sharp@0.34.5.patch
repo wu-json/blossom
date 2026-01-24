@@ -2,13 +2,12 @@ diff --git a/lib/sharp.js b/lib/sharp.js
 index 1081c9314de1b669b0744a931a3b6b570c9f6609..fa0dff695f8340efae335396ff132b37d3266ecd 100644
 --- a/lib/sharp.js
 +++ b/lib/sharp.js
-@@ -11,6 +11,9 @@ const { runtimePlatformArch, isUnsupportedNodeRuntime, prebuiltPlatforms, minimu
+@@ -11,6 +11,8 @@ const { runtimePlatformArch, isUnsupportedNodeRuntime, prebuiltPlatforms, minimu
  const runtimePlatform = runtimePlatformArch();
  
  const paths = [
-+  // Blossom: check extracted native bindings first (for compiled binary)
-+  `${process.env.HOME || ''}/.blossom/native/@img/sharp-${runtimePlatform}/lib/sharp-${runtimePlatform}.node`,
-+  // Original paths
++  // Blossom: check runtime-downloaded native bindings first (supports custom data dir)
++  `${process.env.BLOSSOM_DATA_DIR || (process.env.HOME || '') + '/.blossom'}/native/@img/sharp-${runtimePlatform}/lib/sharp-${runtimePlatform}.node`,
    `../src/build/Release/sharp-${runtimePlatform}.node`,
    '../src/build/Release/sharp-wasm32.node',
    `@img/sharp-${runtimePlatform}/sharp.node`,

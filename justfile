@@ -4,7 +4,6 @@ dry_run := "true"
 build:
   bun run scripts/generate-version.ts
   bun run scripts/embed-assets.ts
-  bun run scripts/generate-sharp-bindings.ts
   GORELEASER_CURRENT_TAG=v{{current_version}} goreleaser build --clean --snapshot
   rm -f .*.bun-build
 
@@ -36,6 +35,5 @@ version semver:
 release:
   bun run scripts/generate-version.ts
   bun run scripts/embed-assets.ts
-  bun run scripts/generate-sharp-bindings.ts
   goreleaser release --clean {{ if dry_run == "true" { "--snapshot" } else { "" } }}
   rm -f .*.bun-build
