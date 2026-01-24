@@ -367,9 +367,10 @@ export function TranslationSkeleton() {
 
 interface StreamingTranslationCardProps {
   data: PartialTranslationData;
+  showShortcuts?: boolean;
 }
 
-export function StreamingTranslationCard({ data }: StreamingTranslationCardProps) {
+export function StreamingTranslationCard({ data, showShortcuts = false }: StreamingTranslationCardProps) {
   const isFieldStreaming = (field: string) =>
     data._streaming?.currentField === field && !data._streaming?.isComplete;
 
@@ -431,6 +432,8 @@ export function StreamingTranslationCard({ data }: StreamingTranslationCardProps
                     isFieldStreaming("breakdown") &&
                     idx === data.breakdown!.length - 1
                   }
+                  index={idx}
+                  showShortcut={showShortcuts}
                 />
               ))}
             </>
@@ -459,9 +462,12 @@ interface StreamingWordRowProps {
   item: PartialWordBreakdown;
   isEven: boolean;
   isStreaming: boolean;
+  index?: number;
+  showShortcut?: boolean;
 }
 
-function StreamingWordRow({ item, isEven, isStreaming }: StreamingWordRowProps) {
+function StreamingWordRow({ item, isEven, isStreaming, index, showShortcut = false }: StreamingWordRowProps) {
+  const shortcut = index !== undefined ? getShortcutDisplay(index) : null;
   // Animate each field with typewriter effect
   const displayedWord = useSmoothText(item.word ?? "", isStreaming && !!item.word);
   const displayedReading = useSmoothText(item.reading ?? "", isStreaming && !!item.reading);
@@ -485,6 +491,22 @@ function StreamingWordRow({ item, isEven, isStreaming }: StreamingWordRowProps) 
           : "transparent",
       }}
     >
+      {/* Shortcut indicator - shown during streaming to maintain layout consistency */}
+      {showShortcut && shortcut && (
+        <kbd
+          className="flex-shrink-0 h-5 flex items-center justify-center rounded text-[10px] font-mono transition-all gap-0.5"
+          style={{
+            backgroundColor: "var(--surface-elevated)",
+            color: "var(--text-muted)",
+            border: "1px solid var(--border)",
+            minWidth: shortcut.hasShift ? "32px" : "20px",
+            opacity: 0.5,
+          }}
+        >
+          {shortcut.hasShift && <span style={{ fontSize: "8px" }}>⇧</span>}
+          {shortcut.key}
+        </kbd>
+      )}
       <div className="w-[90px] flex-shrink-0">
         {displayedWord ? (
           <div className="font-medium leading-tight">

@@ -1082,7 +1082,7 @@ export function YouTubeViewer() {
       }
       const partialData = parseStreamingTranslation(streamingContent);
       if (partialData && hasAnyContent(partialData)) {
-        return <StreamingTranslationCard data={partialData} />;
+        return <StreamingTranslationCard data={partialData} showShortcuts />;
       }
     }
 
