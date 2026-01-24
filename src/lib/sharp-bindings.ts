@@ -141,14 +141,4 @@ async function downloadAndExtract(
   // Write extracted file
   await Bun.write(destPath, fileData);
   await chmod(destPath, 0o755);
-
-  // On macOS, ad-hoc sign native binaries to allow loading from a signed app
-  // (removes original Team ID while keeping a valid signature)
-  if (process.platform === "darwin" && destPath.endsWith(".node")) {
-    const codesignProc = Bun.spawn(["codesign", "--force", "--sign", "-", destPath], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    await codesignProc.exited;
-  }
 }
