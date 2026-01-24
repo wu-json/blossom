@@ -46,7 +46,7 @@ export async function ensureSharpBindings(): Promise<void> {
   const libvipsDir = join(nativeDir, "@img", libvipsPkg, "lib");
 
   const sharpNodeFile = join(sharpDir, `${sharpPkg}.node`);
-  const libvipsFile = join(libvipsDir, LIBVIPS_FILENAMES[platformKey]);
+  const libvipsFile = join(libvipsDir, LIBVIPS_FILENAMES[platformKey]!);
 
   // Check if we need to download/update
   let needsDownload = false;

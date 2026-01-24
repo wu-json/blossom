@@ -33,7 +33,6 @@ const translations: Record<Language, {
   selectRegionDesc: string;
   regionTooSmall: string;
   cancel: string;
-  confirm: string;
 }> = {
   ja: {
     title: "YouTube翻訳",
@@ -52,7 +51,6 @@ const translations: Record<Language, {
     selectRegionDesc: "翻訳したいテキストの周りにボックスを描く",
     regionTooSmall: "領域が小さすぎます",
     cancel: "キャンセル",
-    confirm: "確定",
   },
   zh: {
     title: "YouTube翻译",
@@ -71,7 +69,6 @@ const translations: Record<Language, {
     selectRegionDesc: "在要翻译的文字周围画一个框",
     regionTooSmall: "区域太小",
     cancel: "取消",
-    confirm: "确定",
   },
   ko: {
     title: "YouTube 번역",
@@ -90,7 +87,6 @@ const translations: Record<Language, {
     selectRegionDesc: "번역할 텍스트 주위에 상자를 그리세요",
     regionTooSmall: "영역이 너무 작습니다",
     cancel: "취소",
-    confirm: "확인",
   },
 };
 
@@ -447,21 +443,6 @@ export function YouTubeViewer() {
     setIsAdjustingRegion(true);
   }, [videoId, setIsAdjustingRegion]);
 
-  const handleRegionConfirm = useCallback(() => {
-    if (!videoId || !drawingRegion) return;
-    if (drawingRegion.width < 0.05 || drawingRegion.height < 0.05) return;
-
-    // Save region for this video
-    setVideoRegion(videoId, drawingRegion);
-
-    // Auto-enable the toggle
-    setTranslateRegionEnabled(true);
-
-    // Close selector
-    setIsAdjustingRegion(false);
-    setDrawingRegion(null);
-  }, [videoId, drawingRegion, setVideoRegion, setTranslateRegionEnabled, setIsAdjustingRegion]);
-
   const handleRegionCancel = useCallback(() => {
     setIsAdjustingRegion(false);
     setDrawingRegion(null);
@@ -523,22 +504,16 @@ export function YouTubeViewer() {
         handleAdjustRegion();
       }
 
-      // Region selection: Enter to confirm, Escape to cancel
-      if (isAdjustingRegion) {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          handleRegionConfirm();
-        }
-        if (e.key === "Escape") {
-          e.preventDefault();
-          handleRegionCancel();
-        }
+      // Region selection: Escape to cancel
+      if (isAdjustingRegion && e.key === "Escape") {
+        e.preventDefault();
+        handleRegionCancel();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playerReady, isExtracting, isTranslating, isAdjustingRegion, toggleTranslationBarCollapsed, currentVideoRegion, translateRegionEnabled, setTranslateRegionEnabled, handleAdjustRegion, handleRegionConfirm, handleRegionCancel]);
+  }, [playerReady, isExtracting, isTranslating, isAdjustingRegion, toggleTranslationBarCollapsed, currentVideoRegion, translateRegionEnabled, setTranslateRegionEnabled, handleAdjustRegion, handleRegionCancel]);
 
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return;
@@ -686,6 +661,15 @@ export function YouTubeViewer() {
 
   const handleRegionPointerUp = () => {
     setDrawStartPoint(null);
+    // Auto-confirm if the region is valid
+    if (drawingRegion && drawingRegion.width >= 0.05 && drawingRegion.height >= 0.05) {
+      if (videoId) {
+        setVideoRegion(videoId, drawingRegion);
+        setTranslateRegionEnabled(true);
+        setIsAdjustingRegion(false);
+        setDrawingRegion(null);
+      }
+    }
   };
 
   const isDrawingRegionValid = drawingRegion && drawingRegion.width >= 0.05 && drawingRegion.height >= 0.05;
@@ -1277,15 +1261,6 @@ export function YouTubeViewer() {
                         >
                           {translations[language].cancel}
                         </button>
-                        {drawingRegion && isDrawingRegionValid && (
-                          <button
-                            onClick={handleRegionConfirm}
-                            className="px-3 py-2 rounded-lg text-sm font-medium"
-                            style={{ backgroundColor: "var(--primary)", color: "white" }}
-                          >
-                            {translations[language].confirm}
-                          </button>
-                        )}
                       </div>
                     </div>
                   )}
