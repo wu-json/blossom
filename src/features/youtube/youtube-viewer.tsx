@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearch, useLocation } from "wouter";
-import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check, Play, Pause, Volume2, VolumeX, Maximize, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Loader2, Languages, AlertCircle, ExternalLink, X, Share2, Check, Play, Pause, Volume2, VolumeX, Maximize, PanelRightClose, PanelRightOpen, Crop, ScanLine } from "lucide-react";
 import { useYouTubeStore } from "../../store/youtube-store";
 import { useChatStore } from "../../store/chat-store";
 import { useNavigation } from "../../hooks/use-navigation";
@@ -16,7 +16,25 @@ import { RecentVideosGrid } from "./recent-videos-grid";
 import type { TranslationData, WordBreakdown, PartialTranslationData } from "../../types/translation";
 import type { Language } from "../../types/chat";
 
-const translations: Record<Language, { title: string; description: string; placeholder: string; load: string; translate: string; extracting: string; translating: string; share: string; copied: string }> = {
+const translations: Record<Language, {
+  title: string;
+  description: string;
+  placeholder: string;
+  load: string;
+  translate: string;
+  extracting: string;
+  translating: string;
+  share: string;
+  copied: string;
+  region: string;
+  setRegion: string;
+  adjustRegion: string;
+  selectRegion: string;
+  selectRegionDesc: string;
+  regionTooSmall: string;
+  cancel: string;
+  confirm: string;
+}> = {
   ja: {
     title: "YouTube翻訳",
     description: "YouTube動画のフレームからテキストを翻訳",
@@ -27,6 +45,14 @@ const translations: Record<Language, { title: string; description: string; place
     translating: "翻訳中...",
     share: "共有",
     copied: "コピー済",
+    region: "領域",
+    setRegion: "領域を設定",
+    adjustRegion: "領域を調整",
+    selectRegion: "翻訳領域を選択",
+    selectRegionDesc: "翻訳したいテキストの周りにボックスを描く",
+    regionTooSmall: "領域が小さすぎます",
+    cancel: "キャンセル",
+    confirm: "確定",
   },
   zh: {
     title: "YouTube翻译",
@@ -38,6 +64,14 @@ const translations: Record<Language, { title: string; description: string; place
     translating: "翻译中...",
     share: "分享",
     copied: "已复制",
+    region: "区域",
+    setRegion: "设置区域",
+    adjustRegion: "调整区域",
+    selectRegion: "选择翻译区域",
+    selectRegionDesc: "在要翻译的文字周围画一个框",
+    regionTooSmall: "区域太小",
+    cancel: "取消",
+    confirm: "确定",
   },
   ko: {
     title: "YouTube 번역",
@@ -49,6 +83,14 @@ const translations: Record<Language, { title: string; description: string; place
     translating: "번역 중...",
     share: "공유",
     copied: "복사됨",
+    region: "영역",
+    setRegion: "영역 설정",
+    adjustRegion: "영역 조정",
+    selectRegion: "번역 영역 선택",
+    selectRegionDesc: "번역할 텍스트 주위에 상자를 그리세요",
+    regionTooSmall: "영역이 너무 작습니다",
+    cancel: "취소",
+    confirm: "확인",
   },
 };
 
@@ -154,6 +196,9 @@ export function YouTubeViewer() {
     translationBarWidth,
     translationBarCollapsed,
     playerHeight,
+    translateRegionEnabled,
+    videoRegions,
+    isAdjustingRegion,
     setVideoUrl,
     setVideo,
     setExtracting,
@@ -167,6 +212,9 @@ export function YouTubeViewer() {
     setTranslationBarWidth,
     toggleTranslationBarCollapsed,
     setPlayerHeight,
+    setTranslateRegionEnabled,
+    setVideoRegion,
+    setIsAdjustingRegion,
   } = useYouTubeStore();
 
   const language = useChatStore((state) => state.language);
@@ -185,6 +233,11 @@ export function YouTubeViewer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(100);
   const [isMuted, setIsMuted] = useState(false);
+  const [drawingRegion, setDrawingRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [drawStartPoint, setDrawStartPoint] = useState<{ x: number; y: number } | null>(null);
+
+  // Get the current video's region (if any)
+  const currentVideoRegion = videoId ? videoRegions[videoId] : undefined;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -386,6 +439,34 @@ export function YouTubeViewer() {
     return () => window.removeEventListener("blur", handleWindowBlur);
   }, [playerReady]);
 
+  const handleAdjustRegion = useCallback(() => {
+    if (!videoId || !playerRef.current) return;
+
+    // Pause the video and enter selection mode
+    playerRef.current.pauseVideo();
+    setIsAdjustingRegion(true);
+  }, [videoId, setIsAdjustingRegion]);
+
+  const handleRegionConfirm = useCallback(() => {
+    if (!videoId || !drawingRegion) return;
+    if (drawingRegion.width < 0.05 || drawingRegion.height < 0.05) return;
+
+    // Save region for this video
+    setVideoRegion(videoId, drawingRegion);
+
+    // Auto-enable the toggle
+    setTranslateRegionEnabled(true);
+
+    // Close selector
+    setIsAdjustingRegion(false);
+    setDrawingRegion(null);
+  }, [videoId, drawingRegion, setVideoRegion, setTranslateRegionEnabled, setIsAdjustingRegion]);
+
+  const handleRegionCancel = useCallback(() => {
+    setIsAdjustingRegion(false);
+    setDrawingRegion(null);
+  }, [setIsAdjustingRegion]);
+
   useEffect(() => {
     if (!playerReady) return;
 
@@ -429,11 +510,35 @@ export function YouTubeViewer() {
         e.preventDefault();
         toggleTranslationBarCollapsed();
       }
+
+      // Region toggle (R) - only when region exists
+      if (e.key === "r" && !e.metaKey && !e.ctrlKey && currentVideoRegion) {
+        e.preventDefault();
+        setTranslateRegionEnabled(!translateRegionEnabled);
+      }
+
+      // Set/adjust region (E)
+      if (e.key === "e" && !e.metaKey && !e.ctrlKey && !isExtracting && !isTranslating && !isAdjustingRegion) {
+        e.preventDefault();
+        handleAdjustRegion();
+      }
+
+      // Region selection: Enter to confirm, Escape to cancel
+      if (isAdjustingRegion) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleRegionConfirm();
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          handleRegionCancel();
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playerReady, isExtracting, isTranslating, toggleTranslationBarCollapsed]);
+  }, [playerReady, isExtracting, isTranslating, isAdjustingRegion, toggleTranslationBarCollapsed, currentVideoRegion, translateRegionEnabled, setTranslateRegionEnabled, handleAdjustRegion, handleRegionConfirm, handleRegionCancel]);
 
   const togglePlayPause = useCallback(() => {
     if (!playerRef.current) return;
@@ -552,6 +657,39 @@ export function YouTubeViewer() {
     }
   };
 
+  const handleRegionPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    target.setPointerCapture(e.pointerId);
+
+    const rect = target.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+
+    setDrawStartPoint({ x, y });
+    setDrawingRegion(null);
+  };
+
+  const handleRegionPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!drawStartPoint) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const currentX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const currentY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+    setDrawingRegion({
+      x: Math.min(drawStartPoint.x, currentX),
+      y: Math.min(drawStartPoint.y, currentY),
+      width: Math.abs(currentX - drawStartPoint.x),
+      height: Math.abs(currentY - drawStartPoint.y),
+    });
+  };
+
+  const handleRegionPointerUp = () => {
+    setDrawStartPoint(null);
+  };
+
+  const isDrawingRegionValid = drawingRegion && drawingRegion.width >= 0.05 && drawingRegion.height >= 0.05;
+
   const handleTranslateFrame = async () => {
     if (!videoId || !playerRef.current) return;
 
@@ -582,10 +720,20 @@ export function YouTubeViewer() {
       setExtracting(false);
       setTranslating(true);
 
+      // Get current region settings directly from store to avoid stale closure
+      const storeState = useYouTubeStore.getState();
+      const regionEnabled = storeState.translateRegionEnabled;
+      const regionForVideo = videoId ? storeState.videoRegions[videoId] : undefined;
+      const shouldCrop = regionEnabled && regionForVideo;
+
       const translateResponse = await fetch("/api/youtube/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: frameFilename, language }),
+        body: JSON.stringify({
+          filename: frameFilename,
+          language,
+          region: shouldCrop ? regionForVideo : undefined,
+        }),
       });
 
       if (!translateResponse.ok) {
@@ -961,6 +1109,56 @@ export function YouTubeViewer() {
                     )}
                     {playerReady && (
                       <>
+                        {/* Region toggle - only show when a region is set */}
+                        {currentVideoRegion && (
+                          <button
+                            onClick={() => setTranslateRegionEnabled(!translateRegionEnabled)}
+                            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium transition-all flex-shrink-0"
+                            style={{
+                              backgroundColor: "var(--surface)",
+                              color: translateRegionEnabled ? "var(--primary)" : "var(--text-muted)",
+                              border: translateRegionEnabled ? "1.5px solid var(--primary)" : "1px solid var(--border)",
+                            }}
+                            title={translateRegionEnabled ? "Region cropping enabled (R)" : "Region cropping disabled (R)"}
+                          >
+                            <Crop size={14} />
+                            {translations[language].region}
+                            <kbd
+                              className="ml-1 px-1.5 py-0.5 rounded text-xs"
+                              style={{
+                                backgroundColor: "var(--border)",
+                                fontFamily: "inherit",
+                              }}
+                            >
+                              r
+                            </kbd>
+                          </button>
+                        )}
+
+                        {/* Set/Adjust region button */}
+                        <button
+                          onClick={handleAdjustRegion}
+                          disabled={isExtracting || isTranslating}
+                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-80 disabled:opacity-50 flex-shrink-0"
+                          style={{
+                            backgroundColor: "var(--surface)",
+                            color: "var(--text-muted)",
+                            border: "1px solid var(--border)",
+                          }}
+                        >
+                          <ScanLine size={14} />
+                          {currentVideoRegion ? translations[language].adjustRegion : translations[language].setRegion}
+                          <kbd
+                            className="ml-1 px-1.5 py-0.5 rounded text-xs"
+                            style={{
+                              backgroundColor: "var(--border)",
+                              fontFamily: "inherit",
+                            }}
+                          >
+                            e
+                          </kbd>
+                        </button>
+
                         <button
                           onClick={handleShare}
                           className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:opacity-80 flex-shrink-0"
@@ -1014,14 +1212,99 @@ export function YouTubeViewer() {
                 )}
 
                 <div
-                  ref={containerRef}
-                  className="w-full aspect-video flex-shrink-0 max-h-[50vh]"
+                  className="relative flex-shrink-0 w-full"
                   style={{
-                    backgroundColor: "var(--surface)",
                     maxHeight: `${playerHeight}vh`,
                     transition: isResizingHeight ? "none" : "max-height 0.2s ease-out",
                   }}
-                />
+                >
+                  {/* Inner container that maintains 16:9 aspect ratio */}
+                  <div
+                    className="relative mx-auto w-full aspect-video"
+                    style={{
+                      maxHeight: `${playerHeight}vh`,
+                      maxWidth: `calc(${playerHeight}vh * 16 / 9)`,
+                    }}
+                  >
+                    <div
+                      ref={containerRef}
+                      className="absolute inset-0"
+                      style={{ backgroundColor: "var(--surface)" }}
+                    />
+
+                  {/* Region selection overlay */}
+                  {isAdjustingRegion && (
+                    <div
+                      className="absolute inset-0 z-10 cursor-crosshair select-none touch-none"
+                      style={{ backgroundColor: "rgba(0, 0, 0, 0.3)" }}
+                      onPointerDown={handleRegionPointerDown}
+                      onPointerMove={handleRegionPointerMove}
+                      onPointerUp={handleRegionPointerUp}
+                      onPointerLeave={handleRegionPointerUp}
+                    >
+                      {/* Drawing region box */}
+                      {drawingRegion && (
+                        <div
+                          className="absolute border-2 rounded"
+                          style={{
+                            left: `${drawingRegion.x * 100}%`,
+                            top: `${drawingRegion.y * 100}%`,
+                            width: `${drawingRegion.width * 100}%`,
+                            height: `${drawingRegion.height * 100}%`,
+                            borderColor: isDrawingRegionValid ? "var(--primary)" : "#ef4444",
+                            backgroundColor: "rgba(255, 255, 255, 0.1)",
+                          }}
+                        />
+                      )}
+
+                      {/* Instructions and actions */}
+                      <div
+                        className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3"
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
+                        <div
+                          className="px-3 py-2 rounded-lg text-sm"
+                          style={{ backgroundColor: "rgba(0, 0, 0, 0.8)", color: "white" }}
+                        >
+                          {drawingRegion
+                            ? (isDrawingRegionValid ? translations[language].selectRegion : translations[language].regionTooSmall)
+                            : translations[language].selectRegionDesc}
+                        </div>
+                        <button
+                          onClick={handleRegionCancel}
+                          className="px-3 py-2 rounded-lg text-sm font-medium"
+                          style={{ backgroundColor: "rgba(0, 0, 0, 0.8)", color: "white" }}
+                        >
+                          {translations[language].cancel}
+                        </button>
+                        {drawingRegion && isDrawingRegionValid && (
+                          <button
+                            onClick={handleRegionConfirm}
+                            className="px-3 py-2 rounded-lg text-sm font-medium"
+                            style={{ backgroundColor: "var(--primary)", color: "white" }}
+                          >
+                            {translations[language].confirm}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Active region indicator during translation */}
+                  {(isExtracting || isTranslating) && translateRegionEnabled && currentVideoRegion && (
+                    <div
+                      className="absolute border-2 rounded z-10 pointer-events-none"
+                      style={{
+                        left: `${currentVideoRegion.x * 100}%`,
+                        top: `${currentVideoRegion.y * 100}%`,
+                        width: `${currentVideoRegion.width * 100}%`,
+                        height: `${currentVideoRegion.height * 100}%`,
+                        borderColor: "var(--primary)",
+                      }}
+                    />
+                  )}
+                  </div>
+                </div>
 
                 {/* Height resize handle - only on large screens */}
                 <div

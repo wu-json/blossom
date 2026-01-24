@@ -16,6 +16,40 @@ async function getSharp(): Promise<Sharp> {
 
 export type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
+export interface CropRegion {
+  x: number;      // 0-1 normalized
+  y: number;      // 0-1 normalized
+  width: number;  // 0-1 normalized
+  height: number; // 0-1 normalized
+}
+
+/**
+ * Crop an image buffer using normalized coordinates (0-1).
+ * Returns a new buffer with only the cropped region.
+ */
+export async function cropFrameBuffer(
+  imageBuffer: Buffer,
+  region: CropRegion
+): Promise<Buffer> {
+  const sharpInstance = await getSharp();
+
+  // Get image dimensions
+  const metadata = await sharpInstance(imageBuffer).metadata();
+  const imgWidth = metadata.width!;
+  const imgHeight = metadata.height!;
+
+  // Convert normalized coordinates to pixels
+  const left = Math.round(region.x * imgWidth);
+  const top = Math.round(region.y * imgHeight);
+  const width = Math.round(region.width * imgWidth);
+  const height = Math.round(region.height * imgHeight);
+
+  // Crop and return
+  return sharpInstance(imageBuffer)
+    .extract({ left, top, width, height })
+    .toBuffer();
+}
+
 export interface ImageForApiResult {
   base64: string;
   mediaType: ImageMediaType;

@@ -239,8 +239,14 @@ export async function extractAndSaveFrame(videoId: string, timestampSeconds: num
 
 // Compress an image for API calls (resize to 720p max, lower quality)
 export async function compressFrameForApi(filename: string): Promise<Buffer> {
-  const { ffmpeg } = await ensureVideoTools();
   const filepath = join(framesDir, filename);
+  const frameBuffer = Buffer.from(await Bun.file(filepath).arrayBuffer());
+  return compressFrameBufferForApi(frameBuffer);
+}
+
+// Compress a buffer for API calls (resize to 720p max, lower quality)
+export async function compressFrameBufferForApi(inputBuffer: Buffer): Promise<Buffer> {
+  const { ffmpeg } = await ensureVideoTools();
 
   const ffmpegProc = Bun.spawn(
     [
@@ -248,7 +254,7 @@ export async function compressFrameForApi(filename: string): Promise<Buffer> {
       "-hide_banner",
       "-nostdin",
       "-i",
-      filepath,
+      "pipe:0",
       "-vf",
       "scale='min(1280,iw)':'min(720,ih)':force_original_aspect_ratio=decrease",
       "-f",
@@ -260,10 +266,15 @@ export async function compressFrameForApi(filename: string): Promise<Buffer> {
       "-",
     ],
     {
+      stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
     }
   );
+
+  // Write input buffer to stdin
+  ffmpegProc.stdin.write(inputBuffer);
+  ffmpegProc.stdin.end();
 
   const frameBuffer = await new Response(ffmpegProc.stdout).arrayBuffer();
   const ffmpegExitCode = await ffmpegProc.exited;
