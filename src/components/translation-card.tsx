@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Plus, Flower2, X } from "lucide-react";
 import { useSmoothText } from "../hooks/use-smooth-text";
 import type {
@@ -14,6 +14,7 @@ interface TranslationCardProps {
   onRemoveWord?: (word: string) => Promise<boolean>;
   onViewFlower?: (word: string) => void;
   savedWords?: string[];
+  showShortcuts?: boolean;
 }
 
 const posColors: Record<string, string> = {
@@ -34,7 +35,7 @@ function getPosColor(partOfSpeech: string): string {
   return "#6B7280";
 }
 
-export function TranslationCard({ data, onSaveWord, onRemoveWord, onViewFlower, savedWords = [] }: TranslationCardProps) {
+export function TranslationCard({ data, onSaveWord, onRemoveWord, onViewFlower, savedWords = [], showShortcuts = false }: TranslationCardProps) {
   return (
     <div className="space-y-3">
       {/* Original Text with Subtext */}
@@ -67,6 +68,8 @@ export function TranslationCard({ data, onSaveWord, onRemoveWord, onViewFlower, 
               onRemove={onRemoveWord ? () => onRemoveWord(item.word) : undefined}
               onViewFlower={onViewFlower ? () => onViewFlower(item.word) : undefined}
               initialSaved={savedWords.includes(item.word)}
+              index={idx}
+              showShortcut={showShortcuts}
             />
           ))}
         </div>
@@ -97,23 +100,55 @@ interface WordRowProps {
   onRemove?: () => Promise<boolean>;
   onViewFlower?: () => void;
   initialSaved?: boolean;
+  index?: number;
+  showShortcut?: boolean;
 }
 
-function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = false }: WordRowProps) {
+// Helper to get the shortcut display for a given index (0-indexed)
+function getShortcutDisplay(index: number): { key: string; hasShift: boolean } | null {
+  if (index < 0 || index > 18) return null; // Max 19 items (0-18)
+
+  if (index < 9) {
+    // Items 1-9: keys 1-9
+    return { key: String(index + 1), hasShift: false };
+  } else if (index < 18) {
+    // Items 10-18: Shift + 1-9
+    return { key: String(index - 8), hasShift: true };
+  } else {
+    // Item 19: Shift + 0
+    return { key: "0", hasShift: true };
+  }
+}
+
+function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = false, index, showShortcut = false }: WordRowProps) {
   const color = getPosColor(item.partOfSpeech);
   const [isSaved, setIsSaved] = useState(initialSaved);
   const [isHovered, setIsHovered] = useState(false);
-
-  // Sync local state when initialSaved prop changes (e.g., after new translation)
-  useEffect(() => {
-    setIsSaved(initialSaved);
-  }, [initialSaved]);
   const [showBloom, setShowBloom] = useState(false);
   const [showWilt, setShowWilt] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const prevSavedRef = useRef(initialSaved);
+
+  // Sync local state and trigger animations when initialSaved prop changes (e.g., via keyboard shortcut)
+  useEffect(() => {
+    if (initialSaved !== prevSavedRef.current) {
+      setIsSaved(initialSaved);
+      if (initialSaved && !prevSavedRef.current) {
+        // Was unsaved, now saved -> bloom
+        setShowBloom(true);
+        setTimeout(() => setShowBloom(false), 500);
+      } else if (!initialSaved && prevSavedRef.current) {
+        // Was saved, now unsaved -> wilt
+        setShowWilt(true);
+        setTimeout(() => setShowWilt(false), 400);
+      }
+      prevSavedRef.current = initialSaved;
+    }
+  }, [initialSaved]);
 
   const canInteract = onSave && onRemove;
+  const shortcut = index !== undefined ? getShortcutDisplay(index) : null;
 
   const handleClick = async () => {
     if (!canInteract) return;
@@ -182,6 +217,21 @@ function WordRow({ item, isEven, onSave, onRemove, onViewFlower, initialSaved = 
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={handleMouseLeave}
     >
+      {/* Shortcut indicator */}
+      {showShortcut && shortcut && (
+        <kbd
+          className="flex-shrink-0 h-5 flex items-center justify-center rounded text-[10px] font-mono transition-all gap-0.5"
+          style={{
+            backgroundColor: "var(--surface-elevated)",
+            color: isSaved ? "var(--primary)" : "var(--text-muted)",
+            border: "1px solid var(--border)",
+            minWidth: shortcut.hasShift ? "32px" : "20px",
+          }}
+        >
+          {shortcut.hasShift && <span style={{ fontSize: "8px" }}>⇧</span>}
+          {shortcut.key}
+        </kbd>
+      )}
       <div className="w-[90px] flex-shrink-0">
         <div className="font-medium leading-tight">{item.word}</div>
         <div className="text-[11px] opacity-50 leading-tight">{item.reading}</div>
