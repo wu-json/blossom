@@ -32,6 +32,8 @@ const translations: Record<Language, {
   selectRegion: string;
   selectRegionDesc: string;
   regionTooSmall: string;
+  cancel: string;
+  confirm: string;
 }> = {
   ja: {
     title: "YouTube翻訳",
@@ -49,6 +51,8 @@ const translations: Record<Language, {
     selectRegion: "翻訳領域を選択",
     selectRegionDesc: "翻訳したいテキストの周りにボックスを描く",
     regionTooSmall: "領域が小さすぎます",
+    cancel: "キャンセル",
+    confirm: "確定",
   },
   zh: {
     title: "YouTube翻译",
@@ -66,6 +70,8 @@ const translations: Record<Language, {
     selectRegion: "选择翻译区域",
     selectRegionDesc: "在要翻译的文字周围画一个框",
     regionTooSmall: "区域太小",
+    cancel: "取消",
+    confirm: "确定",
   },
   ko: {
     title: "YouTube 번역",
@@ -83,6 +89,8 @@ const translations: Record<Language, {
     selectRegion: "번역 영역 선택",
     selectRegionDesc: "번역할 텍스트 주위에 상자를 그리세요",
     regionTooSmall: "영역이 너무 작습니다",
+    cancel: "취소",
+    confirm: "확인",
   },
 };
 
@@ -1210,7 +1218,7 @@ export function YouTubeViewer() {
                           className="px-3 py-2 rounded-lg text-sm font-medium"
                           style={{ backgroundColor: "rgba(0, 0, 0, 0.8)", color: "white" }}
                         >
-                          Cancel
+                          {translations[language].cancel}
                         </button>
                         {drawingRegion && isDrawingRegionValid && (
                           <button
@@ -1218,7 +1226,7 @@ export function YouTubeViewer() {
                             className="px-3 py-2 rounded-lg text-sm font-medium"
                             style={{ backgroundColor: "var(--primary)", color: "white" }}
                           >
-                            Confirm
+                            {translations[language].confirm}
                           </button>
                         )}
                       </div>
