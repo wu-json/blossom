@@ -253,6 +253,27 @@ export function YouTubeViewer() {
   } = useVideoTranslations(videoId);
   const timelineActiveTranslation = useActiveTranslation(videoTranslations, currentPlaybackTime);
 
+  // Fetch existing petals when video loads
+  useEffect(() => {
+    if (!videoId) {
+      setTimelineSavedWords({});
+      return;
+    }
+
+    fetch(`/api/petals/conversation/youtube-${videoId}`)
+      .then((res) => res.json())
+      .then((petals: Array<{ message_id: string; word: string }>) => {
+        const grouped: Record<string, string[]> = {};
+        for (const petal of petals) {
+          const existing = grouped[petal.message_id] || [];
+          existing.push(petal.word);
+          grouped[petal.message_id] = existing;
+        }
+        setTimelineSavedWords(grouped);
+      })
+      .catch((err) => console.error("Failed to fetch petals:", err));
+  }, [videoId]);
+
   // Auto-scroll to active translation in the history list
   useEffect(() => {
     if (!timelineActiveTranslation) return;
@@ -324,6 +345,17 @@ export function YouTubeViewer() {
       if (data.frame_image) {
         setCurrentFrameImage(data.frame_image);
       }
+
+      // Fetch petals for this specific translation
+      fetch(`/api/petals/conversation/youtube-${data.video_id}`)
+        .then((res) => res.json())
+        .then((petals: Array<{ message_id: string; word: string }>) => {
+          const wordsForTranslation = petals
+            .filter((p) => p.message_id === id)
+            .map((p) => p.word);
+          setSavedWords(wordsForTranslation);
+        })
+        .catch(() => {});
     } catch (err) {
       setError("Failed to load translation");
     }
