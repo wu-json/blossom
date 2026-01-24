@@ -1145,7 +1145,7 @@ export function YouTubeViewer() {
                             style={{
                               backgroundColor: "var(--surface)",
                               color: translateRegionEnabled ? "var(--primary)" : "var(--text-muted)",
-                              border: translateRegionEnabled ? "1.5px solid var(--primary)" : "1px solid var(--border)",
+                              border: "1px solid var(--border)",
                             }}
                             title={translateRegionEnabled ? "Region cropping enabled (R)" : "Region cropping disabled (R)"}
                           >
