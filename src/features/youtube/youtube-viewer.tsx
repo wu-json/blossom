@@ -1166,17 +1166,25 @@ export function YouTubeViewer() {
                 )}
 
                 <div
-                  className="relative w-full aspect-video flex-shrink-0 max-h-[50vh]"
+                  className="relative flex-shrink-0 w-full"
                   style={{
                     maxHeight: `${playerHeight}vh`,
                     transition: isResizingHeight ? "none" : "max-height 0.2s ease-out",
                   }}
                 >
+                  {/* Inner container that maintains 16:9 aspect ratio */}
                   <div
-                    ref={containerRef}
-                    className="absolute inset-0"
-                    style={{ backgroundColor: "var(--surface)" }}
-                  />
+                    className="relative mx-auto w-full aspect-video"
+                    style={{
+                      maxHeight: `${playerHeight}vh`,
+                      maxWidth: `calc(${playerHeight}vh * 16 / 9)`,
+                    }}
+                  >
+                    <div
+                      ref={containerRef}
+                      className="absolute inset-0"
+                      style={{ backgroundColor: "var(--surface)" }}
+                    />
 
                   {/* Region selection overlay */}
                   {isAdjustingRegion && (
@@ -1204,7 +1212,10 @@ export function YouTubeViewer() {
                       )}
 
                       {/* Instructions and actions */}
-                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3">
+                      <div
+                        className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3"
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
                         <div
                           className="px-3 py-2 rounded-lg text-sm"
                           style={{ backgroundColor: "rgba(0, 0, 0, 0.8)", color: "white" }}
@@ -1232,6 +1243,7 @@ export function YouTubeViewer() {
                       </div>
                     </div>
                   )}
+                  </div>
                 </div>
 
                 {/* Height resize handle - only on large screens */}
