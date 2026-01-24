@@ -695,8 +695,11 @@ export function YouTubeViewer() {
       setExtracting(false);
       setTranslating(true);
 
-      // Get current region for this video (if enabled)
-      const shouldCrop = translateRegionEnabled && currentVideoRegion;
+      // Get current region settings directly from store to avoid stale closure
+      const storeState = useYouTubeStore.getState();
+      const regionEnabled = storeState.translateRegionEnabled;
+      const regionForVideo = videoId ? storeState.videoRegions[videoId] : undefined;
+      const shouldCrop = regionEnabled && regionForVideo;
 
       const translateResponse = await fetch("/api/youtube/translate", {
         method: "POST",
@@ -704,7 +707,7 @@ export function YouTubeViewer() {
         body: JSON.stringify({
           filename: frameFilename,
           language,
-          region: shouldCrop ? currentVideoRegion : undefined,
+          region: shouldCrop ? regionForVideo : undefined,
         }),
       });
 
