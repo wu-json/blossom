@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { blossomDir } from "../db/database";
 
 const TOOL_VERSIONS = {
-  ytdlp: "2025.12.08",
+  ytdlp: "2026.01.29",
   ffmpeg: "6.1.1",
 } as const;
 
