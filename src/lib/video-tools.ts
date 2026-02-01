@@ -131,9 +131,10 @@ async function getStreamUrl(videoId: string, ytdlp: string, highQuality: boolean
 
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
   // High quality: best video stream (up to 1080p), Low quality: capped at 720p for API
+  // Require protocol=https to get direct URLs (not HLS/m3u8) which support seeking
   const format = highQuality
-    ? "bestvideo[height<=1080]/bestvideo/best"
-    : "best[height<=720]/best";
+    ? "bestvideo[height<=1080][protocol=https]/bestvideo[protocol=https]/best[protocol=https]"
+    : "best[height<=720][protocol=https]/best[protocol=https]";
 
   const streamUrlProc = Bun.spawn([
     ytdlp,
